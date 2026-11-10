@@ -4,6 +4,12 @@
 
 没有账号，没有云端同步。书籍、阅读进度、分类和音乐都留在这台电脑上。
 
+## 下载
+
+Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyue-reader/releases)
+
+安装包当前未做代码签名，Windows SmartScreen 可能提示「未知发布者」；选择「更多信息」→「仍要运行」即可。
+
 ![墨阅首页](docs/home.png)
 
 ## 功能
