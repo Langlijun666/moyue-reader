@@ -1,0 +1,28 @@
+[package]
+name = "moyue"
+version = "0.1.0"
+description = "墨阅 · 一个安静的桌面 EPUB / TXT 阅读器"
+authors = ["Moyue"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "moyue_lib"
+# Desktop-only build: an rlib avoids the 65k PE export limit that the
+# staticlib/cdylib mobile targets hit with the GNU toolchain.
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

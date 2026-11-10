@@ -1,0 +1,130 @@
+use serde::Serialize;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::UNIX_EPOCH;
+use tauri::Manager;
+
+#[derive(Serialize)]
+struct AppInfo {
+    name: &'static str,
+    version: &'static str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MusicTrack {
+    file_name: String,
+    path: String,
+    size: u64,
+    modified: u64,
+}
+
+#[tauri::command]
+fn app_info() -> AppInfo {
+    AppInfo {
+        name: "墨阅",
+        version: env!("CARGO_PKG_VERSION"),
+    }
+}
+
+#[tauri::command]
+fn music_dir(app: tauri::AppHandle) -> Result<String, String> {
+    let folder = music_folder(&app)?;
+    Ok(folder.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn list_music(app: tauri::AppHandle) -> Result<Vec<MusicTrack>, String> {
+    let folder = music_folder(&app)?;
+    let mut tracks = Vec::new();
+    collect_music(&folder, &mut tracks, 0);
+    tracks.sort_by(|a, b| a.file_name.to_lowercase().cmp(&b.file_name.to_lowercase()));
+    Ok(tracks)
+}
+
+#[tauri::command]
+fn open_music_folder(app: tauri::AppHandle) -> Result<(), String> {
+    let folder = music_folder(&app)?;
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&folder)
+            .spawn()
+            .map_err(|error| format!("无法打开音乐文件夹：{error}"))?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err("当前平台暂不支持自动打开文件夹".to_string());
+    }
+    Ok(())
+}
+
+fn music_folder(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let folder = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("无法定位应用数据目录：{error}"))?
+        .join("music");
+    fs::create_dir_all(&folder).map_err(|error| format!("无法创建音乐文件夹：{error}"))?;
+    Ok(folder)
+}
+
+fn collect_music(folder: &Path, tracks: &mut Vec<MusicTrack>, depth: u8) {
+    if depth > 4 {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(folder) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_music(&path, tracks, depth + 1);
+            continue;
+        }
+        if !is_audio_file(&path) {
+            continue;
+        }
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
+        let modified = metadata
+            .modified()
+            .ok()
+            .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+            .map(|duration| duration.as_secs())
+            .unwrap_or(0);
+        tracks.push(MusicTrack {
+            file_name: path
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+            path: path.to_string_lossy().into_owned(),
+            size: metadata.len(),
+            modified,
+        });
+    }
+}
+
+fn is_audio_file(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .map(|extension| extension.to_ascii_lowercase())
+            .as_deref(),
+        Some("mp3" | "flac" | "wav" | "m4a" | "aac" | "ogg" | "opus")
+    )
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            app_info,
+            music_dir,
+            list_music,
+            open_music_folder
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
