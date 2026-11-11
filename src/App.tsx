@@ -320,10 +320,14 @@ export default function App() {
   };
 
   const toggleTheme = () => {
-    setSettings((current) => ({
-      ...current,
-      theme: current.theme === "night" ? "paper" : "night",
-    }));
+    setSettings((current) => {
+      const order: ReaderSettings["theme"][] = ["paper", "sepia", "night"];
+      const index = order.indexOf(current.theme);
+      return {
+        ...current,
+        theme: order[(index + 1) % order.length] ?? "paper",
+      };
+    });
   };
 
   const createCategory = (name: string): boolean => {

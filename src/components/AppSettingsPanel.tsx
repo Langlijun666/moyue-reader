@@ -26,7 +26,7 @@ export function AppSettingsPanel({
   onThemeChange,
   onUninstall,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.2.0");
+  const [version, setVersion] = useState("0.2.1");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);

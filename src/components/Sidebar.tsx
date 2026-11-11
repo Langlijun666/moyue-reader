@@ -79,6 +79,11 @@ export function Sidebar({
       )
     : baseBooks;
 
+  const themeLabel =
+    settings.theme === "night" ? "夜墨" : settings.theme === "sepia" ? "茶褐" : "纸白";
+  const themeIcon =
+    settings.theme === "night" ? "moon" : settings.theme === "sepia" ? "book" : "sun";
+
   return (
     <aside
       className="sidebar"
@@ -103,10 +108,10 @@ export function Sidebar({
         <button
           className="button button--ghost button--icon"
           onClick={onToggleTheme}
-          title="切换阅读主题"
-          aria-label="切换阅读主题"
+          title={`切换主题（当前：${themeLabel}）`}
+          aria-label={`切换主题，当前${themeLabel}`}
         >
-          <Icon name={settings.theme === "night" ? "sun" : "moon"} size={18} />
+          <Icon name={themeIcon} size={18} />
         </button>
       </div>
 
@@ -286,8 +291,17 @@ export function Sidebar({
       <footer className="sidebar__footer">
         <div className="sidebar__footer-actions">
           <button className="theme-chip" onClick={onToggleTheme}>
-            <Icon name={settings.theme === "night" ? "moon" : "coffee"} size={15} />
-            <span>{settings.theme === "night" ? "夜间模式" : "纸感阅读"}</span>
+            <Icon
+              name={settings.theme === "night" ? "moon" : settings.theme === "sepia" ? "book" : "coffee"}
+              size={15}
+            />
+            <span>
+              {settings.theme === "night"
+                ? "夜间模式"
+                : settings.theme === "sepia"
+                  ? "茶褐书页"
+                  : "纸感阅读"}
+            </span>
           </button>
           <button className="theme-chip" onClick={onOpenMusic}>
             <Icon name="music" size={15} />
