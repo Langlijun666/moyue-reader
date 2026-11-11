@@ -119,8 +119,12 @@ const SPONSOR_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/is
 fn open_sponsor_issue() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        std::process::Command::new("explorer")
+        // `explorer` does not reliably open http(s) URLs on every Windows
+        // setup. FileProtocolHandler hands the URL to the default browser.
+        Command::new("rundll32.exe")
+            .arg("url.dll,FileProtocolHandler")
             .arg(SPONSOR_ISSUE_URL)
+            .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .map_err(|error| format!("无法打开赞助登记页面：{error}"))?;
     }

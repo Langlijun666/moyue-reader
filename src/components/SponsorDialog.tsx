@@ -10,11 +10,18 @@ interface SponsorDialogProps {
   onRegister: () => Promise<void> | void;
 }
 
+const REGISTER_URL =
+  "https://github.com/Langlijun666/moyue-reader/issues/new?template=sponsorship.yml";
+
 export function SponsorDialog({ open, onClose, onRegister }: SponsorDialogProps) {
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (open) setError(null);
+    if (open) {
+      setError(null);
+      setCopied(false);
+    }
   }, [open]);
 
   useEffect(() => {
@@ -92,22 +99,35 @@ export function SponsorDialog({ open, onClose, onRegister }: SponsorDialogProps)
               ))}
             </div>
             <p>名单按登记更新。想出现在这里，可以在赞助后登记昵称。</p>
-            <button
-              className="button button--ghost sponsor-register"
-              onClick={() => {
-                setError(null);
-                void Promise.resolve(onRegister()).catch((registerError) => {
-                  setError(
-                    registerError instanceof Error
-                      ? registerError.message
-                      : "无法打开登记页面",
-                  );
-                });
-              }}
-            >
-              <Icon name="spark" size={14} />
-              赞助后登记名单
-            </button>
+            <div className="sponsor-register-actions">
+              <button
+                className="button button--ghost sponsor-register"
+                onClick={() => {
+                  setError(null);
+                  void Promise.resolve(onRegister()).catch((registerError) => {
+                    setError(
+                      registerError instanceof Error
+                        ? registerError.message
+                        : "无法打开登记页面",
+                    );
+                  });
+                }}
+              >
+                <Icon name="spark" size={14} />
+                赞助后登记名单
+              </button>
+              <button
+                className="button button--ghost sponsor-register"
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(REGISTER_URL)
+                    .then(() => setCopied(true))
+                    .catch(() => setError("复制失败，请手动打开 GitHub 仓库"));
+                }}
+              >
+                {copied ? "已复制链接" : "复制登记链接"}
+              </button>
+            </div>
             {error ? <p className="sponsor-error">{error}</p> : null}
           </div>
 

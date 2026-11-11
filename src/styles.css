@@ -3483,6 +3483,17 @@ input:focus-visible,
   font-size: 9px;
 }
 
+.sponsor-register-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.sponsor-register-actions .sponsor-register {
+  margin-top: 0;
+}
+
 .sponsor-error {
   margin: 7px 0 0;
   color: #b9473a;
