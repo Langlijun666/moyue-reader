@@ -25,6 +25,7 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 - **全文搜索**：搜索整本书的内容，显示章节和上下文，点击结果跳到具体位置
 - **书签**：给当前位置添加书签，在阅读助手中快速跳转或删除
 - **划线与笔记**：选中正文划线，支持四种颜色、备注、笔记编辑和点击跳回原文
+- **阅读统计**：记录每天阅读时长、页数、连续天数，提供最近 7 天和半年热力图
 - **两种阅读模式**：左右翻页（按钮 / 滚轮 / 方向键）与上下滚动（一镜到底）
 - **翻书动效**：左右翻页时书页和光影扫过，支持上一页反向动画
 - **专注阅读**：一键隐藏左侧书架，让正文占满窗口
@@ -74,13 +75,15 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 
 ![划线与笔记](docs/highlights.png)
 
+![阅读统计](docs/stats.png)
+
 ## 技术栈
 
 - **桌面外壳**：Tauri 2（Rust + 系统 WebView2）
 - **前端**：React 19 + TypeScript + Vite 8
 - **EPUB 渲染**：epub.js
 - **TXT 转换**：JSZip 在内存中生成轻量 EPUB
-- **本地存储**：IndexedDB（书籍、封面、TXT 原文）+ localStorage（进度、设置、分类）
+- **本地存储**：IndexedDB（书籍、封面、TXT 原文）+ localStorage（进度、设置、分类、划线、统计）
 - **音乐**：HTMLAudioElement + Tauri asset protocol
 - **听书**：Web Speech API + Windows 系统中文语音（离线）
 - **图标**：Python / Pillow 生成

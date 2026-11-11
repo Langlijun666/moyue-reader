@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ePub from "epubjs";
 import type { BookMeta, Progress, ReaderSettings, SearchResult, TocEntry } from "../types";
 import { percentLabel } from "../lib/format";
+import { recordReading } from "../lib/stats";
 import { decodeTxt, txtToEpub } from "../lib/txt";
 import {
   loadBookmarks,
@@ -134,6 +135,7 @@ export function Reader({
   const applyHighlightsRef = useRef<() => void>(() => {});
   const openHighlightRef = useRef<(id: string) => void>(() => {});
   const currentLabelRef = useRef(initialProgress?.chapter || "正文");
+  const readingActivityRef = useRef(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -160,6 +162,52 @@ export function Reader({
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    let pending = 0;
+    let lastTick = Date.now();
+    let disposed = false;
+    readingActivityRef.current = Date.now();
+    const markActive = () => {
+      readingActivityRef.current = Date.now();
+    };
+    const events = ["pointerdown", "keydown", "wheel", "touchstart", "scroll"];
+    for (const event of events) {
+      window.addEventListener(event, markActive, { passive: true });
+    }
+    const flush = () => {
+      if (pending >= 1) {
+        recordReading(meta.id, meta.title, Math.round(pending), 0);
+        pending = 0;
+      }
+    };
+    const timer = window.setInterval(() => {
+      if (disposed) return;
+      const now = Date.now();
+      const delta = (now - lastTick) / 1000;
+      lastTick = now;
+      const active =
+        document.visibilityState === "visible" &&
+        now - readingActivityRef.current < 10 * 60_000;
+      if (active) pending += Math.max(0, Math.min(delta, 30));
+      if (pending >= 20) flush();
+    }, 15_000);
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") flush();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      for (const event of events) {
+        window.removeEventListener(event, markActive);
+      }
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("beforeunload", flush);
+      flush();
+    };
+  }, [meta.id, meta.title]);
 
   useEffect(() => {
     onProgressRef.current = onProgress;
@@ -283,9 +331,24 @@ export function Reader({
           if (!document || wheelDocs.has(document)) return;
           wheelDocs.add(document);
           document.addEventListener("wheel", onWheel, { passive: false });
+          document.addEventListener(
+            "pointerdown",
+            () => {
+              readingActivityRef.current = Date.now();
+            },
+            { passive: true },
+          );
+          document.addEventListener(
+            "wheel",
+            () => {
+              readingActivityRef.current = Date.now();
+            },
+            { passive: true },
+          );
           // Key events inside the epub.js iframe do not bubble to the parent
           // window, so forward them to the same reader shortcut handler.
           document.addEventListener("keydown", (event: KeyboardEvent) => {
+            readingActivityRef.current = Date.now();
             keyHandlerRef.current(event);
           });
 
@@ -627,7 +690,10 @@ export function Reader({
 
     try {
       if (direction === "prev") await rendition.prev();
-      else await rendition.next();
+      else {
+        await rendition.next();
+        recordReading(meta.id, meta.title, 0, 1);
+      }
     } catch {
       // At the first or last page there is simply nowhere to go.
       if (flipTimerRef.current !== null) {
@@ -636,7 +702,7 @@ export function Reader({
       setFlip(null);
       turningRef.current = false;
     }
-  }, []);
+  }, [meta.id, meta.title]);
 
   useEffect(() => {
     turnPageRef.current = turnPage;

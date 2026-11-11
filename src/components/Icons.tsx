@@ -33,6 +33,7 @@ export type IconName =
   | "upload"
   | "bookmark"
   | "pen"
+  | "chart"
   | "folder"
   | "tag"
   | "refresh"
@@ -220,6 +221,14 @@ const paths: Record<IconName, React.ReactNode> = {
     <>
       <path d="m4 20 4.2-1.1L19.5 7.6a2.1 2.1 0 0 0-3-3L5.1 15.8z" />
       <path d="m14.8 6.2 3 3" />
+    </>
+  ),
+  chart: (
+    <>
+      <path d="M4 20V10" />
+      <path d="M10 20V4" />
+      <path d="M16 20v-7" />
+      <path d="M22 20H2" />
     </>
   ),
   folder: (

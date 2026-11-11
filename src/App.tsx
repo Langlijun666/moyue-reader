@@ -23,13 +23,14 @@ import { MusicPlayer } from "./components/MusicPlayer";
 import { CategoryManager } from "./components/CategoryManager";
 import { AssignCategories } from "./components/AssignCategories";
 import { AppSettingsPanel } from "./components/AppSettingsPanel";
+import { StatsDialog } from "./components/StatsDialog";
 import { UninstallDialog } from "./components/UninstallDialog";
 import { SponsorDialog } from "./components/SponsorDialog";
 import { Icon } from "./components/Icons";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.12.0";
+const APP_VERSION = "0.13.0";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -54,6 +55,7 @@ export default function App() {
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [assignBook, setAssignBook] = useState<BookMeta | null>(null);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [uninstallOpen, setUninstallOpen] = useState(false);
   const [sponsorOpen, setSponsorOpen] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
@@ -601,6 +603,7 @@ export default function App() {
           onSample={() => void loadSample()}
           onToggleTheme={toggleTheme}
           onOpenMusic={() => setMusicOpen(true)}
+          onOpenStats={() => setStatsOpen(true)}
           onOpenSettings={() => setAppSettingsOpen(true)}
           categories={categoryData.categories}
           assignments={categoryData.assignments}
@@ -661,6 +664,7 @@ export default function App() {
             theme={settings.theme}
             onToggleTheme={toggleTheme}
             onOpenMusic={() => setMusicOpen(true)}
+            onOpenStats={() => setStatsOpen(true)}
             onOpenSettings={() => setAppSettingsOpen(true)}
           />
         ) : (
@@ -782,6 +786,8 @@ export default function App() {
           setUninstallOpen(true);
         }}
       />
+
+      <StatsDialog open={statsOpen} onClose={() => setStatsOpen(false)} />
 
       <SponsorDialog
         open={sponsorOpen}

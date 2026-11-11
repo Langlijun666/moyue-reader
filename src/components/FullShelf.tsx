@@ -26,6 +26,7 @@ interface FullShelfProps {
   theme: ThemeName;
   onToggleTheme: () => void;
   onOpenMusic: () => void;
+  onOpenStats: () => void;
   onOpenSettings: () => void;
 }
 
@@ -51,6 +52,7 @@ export function FullShelf({
   theme,
   onToggleTheme,
   onOpenMusic,
+  onOpenStats,
   onOpenSettings,
 }: FullShelfProps) {
   const normalized = query.trim().toLowerCase();
@@ -94,6 +96,14 @@ export function FullShelf({
           </button>
           <button className="icon-button" onClick={onOpenMusic} title="音乐" aria-label="打开音乐">
             <Icon name="music" size={18} />
+          </button>
+          <button
+            className="icon-button"
+            onClick={onOpenStats}
+            title="阅读统计"
+            aria-label="打开阅读统计"
+          >
+            <Icon name="chart" size={18} />
           </button>
           <button
             className="icon-button"
