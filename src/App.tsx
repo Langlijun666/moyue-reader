@@ -5,6 +5,7 @@ import { inspectEpub } from "./lib/epub";
 import { inspectTxt } from "./lib/txt";
 import { imageFileToCover } from "./lib/cover";
 import { formatFromFileName } from "./lib/format";
+import { invoke } from "@tauri-apps/api/core";
 import {
   loadCategoryData,
   newCategoryId,
@@ -19,6 +20,8 @@ import { Reader } from "./components/Reader";
 import { MusicPlayer } from "./components/MusicPlayer";
 import { CategoryManager } from "./components/CategoryManager";
 import { AssignCategories } from "./components/AssignCategories";
+import { AppSettingsPanel } from "./components/AppSettingsPanel";
+import { UninstallDialog } from "./components/UninstallDialog";
 import { Icon } from "./components/Icons";
 
 export default function App() {
@@ -42,6 +45,8 @@ export default function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [assignBook, setAssignBook] = useState<BookMeta | null>(null);
+  const [appSettingsOpen, setAppSettingsOpen] = useState(false);
+  const [uninstallOpen, setUninstallOpen] = useState(false);
   const [sidebarHidden, setSidebarHidden] = useState(() => {
     try {
       return localStorage.getItem("moyue.sidebarHidden.v1") === "1";
@@ -377,6 +382,13 @@ export default function App() {
     });
   };
 
+  const confirmUninstall = async (_reason: string, deleteData: boolean) => {
+    if (!("__TAURI_INTERNALS__" in window)) {
+      throw new Error("自动卸载仅在安装版中可用");
+    }
+    await invoke("uninstall_app", { deleteData });
+  };
+
   return (
     <div
       className={`app ${active && sidebarHidden ? "app--sidebar-hidden" : ""}`}
@@ -417,6 +429,7 @@ export default function App() {
         onSample={() => void loadSample()}
         onToggleTheme={toggleTheme}
         onOpenMusic={() => setMusicOpen(true)}
+        onOpenSettings={() => setAppSettingsOpen(true)}
         categories={categoryData.categories}
         assignments={categoryData.assignments}
         categoryCounts={categoryCounts}
@@ -530,6 +543,23 @@ export default function App() {
           setAssignBook(null);
           setCategoryManagerOpen(true);
         }}
+      />
+
+      <AppSettingsPanel
+        open={appSettingsOpen}
+        theme={settings.theme}
+        onClose={() => setAppSettingsOpen(false)}
+        onThemeChange={(theme) => updateSettings({ theme })}
+        onUninstall={() => {
+          setAppSettingsOpen(false);
+          setUninstallOpen(true);
+        }}
+      />
+
+      <UninstallDialog
+        open={uninstallOpen}
+        onClose={() => setUninstallOpen(false)}
+        onConfirm={confirmUninstall}
       />
     </div>
   );

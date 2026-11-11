@@ -782,6 +782,10 @@ input:focus-visible,
   background: var(--surface-2);
 }
 
+.theme-chip--icon {
+  padding: 5px 7px;
+}
+
 .sidebar__hint {
   padding-left: 6px;
   color: var(--muted);
@@ -2424,6 +2428,424 @@ input:focus-visible,
   gap: 10px;
   padding: 11px 18px 16px;
   border-top: 1px solid var(--line);
+}
+
+/* ---------- app settings ---------- */
+
+.app-settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 78;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.app-settings {
+  position: fixed;
+  top: 14px;
+  right: 16px;
+  bottom: 14px;
+  z-index: 79;
+  display: flex;
+  width: min(450px, calc(100vw - 32px));
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 28px 70px -28px var(--shadow);
+  animation: drawer-in-right 220ms ease both;
+}
+
+.app-settings__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 22px 20px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.app-settings__header h3 {
+  margin: 5px 0 0;
+  font-family: var(--serif-font);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.app-settings__body {
+  flex: 1;
+  min-height: 0;
+  padding: 14px 20px 18px;
+  overflow-y: auto;
+}
+
+.app-settings__body .settings-section {
+  margin-bottom: 16px;
+}
+
+.settings-note--compact {
+  margin: 0 0 9px;
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+.app-theme-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.app-theme-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 7px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  text-align: left;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.app-theme-option > span:not(.app-theme-option__swatch) {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.app-theme-option small {
+  font-size: 8px;
+}
+
+.app-theme-option:hover,
+.app-theme-option--active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.app-theme-option__swatch {
+  width: 100%;
+  height: 18px;
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: 5px;
+}
+
+.app-theme-option__swatch--paper {
+  background: #f7f1e7;
+}
+
+.app-theme-option__swatch--sepia {
+  background: #e8dac3;
+}
+
+.app-theme-option__swatch--night {
+  background: #171512;
+}
+
+.app-data-path {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 7px;
+  padding: 8px 9px;
+  color: var(--muted);
+  background: var(--surface-2);
+  border-radius: 8px;
+}
+
+.app-data-path code {
+  overflow: hidden;
+  font-family: var(--ui-font);
+  font-size: 8.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-settings__link {
+  padding: 0;
+}
+
+.app-about {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.app-about strong {
+  font-family: var(--serif-font);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.app-about p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.6;
+}
+
+.app-about .button {
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 8px;
+  font-size: 9px;
+}
+
+.app-repo-url {
+  margin: 9px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--accent);
+  font-size: 8.5px;
+}
+
+.app-license {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.app-settings__danger {
+  padding: 14px;
+  background: color-mix(in srgb, #b9473a 5%, transparent);
+  border: 1px solid color-mix(in srgb, #b9473a 20%, var(--line));
+  border-radius: 12px;
+}
+
+.app-settings__danger .settings-section__title {
+  margin-bottom: 4px;
+}
+
+.app-settings__danger .button {
+  margin-top: 9px;
+}
+
+.button--danger {
+  color: #fff;
+  background: #b9473a;
+}
+
+.button--danger:hover:not(:disabled) {
+  background: #9f382d;
+}
+
+.settings-error {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  color: #b9473a;
+  background: color-mix(in srgb, #b9473a 8%, transparent);
+  border-radius: 8px;
+  font-size: 9.5px;
+  line-height: 1.6;
+}
+
+.uninstall-backdrop {
+  z-index: 90;
+}
+
+.uninstall-dialog {
+  width: min(480px, calc(100vw - 40px));
+  max-height: min(86vh, 760px);
+}
+
+.uninstall-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 12px 18px 0;
+  padding: 10px;
+  color: #a54236;
+  background: color-mix(in srgb, #b9473a 7%, transparent);
+  border: 1px solid color-mix(in srgb, #b9473a 16%, transparent);
+  border-radius: 9px;
+}
+
+.uninstall-warning p {
+  margin: 0;
+  font-size: 9.5px;
+  line-height: 1.65;
+}
+
+.uninstall-body {
+  min-height: 0;
+  padding: 12px 18px 4px;
+  overflow-y: auto;
+}
+
+.uninstall-section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.uninstall-section__title {
+  color: var(--ink);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.uninstall-reasons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.uninstall-reason {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 9.5px;
+  text-align: left;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+
+.uninstall-reason:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.uninstall-reason--active {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border-color: var(--accent);
+}
+
+.uninstall-reason__check {
+  display: grid;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--accent-ink);
+  border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent);
+  border-radius: 4px;
+}
+
+.uninstall-reason--active .uninstall-reason__check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.uninstall-section textarea {
+  width: 100%;
+  padding: 8px 9px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  outline: none;
+  resize: vertical;
+  font-family: var(--ui-font);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.uninstall-section textarea:focus {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+  background: var(--surface);
+}
+
+.uninstall-hint {
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.uninstall-data {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 11px;
+  padding: 9px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.uninstall-data:hover {
+  background: var(--surface-2);
+}
+
+.uninstall-data--active {
+  border-color: #b9473a;
+  background: color-mix(in srgb, #b9473a 6%, transparent);
+}
+
+.uninstall-data__check {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--accent-ink);
+  border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent);
+  border-radius: 4px;
+}
+
+.uninstall-data--active .uninstall-data__check {
+  background: #b9473a;
+  border-color: #b9473a;
+}
+
+.uninstall-data span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.uninstall-data strong {
+  color: var(--ink);
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+.uninstall-data small {
+  color: var(--muted);
+  font-size: 8.5px;
+  line-height: 1.5;
+}
+
+.uninstall-danger-note {
+  margin: 7px 0 0;
+  color: #b9473a;
+  font-size: 8.5px;
+  line-height: 1.5;
+}
+
+.uninstall-footer {
+  flex: 0 0 auto;
+}
+
+.uninstall-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  padding: 48px 28px 54px;
+  text-align: center;
+}
+
+.uninstall-progress h4 {
+  margin: 0;
+  font-family: var(--serif-font);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.uninstall-progress p {
+  max-width: 300px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.7;
 }
 
 /* ---------- overlays ---------- */

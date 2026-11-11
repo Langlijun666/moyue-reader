@@ -32,6 +32,7 @@ interface SidebarProps {
   onCategorySelect: (categoryId: string) => void;
   onManageCategories: () => void;
   onAssignCategories: (book: BookMeta) => void;
+  onOpenSettings: () => void;
 }
 
 export function Sidebar({
@@ -58,6 +59,7 @@ export function Sidebar({
   onCategorySelect,
   onManageCategories,
   onAssignCategories,
+  onOpenSettings,
 }: SidebarProps) {
   const normalized = query.trim().toLowerCase();
   const uncategorizedCount = books.filter((book) => !(assignments[book.id]?.length)).length;
@@ -290,6 +292,14 @@ export function Sidebar({
           <button className="theme-chip" onClick={onOpenMusic}>
             <Icon name="music" size={15} />
             <span>听歌</span>
+          </button>
+          <button
+            className="theme-chip theme-chip--icon"
+            onClick={onOpenSettings}
+            title="软件设置"
+            aria-label="软件设置"
+          >
+            <Icon name="settings" size={15} />
           </button>
         </div>
         <span className="sidebar__hint">本地保存 · 离线可读</span>

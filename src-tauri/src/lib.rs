@@ -1,8 +1,15 @@
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::time::UNIX_EPOCH;
 use tauri::Manager;
+
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 #[derive(Serialize)]
 struct AppInfo {
@@ -57,6 +64,96 @@ fn open_music_folder(app: tauri::AppHandle) -> Result<(), String> {
         return Err("当前平台暂不支持自动打开文件夹".to_string());
     }
     Ok(())
+}
+
+#[tauri::command]
+fn data_dir(app: tauri::AppHandle) -> Result<String, String> {
+    let folder = app_data_folder(&app)?;
+    Ok(folder.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn open_data_folder(app: tauri::AppHandle) -> Result<(), String> {
+    let folder = app_data_folder(&app)?;
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&folder)
+            .spawn()
+            .map_err(|error| format!("无法打开数据文件夹：{error}"))?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err("当前平台暂不支持自动打开文件夹".to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn uninstall_app(app: tauri::AppHandle, delete_data: bool) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let executable = std::env::current_exe()
+            .map_err(|error| format!("无法定位当前程序：{error}"))?;
+        let install_dir = executable
+            .parent()
+            .ok_or_else(|| "无法定位安装目录".to_string())?;
+        let uninstaller = install_dir.join("uninstall.exe");
+        if !uninstaller.exists() {
+            return Err("没有找到卸载程序，请使用安装包重新安装后再卸载".to_string());
+        }
+
+        let data_folder = app_data_folder(&app)?;
+        let delete_data_line = if delete_data {
+            format!(
+                "rmdir /s /q \"{}\"\r\n",
+                data_folder.to_string_lossy()
+            )
+        } else {
+            String::new()
+        };
+        let batch_path = std::env::temp_dir().join(format!(
+            "moyue-uninstall-{}.cmd",
+            std::process::id()
+        ));
+        let script = format!(
+            "@echo off\r\n\
+             timeout /t 2 /nobreak >nul\r\n\
+             start \"\" /wait \"{}\" /S\r\n\
+             timeout /t 2 /nobreak >nul\r\n\
+             {}\
+             del \"%~f0\"\r\n",
+            uninstaller.to_string_lossy(),
+            delete_data_line
+        );
+        fs::write(&batch_path, script)
+            .map_err(|error| format!("无法准备卸载程序：{error}"))?;
+
+        Command::new("cmd")
+            .arg("/C")
+            .arg(&batch_path)
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+            .map_err(|error| format!("无法启动卸载程序：{error}"))?;
+
+        app.exit(0);
+        return Ok(());
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app;
+        let _ = delete_data;
+        Err("自动卸载目前仅支持 Windows".to_string())
+    }
+}
+
+fn app_data_folder(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let folder = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("无法定位应用数据目录：{error}"))?;
+    fs::create_dir_all(&folder).map_err(|error| format!("无法创建应用数据目录：{error}"))?;
+    Ok(folder)
 }
 
 fn music_folder(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -123,7 +220,10 @@ pub fn run() {
             app_info,
             music_dir,
             list_music,
-            open_music_folder
+            open_music_folder,
+            data_dir,
+            open_data_folder,
+            uninstall_app
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
