@@ -13,6 +13,8 @@ interface SettingsPanelProps {
   onChange: (patch: Partial<ReaderSettings>) => void;
   onImportFont: (file: File) => Promise<void>;
   onRemoveFont: () => void;
+  onImportBackground: (file: File) => Promise<void>;
+  onRemoveBackground: () => void;
   onClose: () => void;
 }
 
@@ -20,6 +22,16 @@ const themes: { id: ThemeName; label: string; hint: string }[] = [
   { id: "paper", label: "纸白", hint: "温润的米白" },
   { id: "sepia", label: "茶褐", hint: "像旧书页" },
   { id: "night", label: "夜墨", hint: "低光环境" },
+  { id: "custom", label: "自定义", hint: "自己的颜色" },
+];
+
+const customPresets = [
+  { label: "青瓷", background: "#e8f0e9", text: "#2e4035", accent: "#6f927a" },
+  { label: "玫瑰", background: "#f6eaea", text: "#4a3232", accent: "#b77c7c" },
+  { label: "海盐", background: "#e8f0f4", text: "#293e49", accent: "#6c96ab" },
+  { label: "墨绿", background: "#e6ece5", text: "#27382d", accent: "#5f816a" },
+  { label: "暮紫", background: "#eee9f2", text: "#3b3047", accent: "#8b739d" },
+  { label: "暖沙", background: "#f3eadb", text: "#453a2b", accent: "#b0885c" },
 ];
 
 const fontOptions: { id: FontFamily; label: string; sample: string }[] = [
@@ -48,11 +60,16 @@ export function SettingsPanel({
   onChange,
   onImportFont,
   onRemoveFont,
+  onImportBackground,
+  onRemoveBackground,
   onClose,
 }: SettingsPanelProps) {
   const fontInputRef = useRef<HTMLInputElement>(null);
+  const backgroundInputRef = useRef<HTMLInputElement>(null);
   const [fontBusy, setFontBusy] = useState(false);
   const [fontError, setFontError] = useState<string | null>(null);
+  const [backgroundBusy, setBackgroundBusy] = useState(false);
+  const [backgroundError, setBackgroundError] = useState<string | null>(null);
 
   const importFont = async (file: File | undefined) => {
     if (!file || fontBusy) return;
@@ -65,6 +82,20 @@ export function SettingsPanel({
     } finally {
       setFontBusy(false);
       if (fontInputRef.current) fontInputRef.current.value = "";
+    }
+  };
+
+  const importBackground = async (file: File | undefined) => {
+    if (!file || backgroundBusy) return;
+    setBackgroundError(null);
+    setBackgroundBusy(true);
+    try {
+      await onImportBackground(file);
+    } catch (error) {
+      setBackgroundError(error instanceof Error ? error.message : "背景导入失败");
+    } finally {
+      setBackgroundBusy(false);
+      if (backgroundInputRef.current) backgroundInputRef.current.value = "";
     }
   };
 
@@ -156,6 +187,107 @@ export function SettingsPanel({
               </button>
             ))}
           </div>
+
+          {settings.theme === "custom" ? (
+            <div className="custom-theme-panel">
+              <div className="custom-presets">
+                {customPresets.map((preset) => (
+                  <button
+                    key={preset.label}
+                    className="custom-preset"
+                    title={preset.label}
+                    onClick={() =>
+                      onChange({
+                        theme: "custom",
+                        customBackground: preset.background,
+                        customText: preset.text,
+                        customAccent: preset.accent,
+                      })
+                    }
+                  >
+                    <span
+                      className="custom-preset__swatch"
+                      style={{
+                        background: preset.background,
+                        borderColor: preset.accent,
+                        color: preset.text,
+                      }}
+                    >
+                      阅
+                    </span>
+                    <small>{preset.label}</small>
+                  </button>
+                ))}
+              </div>
+              <div className="custom-colors">
+                {[
+                  ["背景", "customBackground"],
+                  ["文字", "customText"],
+                  ["强调", "customAccent"],
+                ].map(([label, key]) => (
+                  <label className="custom-color" key={key}>
+                    <span>{label}</span>
+                    <input
+                      type="color"
+                      value={settings[key as "customBackground" | "customText" | "customAccent"]}
+                      onChange={(event) => onChange({ [key]: event.target.value })}
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="settings-section">
+          <div className="settings-section__title">
+            <span>背景图片</span>
+            <small>阅读区域</small>
+          </div>
+          <input
+            ref={backgroundInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden-file-input"
+            onChange={(event) => void importBackground(event.target.files?.[0])}
+          />
+          {settings.backgroundImageId ? (
+            <div className="custom-font-row">
+              <span className="custom-font-row__name">
+                <Icon name="image" size={13} />
+                {settings.backgroundImageName || "自定义背景"}
+              </span>
+              <button className="text-button" onClick={onRemoveBackground}>
+                移除
+              </button>
+            </div>
+          ) : null}
+          <button
+            className="button button--ghost settings-font-button"
+            onClick={() => backgroundInputRef.current?.click()}
+            disabled={backgroundBusy}
+          >
+            <Icon name="image" size={14} />
+            {backgroundBusy ? "正在导入…" : "导入背景图片"}
+          </button>
+          <p className="settings-field-hint">支持 JPG / PNG / WebP / GIF，建议不超过 20MB。</p>
+          {settings.backgroundImageId ? (
+            <div className="settings-inline-range">
+              <span>图片浓度</span>
+              <input
+                type="range"
+                min={0}
+                max={75}
+                step={1}
+                value={Math.round(settings.backgroundDim * 100)}
+                onChange={(event) =>
+                  onChange({ backgroundDim: Number(event.target.value) / 100 })
+                }
+              />
+              <small>{Math.round(settings.backgroundDim * 100)}%</small>
+            </div>
+          ) : null}
+          {backgroundError ? <p className="settings-error">{backgroundError}</p> : null}
         </section>
 
         <section className="settings-section">

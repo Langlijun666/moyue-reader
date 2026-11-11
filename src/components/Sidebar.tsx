@@ -82,9 +82,21 @@ export function Sidebar({
     : baseBooks;
 
   const themeLabel =
-    settings.theme === "night" ? "夜墨" : settings.theme === "sepia" ? "茶褐" : "纸白";
+    settings.theme === "night"
+      ? "夜墨"
+      : settings.theme === "sepia"
+        ? "茶褐"
+        : settings.theme === "custom"
+          ? "自定义"
+          : "纸白";
   const themeIcon =
-    settings.theme === "night" ? "moon" : settings.theme === "sepia" ? "book" : "sun";
+    settings.theme === "night"
+      ? "moon"
+      : settings.theme === "sepia"
+        ? "book"
+        : settings.theme === "custom"
+          ? "spark"
+          : "sun";
 
   return (
     <aside
@@ -294,7 +306,15 @@ export function Sidebar({
         <div className="sidebar__footer-actions">
           <button className="theme-chip" onClick={onToggleTheme}>
             <Icon
-              name={settings.theme === "night" ? "moon" : settings.theme === "sepia" ? "book" : "coffee"}
+              name={
+                settings.theme === "night"
+                  ? "moon"
+                  : settings.theme === "sepia"
+                    ? "book"
+                    : settings.theme === "custom"
+                      ? "spark"
+                      : "coffee"
+              }
               size={15}
             />
             <span>
@@ -302,7 +322,9 @@ export function Sidebar({
                 ? "夜间模式"
                 : settings.theme === "sepia"
                   ? "茶褐书页"
-                  : "纸感阅读"}
+                  : settings.theme === "custom"
+                    ? "自定义纸张"
+                    : "纸感阅读"}
             </span>
           </button>
           <button className="theme-chip" onClick={onOpenMusic}>

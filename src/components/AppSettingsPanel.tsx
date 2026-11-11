@@ -24,6 +24,7 @@ const themes: { id: ThemeName; label: string; hint: string }[] = [
   { id: "paper", label: "纸白", hint: "温润米白" },
   { id: "sepia", label: "茶褐", hint: "旧书页" },
   { id: "night", label: "夜墨", hint: "低光环境" },
+  { id: "custom", label: "自定义", hint: "阅读设置里调整" },
 ];
 
 const REPO_URL = "https://github.com/Langlijun666/moyue-reader";
@@ -44,7 +45,7 @@ export function AppSettingsPanel({
   onOpenSponsor,
   onUninstall,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.15.1");
+  const [version, setVersion] = useState("0.16.0");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);

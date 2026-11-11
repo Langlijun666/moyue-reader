@@ -1,4 +1,4 @@
-export type ThemeName = "paper" | "night" | "sepia";
+export type ThemeName = "paper" | "night" | "sepia" | "custom";
 
 export type FontFamily = "serif" | "sans";
 
@@ -27,6 +27,12 @@ export interface ReaderSettings {
   vertical: boolean;
   customFontId?: string;
   customFontName?: string;
+  customBackground: string;
+  customText: string;
+  customAccent: string;
+  backgroundImageId?: string;
+  backgroundImageName?: string;
+  backgroundDim: number;
 }
 
 export interface BookMeta {

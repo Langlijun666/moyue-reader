@@ -22,6 +22,10 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   paragraphSpacing: 1,
   columns: 1,
   vertical: false,
+  customBackground: "#f7f1e7",
+  customText: "#312b24",
+  customAccent: "#a4542f",
+  backgroundDim: 0.3,
 };
 
 export function loadSettings(): ReaderSettings {
@@ -49,6 +53,23 @@ export function loadSettings(): ReaderSettings {
       customFontId: typeof parsed.customFontId === "string" ? parsed.customFontId : undefined,
       customFontName:
         typeof parsed.customFontName === "string" ? parsed.customFontName : undefined,
+      customBackground: normalizeColor(
+        parsed.customBackground,
+        DEFAULT_SETTINGS.customBackground,
+      ),
+      customText: normalizeColor(parsed.customText, DEFAULT_SETTINGS.customText),
+      customAccent: normalizeColor(parsed.customAccent, DEFAULT_SETTINGS.customAccent),
+      backgroundImageId:
+        typeof parsed.backgroundImageId === "string" ? parsed.backgroundImageId : undefined,
+      backgroundImageName:
+        typeof parsed.backgroundImageName === "string"
+          ? parsed.backgroundImageName
+          : undefined,
+      backgroundDim: clamp(
+        Number(parsed.backgroundDim) || DEFAULT_SETTINGS.backgroundDim,
+        0,
+        0.75,
+      ),
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -85,7 +106,11 @@ export function saveProgress(id: string, progress: Progress): void {
 }
 
 function isTheme(value: unknown): value is ThemeName {
-  return value === "paper" || value === "night" || value === "sepia";
+  return value === "paper" || value === "night" || value === "sepia" || value === "custom";
+}
+
+function normalizeColor(value: unknown, fallback: string): string {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
 }
 
 function normalizeFontWeight(value: unknown): FontWeight {

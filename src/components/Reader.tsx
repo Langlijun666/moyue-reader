@@ -4,6 +4,11 @@ import type { BookMeta, Progress, ReaderSettings, SearchResult, TocEntry } from 
 import { percentLabel } from "../lib/format";
 import { recordReading } from "../lib/stats";
 import { deleteFont, getFont, putFont } from "../lib/db";
+import {
+  deleteBackground,
+  getBackground,
+  putBackground,
+} from "../lib/db";
 import { decodeTxt, txtToEpub } from "../lib/txt";
 import {
   loadBookmarks,
@@ -89,7 +94,44 @@ const palettes = {
     accent: "#d18b5c",
     selection: "rgba(209, 139, 92, .2)",
   },
+  custom: {
+    background: "#f7f1e7",
+    text: "#312b24",
+    muted: "#9a8b78",
+    accent: "#a4542f",
+    selection: "rgba(164, 84, 47, .18)",
+  },
 } as const;
+
+function themePalette(settings: ReaderSettings) {
+  if (settings.theme !== "custom") {
+    return palettes[settings.theme] ?? palettes.paper;
+  }
+  return {
+    background: settings.customBackground,
+    text: settings.customText,
+    muted: hexToRgba(settings.customText, 0.58),
+    accent: settings.customAccent,
+    selection: hexToRgba(settings.customAccent, 0.2),
+  };
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const value = hex.replace("#", "");
+  const normalized =
+    value.length === 3
+      ? value
+          .split("")
+          .map((part) => part + part)
+          .join("")
+      : value;
+  const number = Number.parseInt(normalized, 16);
+  if (!Number.isFinite(number)) return `rgba(49, 43, 36, ${alpha})`;
+  const red = (number >> 16) & 255;
+  const green = (number >> 8) & 255;
+  const blue = number & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
 
 export function Reader({
   meta,
@@ -138,6 +180,7 @@ export function Reader({
   const currentLabelRef = useRef(initialProgress?.chapter || "正文");
   const readingActivityRef = useRef(0);
   const customFontUrlRef = useRef<string | null>(null);
+  const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -157,13 +200,51 @@ export function Reader({
   const wheelLockRef = useRef(0);
   const isScrollMode = settings.readingMode === "scroll";
   const themeLabel =
-    settings.theme === "night" ? "夜墨" : settings.theme === "sepia" ? "茶褐" : "纸白";
+    settings.theme === "night"
+      ? "夜墨"
+      : settings.theme === "sepia"
+        ? "茶褐"
+        : settings.theme === "custom"
+          ? "自定义"
+          : "纸白";
   const themeIcon =
-    settings.theme === "night" ? "moon" : settings.theme === "sepia" ? "book" : "sun";
+    settings.theme === "night"
+      ? "moon"
+      : settings.theme === "sepia"
+        ? "book"
+        : settings.theme === "custom"
+          ? "spark"
+          : "sun";
 
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    let disposed = false;
+    let objectUrl: string | null = null;
+    const loadBackground = async () => {
+      if (!settings.backgroundImageId) {
+        setBackgroundUrl(null);
+        return;
+      }
+      try {
+        const record = await getBackground(settings.backgroundImageId);
+        if (!record || disposed) return;
+        objectUrl = URL.createObjectURL(
+          new Blob([record.data], { type: record.type || "image/jpeg" }),
+        );
+        setBackgroundUrl(objectUrl);
+      } catch {
+        // A missing background should not prevent reading.
+      }
+    };
+    void loadBackground();
+    return () => {
+      disposed = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [settings.backgroundImageId]);
 
   useEffect(() => {
     let disposed = false;
@@ -1311,8 +1392,45 @@ export function Reader({
     if (id) void deleteFont(id).catch(() => undefined);
   };
 
+  const importBackground = async (file: File) => {
+    if (!/^image\/(jpeg|png|webp|gif)$/i.test(file.type)) {
+      throw new Error("请选择 JPG、PNG、WebP 或 GIF 图片");
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      throw new Error("背景图片不能超过 20MB");
+    }
+    const data = await file.arrayBuffer();
+    const id = `bg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const name = file.name.replace(/\.[^.]+$/, "");
+    await putBackground({
+      id,
+      name,
+      data,
+      type: file.type,
+      createdAt: Date.now(),
+    });
+    const previous = settings.backgroundImageId;
+    onSettingsChange({
+      backgroundImageId: id,
+      backgroundImageName: name,
+      theme: "custom",
+    });
+    if (previous && previous !== id) {
+      void deleteBackground(previous).catch(() => undefined);
+    }
+  };
+
+  const removeBackground = () => {
+    const id = settings.backgroundImageId;
+    onSettingsChange({ backgroundImageId: undefined, backgroundImageName: undefined });
+    if (id) void deleteBackground(id).catch(() => undefined);
+  };
+
   return (
-    <section className={`reader reader--${settings.readingMode}`}>
+    <section
+      className={`reader reader--${settings.readingMode} ${backgroundUrl ? "reader--custom-bg" : ""}`}
+      style={backgroundUrl ? { backgroundImage: `url("${backgroundUrl}")` } : undefined}
+    >
       <header className="reader__topbar">
         <button className="icon-button icon-button--quiet" onClick={onBack} aria-label="回到书架">
           <Icon name="arrow-left" size={20} />
@@ -1470,6 +1588,8 @@ export function Reader({
               onChange={onSettingsChange}
               onImportFont={importCustomFont}
               onRemoveFont={removeCustomFont}
+              onImportBackground={importBackground}
+              onRemoveBackground={removeBackground}
               onClose={() => setSettingsOpen(false)}
             />
           </>
@@ -1754,7 +1874,10 @@ function applyReaderTheme(
   customFontUrl?: string | null,
 ): void {
   if (!rendition?.themes) return;
-  const palette = palettes[settings.theme] ?? palettes.paper;
+  const palette = themePalette(settings);
+  const bodyBackground = settings.backgroundImageId
+    ? hexToRgba(palette.background, Math.max(0.2, 1 - settings.backgroundDim))
+    : palette.background;
   const baseFamily =
     settings.fontFamily === "sans"
       ? '"Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", sans-serif'
@@ -1773,11 +1896,15 @@ function applyReaderTheme(
   const weightStroke = settings.fontWeight === 500 ? "0.35px" : "0px";
 
   const rules = {
-    "html, body": {
-      "background-color": `${palette.background} !important`,
+    "html": {
+      "background-color": settings.backgroundImageId
+        ? "transparent !important"
+        : `${palette.background} !important`,
       "color": `${palette.text} !important`,
     },
     body: {
+      "background-color": `${bodyBackground} !important`,
+      "color": `${palette.text} !important`,
       "font-family": `${family} !important`,
       "font-weight": `${settings.fontWeight} !important`,
       "line-height": `${settings.lineHeight} !important`,

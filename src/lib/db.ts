@@ -3,14 +3,23 @@ import { formatFromFileName } from "./format";
 import { parseBookFileName } from "./filename";
 
 const DB_NAME = "moyue-library";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE = "books";
 const FONT_STORE = "fonts";
+const BACKGROUND_STORE = "backgrounds";
 
 export interface FontRecord {
   id: string;
   name: string;
   data: ArrayBuffer;
+  createdAt: number;
+}
+
+export interface BackgroundRecord {
+  id: string;
+  name: string;
+  data: ArrayBuffer;
+  type: string;
   createdAt: number;
 }
 
@@ -28,6 +37,9 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(FONT_STORE)) {
         db.createObjectStore(FONT_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(BACKGROUND_STORE)) {
+        db.createObjectStore(BACKGROUND_STORE, { keyPath: "id" });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -116,4 +128,26 @@ export async function deleteFont(id: string): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(FONT_STORE, "readwrite");
   await requestToPromise(tx.objectStore(FONT_STORE).delete(id));
+}
+
+export async function putBackground(record: BackgroundRecord): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(BACKGROUND_STORE, "readwrite");
+  await requestToPromise(tx.objectStore(BACKGROUND_STORE).put(record));
+}
+
+export async function getBackground(id: string): Promise<BackgroundRecord | undefined> {
+  const db = await openDb();
+  const tx = db.transaction(BACKGROUND_STORE, "readonly");
+  return requestToPromise(
+    tx.objectStore(BACKGROUND_STORE).get(id) as IDBRequest<
+      BackgroundRecord | undefined
+    >,
+  );
+}
+
+export async function deleteBackground(id: string): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(BACKGROUND_STORE, "readwrite");
+  await requestToPromise(tx.objectStore(BACKGROUND_STORE).delete(id));
 }

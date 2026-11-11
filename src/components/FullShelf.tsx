@@ -73,8 +73,22 @@ export function FullShelf({
       )
     : baseBooks;
 
-  const themeLabel = theme === "night" ? "夜墨" : theme === "sepia" ? "茶褐" : "纸白";
-  const themeIcon = theme === "night" ? "moon" : theme === "sepia" ? "book" : "sun";
+  const themeLabel =
+    theme === "night"
+      ? "夜墨"
+      : theme === "sepia"
+        ? "茶褐"
+        : theme === "custom"
+          ? "自定义"
+          : "纸白";
+  const themeIcon =
+    theme === "night"
+      ? "moon"
+      : theme === "sepia"
+        ? "book"
+        : theme === "custom"
+          ? "spark"
+          : "sun";
 
   return (
     <section className="full-shelf">
