@@ -26,10 +26,25 @@ interface TtsChunk {
 }
 
 type TtsStatus = "idle" | "loading" | "playing" | "paused" | "ended";
+type TtsStyle = "calm" | "story" | "suspense" | "brisk";
 
 const VOICE_KEY = "moyue.tts.voice.v1";
 const RATE_KEY = "moyue.tts.rate.v1";
+const STYLE_KEY = "moyue.tts.style.v1";
 const CHUNK_LIMIT = 180;
+
+const styles: {
+  id: TtsStyle;
+  label: string;
+  rate: number;
+  pitch: number;
+  pause: number;
+}[] = [
+  { id: "calm", label: "平静", rate: 0.9, pitch: 0.95, pause: 420 },
+  { id: "story", label: "叙事", rate: 0.98, pitch: 0.97, pause: 260 },
+  { id: "suspense", label: "悬疑", rate: 0.84, pitch: 0.9, pause: 560 },
+  { id: "brisk", label: "轻快", rate: 1.12, pitch: 1.05, pause: 140 },
+];
 
 export function TtsPlayer({
   open,
@@ -59,6 +74,14 @@ export function TtsPlayer({
       return 1;
     }
   });
+  const [style, setStyle] = useState<TtsStyle>(() => {
+    try {
+      const saved = localStorage.getItem(STYLE_KEY) as TtsStyle | null;
+      return styles.some((item) => item.id === saved) ? (saved as TtsStyle) : "story";
+    } catch {
+      return "story";
+    }
+  });
   const [status, setStatus] = useState<TtsStatus>("idle");
   const [chunkIndex, setChunkIndex] = useState(0);
   const [chunkCount, setChunkCount] = useState(0);
@@ -71,6 +94,8 @@ export function TtsPlayer({
   const chunksRef = useRef<TtsChunk[]>([]);
   const chapterRef = useRef<TtsChapter | null>(null);
   const rateRef = useRef(rate);
+  const styleRef = useRef<TtsStyle>(style);
+  const pauseTimerRef = useRef<number | null>(null);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const loadCurrentRef = useRef(loadCurrentChapter);
   const loadNextRef = useRef(loadNextChapter);
@@ -87,6 +112,15 @@ export function TtsPlayer({
       // TTS still works without persistence.
     }
   }, [rate]);
+
+  useEffect(() => {
+    styleRef.current = style;
+    try {
+      localStorage.setItem(STYLE_KEY, style);
+    } catch {
+      // TTS still works without persistence.
+    }
+  }, [style]);
 
   useEffect(() => {
     loadCurrentRef.current = loadCurrentChapter;
@@ -163,6 +197,7 @@ export function TtsPlayer({
   useEffect(() => {
     return () => {
       runIdRef.current += 1;
+      if (pauseTimerRef.current !== null) window.clearTimeout(pauseTimerRef.current);
       window.speechSynthesis?.cancel();
       onStopRef.current();
     };
@@ -170,6 +205,10 @@ export function TtsPlayer({
 
   const stop = () => {
     runIdRef.current += 1;
+    if (pauseTimerRef.current !== null) {
+      window.clearTimeout(pauseTimerRef.current);
+      pauseTimerRef.current = null;
+    }
     if (synth) synth.cancel();
     chunksRef.current = [];
     chapterRef.current = null;
@@ -203,11 +242,39 @@ export function TtsPlayer({
     } else {
       utterance.lang = "zh-CN";
     }
-    utterance.rate = rateRef.current;
+    const styleConfig = styles.find((item) => item.id === styleRef.current) ?? styles[1];
+    const ending = chunk.text.trim().slice(-1);
+    const question = ending === "？" || ending === "?";
+    const exclaim = ending === "！" || ending === "!";
+    const ellipsis = ending === "…";
+    utterance.rate = Math.min(
+      2,
+      Math.max(0.5, rateRef.current * styleConfig.rate + (exclaim ? 0.04 : 0)),
+    );
+    utterance.pitch = Math.min(
+      2,
+      Math.max(0.5, styleConfig.pitch + (question ? 0.04 : exclaim ? 0.02 : 0)),
+    );
     utterance.volume = 1;
     utterance.onend = () => {
       if (runId !== runIdRef.current) return;
-      speakChunk(index + 1, runId);
+      const nextIndex = index + 1;
+      if (nextIndex >= chunks.length) {
+        speakChunk(nextIndex, runId);
+        return;
+      }
+      let delay = styleConfig.pause;
+      if (ellipsis) delay += 180;
+      if (question) delay += 80;
+      if (exclaim) delay = Math.max(80, delay - 40);
+      if (delay <= 0) {
+        speakChunk(nextIndex, runId);
+        return;
+      }
+      pauseTimerRef.current = window.setTimeout(() => {
+        pauseTimerRef.current = null;
+        if (runId === runIdRef.current) speakChunk(nextIndex, runId);
+      }, delay);
     };
     utterance.onerror = (event) => {
       if (runId !== runIdRef.current) return;
@@ -391,6 +458,25 @@ export function TtsPlayer({
             />
             <small>{rate.toFixed(1)}x</small>
           </label>
+
+          <div className="tts-style">
+            <span>风格</span>
+            <div className="tts-style__options">
+              {styles.map((item) => (
+                <button
+                  key={item.id}
+                  className={
+                    style === item.id
+                      ? "tts-style__option tts-style__option--active"
+                      : "tts-style__option"
+                  }
+                  onClick={() => setStyle(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <label className="tts-field tts-field--select">
             <span>音色</span>

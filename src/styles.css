@@ -3181,6 +3181,46 @@ input:focus-visible,
   border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
 }
 
+.tts-style {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 11px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.tts-style > span {
+  flex: 0 0 auto;
+}
+
+.tts-style__options {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+
+.tts-style__option {
+  flex: 1;
+  padding: 5px 2px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 8px;
+}
+
+.tts-style__option:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.tts-style__option--active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-color: var(--accent);
+}
+
 .tts-sleep {
   margin-top: 12px;
   padding-top: 10px;

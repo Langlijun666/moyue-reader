@@ -44,7 +44,7 @@ export function AppSettingsPanel({
   onOpenSponsor,
   onUninstall,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.9.0");
+  const [version, setVersion] = useState("0.10.0");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
