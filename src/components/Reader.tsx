@@ -9,11 +9,31 @@ import {
   saveBookmarks,
   type Bookmark,
 } from "../lib/bookmarks";
+import {
+  highlightFill,
+  loadHighlights,
+  newHighlightId,
+  saveHighlights,
+  type Highlight,
+  type HighlightColor,
+} from "../lib/highlights";
 import { Icon } from "./Icons";
+import { SelectionToolbar } from "./SelectionToolbar";
 import { SettingsPanel } from "./SettingsPanel";
 import { TocPanel } from "./TocPanel";
 import { TtsPlayer, type TtsChapter } from "./TtsPlayer";
 import { ReaderToolsPanel } from "./ReaderToolsPanel";
+
+interface SelectionDraft {
+  cfi: string;
+  text: string;
+  chapter: string;
+  percent: number;
+  left: number;
+  top: number;
+}
+
+type ToolsTab = "search" | "bookmarks" | "highlights";
 
 interface ReaderProps {
   meta: BookMeta;
@@ -106,8 +126,14 @@ export function Reader({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [ttsOpen, setTtsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [toolsTab, setToolsTab] = useState<"search" | "bookmarks">("search");
+  const [toolsTab, setToolsTab] = useState<ToolsTab>("search");
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [selection, setSelection] = useState<SelectionDraft | null>(null);
+  const highlightsRef = useRef<Highlight[]>([]);
+  const applyHighlightsRef = useRef<() => void>(() => {});
+  const openHighlightRef = useRef<(id: string) => void>(() => {});
+  const currentLabelRef = useRef(initialProgress?.chapter || "正文");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -153,7 +179,20 @@ export function Reader({
   }, [tocOpen, settingsOpen, ttsOpen, toolsOpen]);
 
   useEffect(() => {
+    currentLabelRef.current = currentLabel;
+  }, [currentLabel]);
+
+  useEffect(() => {
+    highlightsRef.current = highlights;
+    applyHighlightsRef.current?.();
+  }, [highlights]);
+
+  useEffect(() => {
     setBookmarks(loadBookmarks(meta.id));
+    const savedHighlights = loadHighlights(meta.id);
+    highlightsRef.current = savedHighlights;
+    setHighlights(savedHighlights);
+    setSelection(null);
     searchIndexRef.current = null;
     setSearchResults([]);
     setSearchHasRun(false);
@@ -249,6 +288,60 @@ export function Reader({
           document.addEventListener("keydown", (event: KeyboardEvent) => {
             keyHandlerRef.current(event);
           });
+
+          const showSelection = () => {
+            window.setTimeout(() => {
+              const sel = document.getSelection();
+              if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+                setSelection(null);
+                return;
+              }
+              const range = sel.getRangeAt(0);
+              const text = sel.toString().replace(/\s+/g, " ").trim();
+              if (!text) {
+                setSelection(null);
+                return;
+              }
+              let cfi = "";
+              try {
+                cfi =
+                  contents.section?.cfiFromRange?.(range) ??
+                  contents.cfiFromRange?.(range) ??
+                  "";
+              } catch {
+                cfi = "";
+              }
+              if (!cfi) {
+                setSelection(null);
+                return;
+              }
+              const rect = range.getBoundingClientRect();
+              const frame = document.defaultView?.frameElement as HTMLElement | null;
+              const frameRect = frame?.getBoundingClientRect();
+              if (!frameRect) return;
+              const rawLeft = frameRect.left + rect.left;
+              const left = Math.min(
+                Math.max(12, rawLeft),
+                Math.max(12, window.innerWidth - 286),
+              );
+              const rawTop = frameRect.top + rect.top - 52;
+              const top =
+                rawTop < 76 ? frameRect.top + rect.bottom + 10 : rawTop;
+              const href = contents.section?.href ?? "";
+              setSelection({
+                cfi,
+                text: text.slice(0, 400),
+                chapter: findLabel(tocRef.current, href) || currentLabelRef.current,
+                percent: percentRef.current,
+                left,
+                top,
+              });
+            }, 10);
+          };
+
+          document.addEventListener("mouseup", showSelection);
+          document.addEventListener("touchend", showSelection);
+          document.addEventListener("mousedown", () => setSelection(null));
         });
         viewer.addEventListener("wheel", onWheel, { passive: false });
         removeViewerWheel = () => viewer.removeEventListener("wheel", onWheel);
@@ -270,6 +363,35 @@ export function Reader({
         if (disposed) return;
 
         setReady(true);
+
+        const applyHighlights = () => {
+          const annotations = rendition.annotations;
+          if (!annotations) return;
+          for (const highlight of highlightsRef.current) {
+            try {
+              annotations.remove(highlight.cfi, "highlight");
+              annotations.highlight(
+                highlight.cfi,
+                { id: highlight.id },
+                () => openHighlightRef.current(highlight.id),
+                "moyue-highlight",
+                {
+                  fill: highlightFill(highlight.color),
+                  "fill-opacity": "0.3",
+                },
+              );
+            } catch {
+              // The section may not be rendered yet.
+            }
+          }
+        };
+        applyHighlightsRef.current = applyHighlights;
+        openHighlightRef.current = () => {
+          setToolsTab("highlights");
+          setToolsOpen(true);
+        };
+        rendition.on("rendered", applyHighlights);
+        applyHighlights();
 
         const updateFromLocation = (location: any, allowZero = false) => {
           const href = location?.start?.href ?? "";
@@ -451,6 +573,8 @@ export function Reader({
 
     return () => {
       disposed = true;
+      applyHighlightsRef.current = () => {};
+      openHighlightRef.current = () => {};
       removeViewerWheel?.();
       removeScrollListener?.();
       if (scrollTimer) {
@@ -489,6 +613,7 @@ export function Reader({
     const rendition = renditionRef.current;
     if (!rendition || turningRef.current) return;
 
+    setSelection(null);
     turningRef.current = true;
     setFlip(direction);
     setFlipNonce((value) => value + 1);
@@ -686,6 +811,7 @@ export function Reader({
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();
+        setSelection(null);
         setTocOpen(false);
         setSettingsOpen(false);
         setTtsOpen(false);
@@ -695,7 +821,8 @@ export function Reader({
       }
 
       if (event.key === "Escape") {
-        if (toolsOpen) setToolsOpen(false);
+        if (selection) setSelection(null);
+        else if (toolsOpen) setToolsOpen(false);
         else if (ttsOpen) setTtsOpen(false);
         else if (tocOpen) setTocOpen(false);
         else if (settingsOpen) setSettingsOpen(false);
@@ -724,7 +851,7 @@ export function Reader({
         void turnPage("next");
       }
     },
-    [ready, tocOpen, settingsOpen, ttsOpen, toolsOpen, settings.readingMode, turnPage],
+    [ready, tocOpen, settingsOpen, ttsOpen, toolsOpen, selection, settings.readingMode, turnPage],
   );
 
   useEffect(() => {
@@ -769,7 +896,7 @@ export function Reader({
     }
   };
 
-  const openTools = (tab: "search" | "bookmarks") => {
+  const openTools = (tab: ToolsTab) => {
     setTocOpen(false);
     setSettingsOpen(false);
     setTtsOpen(false);
@@ -943,6 +1070,90 @@ export function Reader({
     saveBookmarks(meta.id, next);
   };
 
+  const clearIframeSelection = () => {
+    const rendition = renditionRef.current;
+    const contents = rendition?.getContents?.() ?? [];
+    for (const content of Array.isArray(contents) ? contents : [contents]) {
+      try {
+        content?.document?.getSelection?.()?.removeAllRanges();
+      } catch {
+        // Ignore selections from detached sections.
+      }
+    }
+  };
+
+  const addHighlight = (color: HighlightColor, note: string) => {
+    if (!selection) return;
+    const now = Date.now();
+    const existing = highlights.find((item) => item.cfi === selection.cfi);
+    const next = existing
+      ? highlights.map((item) =>
+          item.id === existing.id
+            ? {
+                ...item,
+                color,
+                note: note || item.note,
+                text: selection.text,
+                chapter: selection.chapter,
+                updatedAt: now,
+              }
+            : item,
+        )
+      : [
+          ...highlights,
+          {
+            id: newHighlightId(),
+            cfi: selection.cfi,
+            text: selection.text,
+            chapter: selection.chapter,
+            percent: selection.percent,
+            color,
+            note,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ];
+    highlightsRef.current = next;
+    setHighlights(next);
+    saveHighlights(meta.id, next);
+    setSelection(null);
+    clearIframeSelection();
+    window.setTimeout(() => applyHighlightsRef.current?.(), 30);
+    setToolsTab("highlights");
+    if (note) setToolsOpen(true);
+  };
+
+  const deleteHighlight = (id: string) => {
+    const target = highlights.find((item) => item.id === id);
+    if (!target) return;
+    const next = highlights.filter((item) => item.id !== id);
+    highlightsRef.current = next;
+    setHighlights(next);
+    saveHighlights(meta.id, next);
+    try {
+      renditionRef.current?.annotations?.remove(target.cfi, "highlight");
+    } catch {
+      // The section may already be closed.
+    }
+  };
+
+  const saveHighlightNote = (id: string, note: string) => {
+    const next = highlights.map((item) =>
+      item.id === id ? { ...item, note: note.trim(), updatedAt: Date.now() } : item,
+    );
+    highlightsRef.current = next;
+    setHighlights(next);
+    saveHighlights(meta.id, next);
+  };
+
+  const jumpToHighlight = async (highlight: Highlight) => {
+    const rendition = renditionRef.current;
+    if (!rendition) return;
+    setToolsOpen(false);
+    setSelection(null);
+    await rendition.display(highlight.cfi).catch(() => undefined);
+  };
+
   return (
     <section className={`reader reader--${settings.readingMode}`}>
       <header className="reader__topbar">
@@ -977,6 +1188,17 @@ export function Reader({
             aria-label="全文搜索"
           >
             <Icon name="search" size={19} />
+          </button>
+          <button
+            className={`icon-button ${toolsOpen && toolsTab === "highlights" ? "icon-button--active" : ""}`}
+            onClick={() => {
+              if (toolsOpen && toolsTab === "highlights") setToolsOpen(false);
+              else openTools("highlights");
+            }}
+            title="划线与笔记"
+            aria-label="划线与笔记"
+          >
+            <Icon name="pen" size={18} />
           </button>
           <button
             className="icon-button"
@@ -1112,15 +1334,28 @@ export function Reader({
               searchTotalHits={searchTotalHits}
               currentChapter={currentLabel}
               bookmarks={bookmarks}
+              highlights={highlights}
               onJumpSearch={(result) => void jumpToSearchResult(result)}
               onAddBookmark={addBookmark}
               onJumpBookmark={(bookmark) => void jumpToBookmark(bookmark)}
               onDeleteBookmark={deleteBookmark}
+              onJumpHighlight={(highlight) => void jumpToHighlight(highlight)}
+              onDeleteHighlight={deleteHighlight}
+              onSaveHighlightNote={saveHighlightNote}
               onClose={() => setToolsOpen(false)}
             />
           </>
         ) : null}
       </div>
+
+      {selection ? (
+        <SelectionToolbar
+          left={selection.left}
+          top={selection.top}
+          onHighlight={addHighlight}
+          onClose={() => setSelection(null)}
+        />
+      ) : null}
 
       <footer className="reader__footer">
         {isScrollMode ? (
