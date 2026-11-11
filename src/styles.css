@@ -3273,6 +3273,29 @@ input:focus-visible,
   white-space: nowrap;
 }
 
+.backup-actions {
+  display: flex;
+  gap: 7px;
+  margin: 9px 0;
+}
+
+.backup-actions .button {
+  height: 34px;
+  flex: 1;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 9px;
+}
+
+.backup-status {
+  margin: 7px 0 0;
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .app-settings__link {
   padding: 0;
 }

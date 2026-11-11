@@ -2,8 +2,9 @@ use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::UNIX_EPOCH;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -87,6 +88,87 @@ fn open_data_folder(app: tauri::AppHandle) -> Result<(), String> {
         return Err("当前平台暂不支持自动打开文件夹".to_string());
     }
     Ok(())
+}
+
+#[tauri::command]
+fn backup_dir(app: tauri::AppHandle) -> Result<String, String> {
+    let folder = backup_folder(&app)?;
+    Ok(folder.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn open_backup_folder(app: tauri::AppHandle) -> Result<(), String> {
+    let folder = backup_folder(&app)?;
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&folder)
+            .spawn()
+            .map_err(|error| format!("无法打开备份文件夹：{error}"))?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err("当前平台暂不支持自动打开文件夹".to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn write_backup(
+    app: tauri::AppHandle,
+    data_base64: String,
+    kind: String,
+) -> Result<String, String> {
+    if data_base64.len() > 1_500_000_000 {
+        return Err("备份文件过大，无法保存".to_string());
+    }
+    let bytes = STANDARD
+        .decode(data_base64.as_bytes())
+        .map_err(|error| format!("备份数据损坏：{error}"))?;
+    let folder = backup_folder(&app)?;
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0);
+    let label = match kind.as_str() {
+        "auto" => "auto",
+        "pre-restore" => "pre-restore",
+        _ => "manual",
+    };
+    let path = folder.join(format!("moyue-{label}-{stamp}.zip"));
+    fs::write(&path, bytes).map_err(|error| format!("写入备份失败：{error}"))?;
+    prune_backups(&folder, 8);
+    Ok(path.to_string_lossy().into_owned())
+}
+
+fn backup_folder(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let folder = app_data_folder(app)?.join("backups");
+    fs::create_dir_all(&folder).map_err(|error| format!("无法创建备份目录：{error}"))?;
+    Ok(folder)
+}
+
+fn prune_backups(folder: &Path, keep: usize) {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return;
+    };
+    let mut files: Vec<PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.is_file()
+                && path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .map(|name| name.starts_with("moyue-") && name.ends_with(".zip"))
+                    .unwrap_or(false)
+        })
+        .collect();
+    files.sort();
+    if files.len() > keep {
+        for path in &files[..files.len() - keep] {
+            let _ = fs::remove_file(path);
+        }
+    }
 }
 
 #[tauri::command]
@@ -223,6 +305,9 @@ pub fn run() {
             open_music_folder,
             data_dir,
             open_data_folder,
+            backup_dir,
+            open_backup_folder,
+            write_backup,
             uninstall_app
         ])
         .run(tauri::generate_context!())

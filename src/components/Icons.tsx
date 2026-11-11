@@ -29,6 +29,8 @@ export type IconName =
   | "repeat-one"
   | "shuffle"
   | "volume"
+  | "download"
+  | "upload"
   | "folder"
   | "tag"
   | "refresh"
@@ -193,6 +195,20 @@ const paths: Record<IconName, React.ReactNode> = {
     <>
       <path d="M4 9v6h4l5 4V5L8 9z" />
       <path d="M17 9a4 4 0 0 1 0 6" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
+    </>
+  ),
+  upload: (
+    <>
+      <path d="M12 16V4" />
+      <path d="m7 9 5-5 5 5" />
+      <path d="M5 21h14" />
     </>
   ),
   folder: (

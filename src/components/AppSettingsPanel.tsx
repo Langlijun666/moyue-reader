@@ -10,6 +10,12 @@ interface AppSettingsPanelProps {
   onThemeChange: (theme: ThemeName) => void;
   shelfView: ShelfView;
   onShelfViewChange: (view: ShelfView) => void;
+  onBackupNow: () => void;
+  onRestoreBackup: () => void;
+  onOpenBackupFolder: () => void;
+  backupBusy: boolean;
+  backupMessage: string | null;
+  backupDir: string;
   onUninstall: () => void;
 }
 
@@ -28,9 +34,15 @@ export function AppSettingsPanel({
   onThemeChange,
   shelfView,
   onShelfViewChange,
+  onBackupNow,
+  onRestoreBackup,
+  onOpenBackupFolder,
+  backupBusy,
+  backupMessage,
+  backupDir,
   onUninstall,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.5.2");
+  const [version, setVersion] = useState("0.6.0");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -197,6 +209,46 @@ export function AppSettingsPanel({
             <button className="text-button app-settings__link" onClick={() => void openDataFolder()}>
               打开数据文件夹
             </button>
+          </section>
+
+          <section className="settings-section">
+            <div className="settings-section__title">
+              <span>书库备份</span>
+              <small>每天自动备份</small>
+            </div>
+            <p className="settings-note settings-note--compact">
+              备份包含书籍文件、封面、阅读进度、分类和软件设置。自动保留最近 8 份，只保存在本机。
+            </p>
+            <div className="backup-actions">
+              <button
+                className="button button--primary"
+                onClick={onBackupNow}
+                disabled={backupBusy}
+              >
+                <Icon name="download" size={15} />
+                {backupBusy ? "正在备份…" : "立即备份"}
+              </button>
+              <button
+                className="button button--ghost"
+                onClick={onRestoreBackup}
+                disabled={backupBusy}
+              >
+                <Icon name="upload" size={15} />
+                恢复备份
+              </button>
+            </div>
+            <div className="app-data-path" title={backupDir}>
+              <Icon name="folder" size={14} />
+              <code>{backupDir || "桌面版会显示备份目录"}</code>
+            </div>
+            <button className="text-button app-settings__link" onClick={onOpenBackupFolder}>
+              打开备份文件夹
+            </button>
+            {backupMessage ? (
+              <p className="backup-status" title={backupMessage}>
+                {backupMessage}
+              </p>
+            ) : null}
           </section>
 
           <section className="settings-section">

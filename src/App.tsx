@@ -6,6 +6,7 @@ import { inspectTxt } from "./lib/txt";
 import { imageFileToCover } from "./lib/cover";
 import { formatFromFileName } from "./lib/format";
 import { invoke } from "@tauri-apps/api/core";
+import { createBackupBase64, readBackupFile } from "./lib/backup";
 import {
   loadCategoryData,
   newCategoryId,
@@ -24,6 +25,10 @@ import { AssignCategories } from "./components/AssignCategories";
 import { AppSettingsPanel } from "./components/AppSettingsPanel";
 import { UninstallDialog } from "./components/UninstallDialog";
 import { Icon } from "./components/Icons";
+
+const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
+const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
+const APP_VERSION = "0.6.0";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -49,6 +54,9 @@ export default function App() {
   const [assignBook, setAssignBook] = useState<BookMeta | null>(null);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [uninstallOpen, setUninstallOpen] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [backupDir, setBackupDir] = useState("");
   const [sidebarHidden, setSidebarHidden] = useState(() => {
     try {
       return localStorage.getItem("moyue.sidebarHidden.v1") === "1";
@@ -59,6 +67,8 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const coverTargetRef = useRef<BookMeta | null>(null);
+  const backupInputRef = useRef<HTMLInputElement>(null);
+  const autoBackupStarted = useRef(false);
   const dragDepth = useRef(0);
 
   useEffect(() => {
@@ -388,6 +398,152 @@ export default function App() {
     });
   };
 
+  const saveBackup = useCallback(
+    async (kind: "manual" | "auto" | "pre-restore", silent = false) => {
+      if (!("__TAURI_INTERNALS__" in window)) {
+        throw new Error("备份功能仅在桌面版可用");
+      }
+      if (library.length === 0) {
+        throw new Error("书架为空，没有需要备份的内容");
+      }
+      const dataBase64 = await createBackupBase64(
+        library,
+        progressMap,
+        categoryData,
+        settings,
+        APP_VERSION,
+      );
+      const path = await invoke<string>("write_backup", { dataBase64, kind });
+      try {
+        localStorage.setItem(AUTO_BACKUP_KEY, String(Date.now()));
+      } catch {
+        // The backup itself is already written.
+      }
+      setBackupMessage(path);
+      if (!silent) setToast(`备份已保存：${path}`);
+      return path;
+    },
+    [categoryData, library, progressMap, settings],
+  );
+
+  const backupNow = async () => {
+    if (backupBusy) return;
+    setBackupBusy(true);
+    setBackupMessage(null);
+    try {
+      await saveBackup("manual");
+    } catch (backupError) {
+      setToast(backupError instanceof Error ? backupError.message : "备份失败");
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const backupNowRef = useRef(saveBackup);
+  useEffect(() => {
+    backupNowRef.current = saveBackup;
+  }, [saveBackup]);
+
+  useEffect(() => {
+    if (!("__TAURI_INTERNALS__" in window)) return;
+    void invoke<string>("backup_dir")
+      .then(setBackupDir)
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (
+      !("__TAURI_INTERNALS__" in window) ||
+      library.length === 0 ||
+      autoBackupStarted.current
+    ) {
+      return;
+    }
+    let last = 0;
+    try {
+      last = Number(localStorage.getItem(AUTO_BACKUP_KEY)) || 0;
+    } catch {
+      last = 0;
+    }
+    if (Date.now() - last < AUTO_BACKUP_INTERVAL) return;
+    autoBackupStarted.current = true;
+    const timer = window.setTimeout(() => {
+      void backupNowRef.current("auto", true).catch(() => undefined);
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [library.length]);
+
+  const restoreBackup = async (file: File) => {
+    setBackupBusy(true);
+    setBackupMessage(null);
+    try {
+      const parsed = await readBackupFile(file);
+      if (parsed.records.length === 0) {
+        throw new Error("备份中没有书籍");
+      }
+      const confirmed = window.confirm(
+        `将恢复 ${parsed.records.length} 本书，并合并阅读进度、分类和设置。\n\n现有书籍不会被删除；恢复前会先自动备份当前书库。`,
+      );
+      if (!confirmed) return;
+
+      if (library.length > 0) {
+        try {
+          await backupNowRef.current("pre-restore", true);
+        } catch {
+          throw new Error("恢复前自动备份失败，已取消恢复");
+        }
+      }
+
+      for (const record of parsed.records) {
+        await putBook(record);
+      }
+
+      const mergedProgress = { ...progressMap, ...parsed.manifest.progress };
+      for (const [id, progress] of Object.entries(parsed.manifest.progress)) {
+        saveProgress(id, progress);
+      }
+      setProgressMap(mergedProgress);
+
+      const categoryMap = new Map(
+        categoryData.categories.map((category) => [category.id, category]),
+      );
+      for (const category of parsed.manifest.categories.categories) {
+        categoryMap.set(category.id, category);
+      }
+      const assignments = { ...categoryData.assignments };
+      for (const record of parsed.records) {
+        const ids = parsed.manifest.categories.assignments?.[record.id];
+        if (Array.isArray(ids)) assignments[record.id] = [...new Set(ids)];
+      }
+      setCategoryData({
+        categories: [...categoryMap.values()],
+        assignments,
+      });
+
+      if (parsed.manifest.settings) {
+        setSettings((current) => ({ ...current, ...parsed.manifest.settings }));
+      }
+
+      setLibrary(await listBooks());
+      setActive(null);
+      setBackupMessage(`已恢复 ${parsed.records.length} 本书`);
+      setToast(`已恢复 ${parsed.records.length} 本书`);
+    } catch (restoreError) {
+      setToast(restoreError instanceof Error ? restoreError.message : "恢复备份失败");
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const openBackupFolder = async () => {
+    if (!("__TAURI_INTERNALS__" in window)) return;
+    try {
+      await invoke("open_backup_folder");
+    } catch {
+      setToast("无法打开备份文件夹");
+    }
+  };
+
   const confirmUninstall = async (_reason: string, deleteData: boolean) => {
     if (!("__TAURI_INTERNALS__" in window)) {
       throw new Error("自动卸载仅在安装版中可用");
@@ -530,6 +686,18 @@ export default function App() {
         onChange={(event) => void onPickCover(event.target.files)}
       />
 
+      <input
+        ref={backupInputRef}
+        className="visually-hidden"
+        type="file"
+        accept=".zip,application/zip"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) void restoreBackup(file);
+        }}
+      />
+
       {dragging ? (
         <div className="drop-veil">
           <div className="drop-veil__card">
@@ -593,6 +761,12 @@ export default function App() {
           updateSettings({ shelfView });
           if (shelfView === "sidebar") setSidebarHidden(false);
         }}
+        onBackupNow={() => void backupNow()}
+        onRestoreBackup={() => backupInputRef.current?.click()}
+        onOpenBackupFolder={() => void openBackupFolder()}
+        backupBusy={backupBusy}
+        backupMessage={backupMessage}
+        backupDir={backupDir}
         onUninstall={() => {
           setAppSettingsOpen(false);
           setUninstallOpen(true);
