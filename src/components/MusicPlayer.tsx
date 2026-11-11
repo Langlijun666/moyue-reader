@@ -156,6 +156,21 @@ export function MusicPlayer({ open, onOpen, onClose }: MusicPlayerProps) {
     }
   };
 
+  const stopPlayback = () => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+    currentRef.current = null;
+    setCurrent(null);
+    setCurrentIndex(null);
+    setPlaying(false);
+    setProgress(0);
+    setDuration(0);
+    setError(null);
+  };
+
   const playNext = () => {
     if (tracks.length === 0) return;
     const next = currentIndex === null ? 0 : (currentIndex + 1) % tracks.length;
@@ -357,18 +372,32 @@ export function MusicPlayer({ open, onOpen, onClose }: MusicPlayerProps) {
       ) : null}
 
       {!open && current ? (
-        <button className="music-mini" onClick={onOpen} aria-label="打开音乐播放器">
-          <span className="music-mini__icon">
-            <Icon name="music" size={16} />
-          </span>
-          <span className="music-mini__text">
-            <strong>{current.title}</strong>
-            <small>{current.artist}</small>
-          </span>
-          <span className="music-mini__state">
-            <Icon name={playing ? "pause" : "play"} size={15} />
-          </span>
-        </button>
+        <div className="music-mini">
+          <button className="music-mini__main" onClick={onOpen} aria-label="打开音乐播放器">
+            <span className="music-mini__icon">
+              <Icon name="music" size={16} />
+            </span>
+            <span className="music-mini__text">
+              <strong>{current.title}</strong>
+              <small>{current.artist}</small>
+            </span>
+          </button>
+          <button
+            className="music-mini__button"
+            onClick={togglePlay}
+            aria-label={playing ? "暂停音乐" : "继续播放音乐"}
+          >
+            <Icon name={playing ? "pause" : "play"} size={14} />
+          </button>
+          <button
+            className="music-mini__button music-mini__button--close"
+            onClick={stopPlayback}
+            aria-label="关闭音乐并停止播放"
+            title="停止并关闭"
+          >
+            <Icon name="x" size={14} />
+          </button>
+        </div>
       ) : null}
     </>
   );

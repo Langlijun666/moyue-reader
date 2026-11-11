@@ -468,6 +468,7 @@ export default function App() {
             showSidebarToggle={!fullShelf}
             onToggleSidebar={() => setSidebarHidden((hidden) => !hidden)}
             onOpenMusic={() => setMusicOpen(true)}
+            onToggleTheme={toggleTheme}
           />
         ) : fullShelf ? (
           <FullShelf

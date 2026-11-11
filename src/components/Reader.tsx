@@ -21,6 +21,7 @@ interface ReaderProps {
   showSidebarToggle: boolean;
   onToggleSidebar: () => void;
   onOpenMusic: () => void;
+  onToggleTheme: () => void;
 }
 
 interface RawNavItem {
@@ -67,6 +68,7 @@ export function Reader({
   showSidebarToggle,
   onToggleSidebar,
   onOpenMusic,
+  onToggleTheme,
 }: ReaderProps) {
   const viewerRef = useRef<HTMLDivElement>(null);
   const bookRef = useRef<any>(null);
@@ -98,6 +100,10 @@ export function Reader({
   const panelOpenRef = useRef(false);
   const wheelLockRef = useRef(0);
   const isScrollMode = settings.readingMode === "scroll";
+  const themeLabel =
+    settings.theme === "night" ? "夜墨" : settings.theme === "sepia" ? "茶褐" : "纸白";
+  const themeIcon =
+    settings.theme === "night" ? "moon" : settings.theme === "sepia" ? "book" : "sun";
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -644,6 +650,14 @@ export function Reader({
           <span>{currentLabel}</span>
         </div>
         <div className="reader__tools">
+          <button
+            className="icon-button"
+            onClick={onToggleTheme}
+            title={`切换主题（当前：${themeLabel}）`}
+            aria-label={`切换主题，当前${themeLabel}`}
+          >
+            <Icon name={themeIcon} size={19} />
+          </button>
           <button
             className="icon-button"
             onClick={onOpenMusic}
