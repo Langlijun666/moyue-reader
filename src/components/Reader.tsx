@@ -752,7 +752,7 @@ export function Reader({
     flipTimerRef.current = window.setTimeout(() => {
       setFlip(null);
       turningRef.current = false;
-    }, 520);
+    }, settingsRef.current.pageEffect === "curl" ? 730 : 520);
 
     try {
       if (direction === "prev") await rendition.prev();

@@ -1487,11 +1487,11 @@ input:focus-visible,
 }
 
 .reader__stage.page-effect-curl.is-turning--next .reader__viewport {
-  animation: page-curl-next 520ms cubic-bezier(0.2, 0.75, 0.22, 1) both;
+  animation: page-curl-next 700ms cubic-bezier(0.16, 0.72, 0.2, 1) both;
 }
 
 .reader__stage.page-effect-curl.is-turning--prev .reader__viewport {
-  animation: page-curl-prev 520ms cubic-bezier(0.2, 0.75, 0.22, 1) both;
+  animation: page-curl-prev 700ms cubic-bezier(0.16, 0.72, 0.2, 1) both;
 }
 
 .reader__stage.page-effect-slide.is-turning--next .reader__viewport {
@@ -1584,15 +1584,49 @@ input:focus-visible,
 
 .page-effect-curl .page-flip {
   background:
+    radial-gradient(ellipse at 0% 50%, rgba(0, 0, 0, 0.52) 0%, transparent 38%),
     linear-gradient(
       90deg,
-      transparent 0%,
-      rgba(0, 0, 0, 0.28) 18%,
-      var(--flip-highlight) 44%,
-      rgba(0, 0, 0, 0.2) 72%,
-      transparent 100%
+      rgba(0, 0, 0, 0.38) 0%,
+      rgba(0, 0, 0, 0.4) 12%,
+      transparent 27%,
+      var(--flip-highlight) 47%,
+      rgba(255, 255, 255, 0.08) 58%,
+      transparent 74%
     );
   opacity: 1;
+  box-shadow: inset 20px 0 45px -25px rgba(0, 0, 0, 0.8);
+}
+
+.page-effect-curl .page-flip::before {
+  position: absolute;
+  top: -4%;
+  bottom: -4%;
+  left: 10%;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, var(--flip-highlight), transparent);
+  box-shadow: 0 0 22px 7px var(--flip-highlight);
+  opacity: 0.85;
+  content: "";
+}
+
+.page-effect-curl .page-flip--prev {
+  background:
+    radial-gradient(ellipse at 100% 50%, rgba(0, 0, 0, 0.52) 0%, transparent 38%),
+    linear-gradient(
+      270deg,
+      rgba(0, 0, 0, 0.38) 0%,
+      rgba(0, 0, 0, 0.4) 12%,
+      transparent 27%,
+      var(--flip-highlight) 47%,
+      rgba(255, 255, 255, 0.08) 58%,
+      transparent 74%
+    );
+}
+
+.page-effect-curl .page-flip--prev::before {
+  right: 10%;
+  left: auto;
 }
 
 .page-effect-curl .page-flip::after {
@@ -1600,11 +1634,11 @@ input:focus-visible,
 }
 
 .page-effect-curl .page-flip--next {
-  animation: page-curl-overlay-next 520ms cubic-bezier(0.2, 0.75, 0.22, 1) both;
+  animation: page-curl-overlay-next 700ms cubic-bezier(0.16, 0.72, 0.2, 1) both;
 }
 
 .page-effect-curl .page-flip--prev {
-  animation: page-curl-overlay-prev 520ms cubic-bezier(0.2, 0.75, 0.22, 1) both;
+  animation: page-curl-overlay-prev 700ms cubic-bezier(0.16, 0.72, 0.2, 1) both;
 }
 
 .page-effect-slide .page-flip {
@@ -1669,38 +1703,44 @@ input:focus-visible,
 
 @keyframes page-curl-next {
   0% {
-    transform: perspective(1800px) translateX(-2.5%) rotateY(-11deg) scale(0.992);
-    filter: brightness(0.82);
+    transform: perspective(1000px) translateX(-8%) rotateY(-38deg) scale(0.95);
+    filter: brightness(0.52) saturate(0.82);
   }
-  35% { filter: brightness(0.94); }
+  52% {
+    transform: perspective(1000px) translateX(1%) rotateY(3deg) scale(1.006);
+    filter: brightness(0.92) saturate(1);
+  }
   100% {
-    transform: perspective(1800px) translateX(0) rotateY(0deg) scale(1);
-    filter: brightness(1);
+    transform: perspective(1000px) translateX(0) rotateY(0deg) scale(1);
+    filter: brightness(1) saturate(1);
   }
 }
 
 @keyframes page-curl-prev {
   0% {
-    transform: perspective(1800px) translateX(2.5%) rotateY(11deg) scale(0.992);
-    filter: brightness(0.82);
+    transform: perspective(1000px) translateX(8%) rotateY(38deg) scale(0.95);
+    filter: brightness(0.52) saturate(0.82);
   }
-  35% { filter: brightness(0.94); }
+  52% {
+    transform: perspective(1000px) translateX(-1%) rotateY(-3deg) scale(1.006);
+    filter: brightness(0.92) saturate(1);
+  }
   100% {
-    transform: perspective(1800px) translateX(0) rotateY(0deg) scale(1);
-    filter: brightness(1);
+    transform: perspective(1000px) translateX(0) rotateY(0deg) scale(1);
+    filter: brightness(1) saturate(1);
   }
 }
 
 @keyframes page-curl-overlay-next {
-  0% { transform: translateX(22%); opacity: 0; }
-  18% { opacity: 1; }
-  100% { transform: translateX(-14%); opacity: 0; }
+  0% { transform: translateX(28%) scaleX(1.08); opacity: 0; }
+  16% { opacity: 1; }
+  100% { transform: translateX(-14%) scaleX(1); opacity: 0; }
 }
 
 @keyframes page-curl-overlay-prev {
-  0% { transform: translateX(-22%); opacity: 0; }
-  18% { opacity: 1; }
-  100% { transform: translateX(14%); opacity: 0; }
+  0% { transform: translateX(-28%) scaleX(1.08); opacity: 0; }
+  16% { opacity: 1; }
+  100% { transform: translateX(14%) scaleX(1); opacity: 0; }
 }
 
 @keyframes page-slide-next {
