@@ -10,6 +10,8 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 
 安装包当前未做代码签名，Windows SmartScreen 可能提示「未知发布者」；选择「更多信息」→「仍要运行」即可。
 
+![安装程序](docs/installer.png)
+
 ![墨阅首页](docs/home.png)
 
 ## 功能
@@ -27,6 +29,7 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 - **两种书架布局**：左侧书架或全屏书架，阅读时自动让正文占满窗口
 - **软件设置**：外观主题、书架视图、本机数据目录、版本与仓库信息
 - **一键卸载**：应用内卸载，询问卸载原因，默认保留书库和阅读进度，也可选择彻底删除本地数据
+- **品牌安装程序**：中文安装界面、墨阅头图与侧边图、应用图标
 - **自定义封面**：为任意书籍选择本地图片，只修改书库显示，不改写原文件
 - **本地音乐**：扫描本地音乐文件夹，支持 MP3 / FLAC / WAV / M4A / AAC / OGG / OPUS
 - **音乐播放器**：顺序播放、列表循环、单曲循环、随机播放；上一首 / 下一首、进度、音量；关闭面板后继续播放
@@ -119,6 +122,7 @@ npm run tauri:build
 │  ├─ src/lib.rs             # 应用入口、音乐目录与文件扫描命令
 │  ├─ capabilities/          # 窗口权限
 │  ├─ icons/                 # 应用图标
+│  ├─ installer/             # 安装程序头图、侧边图和中文文案
 │  ├─ Cargo.toml
 │  └─ tauri.conf.json
 ├─ public/
