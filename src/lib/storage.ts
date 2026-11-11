@@ -1,4 +1,10 @@
-import type { FontWeight, Progress, ReaderSettings, ThemeName } from "../types";
+import type {
+  FontWeight,
+  PageEffect,
+  Progress,
+  ReaderSettings,
+  ThemeName,
+} from "../types";
 
 const SETTINGS_KEY = "moyue.settings.v1";
 const PROGRESS_KEY = "moyue.progress.v1";
@@ -10,6 +16,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   fontFamily: "serif",
   fontWeight: 400,
   readingMode: "paginated",
+  pageEffect: "sweep",
   shelfView: "sidebar",
   margin: 16,
   paragraphSpacing: 1,
@@ -29,6 +36,7 @@ export function loadSettings(): ReaderSettings {
       fontFamily: parsed.fontFamily === "sans" ? "sans" : "serif",
       fontWeight: normalizeFontWeight(parsed.fontWeight),
       readingMode: parsed.readingMode === "scroll" ? "scroll" : "paginated",
+      pageEffect: normalizePageEffect(parsed.pageEffect),
       shelfView: parsed.shelfView === "full" ? "full" : "sidebar",
       margin: clamp(Number(parsed.margin) || DEFAULT_SETTINGS.margin, 0, 40),
       paragraphSpacing: clamp(
@@ -82,6 +90,16 @@ function isTheme(value: unknown): value is ThemeName {
 
 function normalizeFontWeight(value: unknown): FontWeight {
   return value === 300 || value === 500 || value === 700 ? value : 400;
+}
+
+function normalizePageEffect(value: unknown): PageEffect {
+  return value === "curl" ||
+    value === "slide" ||
+    value === "fade" ||
+    value === "zoom" ||
+    value === "none"
+    ? value
+    : "sweep";
 }
 
 function clamp(value: number, min: number, max: number): number {

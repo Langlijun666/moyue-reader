@@ -1466,15 +1466,54 @@ input:focus-visible,
 }
 
 .reader__stage.is-turning .reader__viewport {
-  will-change: transform;
+  will-change: transform, opacity, filter;
 }
 
-.reader__stage.is-turning--next .reader__viewport {
+.reader__stage.page-effect-sweep.is-turning--next .reader__viewport {
   animation: page-view-next 480ms cubic-bezier(0.22, 0.8, 0.24, 1) both;
 }
 
-.reader__stage.is-turning--prev .reader__viewport {
+.reader__stage.page-effect-sweep.is-turning--prev .reader__viewport {
   animation: page-view-prev 480ms cubic-bezier(0.22, 0.8, 0.24, 1) both;
+}
+
+.reader__stage.page-effect-curl.is-turning .reader__viewport {
+  transform-origin: left center;
+  backface-visibility: hidden;
+}
+
+.reader__stage.page-effect-curl.is-turning--prev .reader__viewport {
+  transform-origin: right center;
+}
+
+.reader__stage.page-effect-curl.is-turning--next .reader__viewport {
+  animation: page-curl-next 520ms cubic-bezier(0.2, 0.75, 0.22, 1) both;
+}
+
+.reader__stage.page-effect-curl.is-turning--prev .reader__viewport {
+  animation: page-curl-prev 520ms cubic-bezier(0.2, 0.75, 0.22, 1) both;
+}
+
+.reader__stage.page-effect-slide.is-turning--next .reader__viewport {
+  animation: page-slide-next 430ms cubic-bezier(0.22, 0.8, 0.24, 1) both;
+}
+
+.reader__stage.page-effect-slide.is-turning--prev .reader__viewport {
+  animation: page-slide-prev 430ms cubic-bezier(0.22, 0.8, 0.24, 1) both;
+}
+
+.reader__stage.page-effect-fade.is-turning--next .reader__viewport,
+.reader__stage.page-effect-fade.is-turning--prev .reader__viewport {
+  animation: page-fade 380ms ease-out both;
+}
+
+.reader__stage.page-effect-zoom.is-turning--next .reader__viewport,
+.reader__stage.page-effect-zoom.is-turning--prev .reader__viewport {
+  animation: page-zoom 440ms cubic-bezier(0.22, 0.8, 0.24, 1) both;
+}
+
+.reader__stage.page-effect-none.is-turning .reader__viewport {
+  animation: none;
 }
 
 .page-flip {
@@ -1526,11 +1565,11 @@ input:focus-visible,
     3px 0 0 color-mix(in srgb, var(--muted) 18%, transparent);
 }
 
-.page-flip--next {
+.page-effect-sweep .page-flip--next {
   animation: page-sweep-next 500ms cubic-bezier(0.22, 0.8, 0.24, 1) both;
 }
 
-.page-flip--prev {
+.page-effect-sweep .page-flip--prev {
   background:
     linear-gradient(
       270deg,
@@ -1541,6 +1580,65 @@ input:focus-visible,
       transparent 100%
     );
   animation: page-sweep-prev 500ms cubic-bezier(0.22, 0.8, 0.24, 1) both;
+}
+
+.page-effect-curl .page-flip {
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.28) 18%,
+      var(--flip-highlight) 44%,
+      rgba(0, 0, 0, 0.2) 72%,
+      transparent 100%
+    );
+  opacity: 1;
+}
+
+.page-effect-curl .page-flip::after {
+  display: none;
+}
+
+.page-effect-curl .page-flip--next {
+  animation: page-curl-overlay-next 520ms cubic-bezier(0.2, 0.75, 0.22, 1) both;
+}
+
+.page-effect-curl .page-flip--prev {
+  animation: page-curl-overlay-prev 520ms cubic-bezier(0.2, 0.75, 0.22, 1) both;
+}
+
+.page-effect-slide .page-flip {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.18) 0%,
+    transparent 16%,
+    transparent 100%
+  );
+  opacity: 1;
+}
+
+.page-effect-slide .page-flip::after {
+  display: none;
+}
+
+.page-effect-slide .page-flip--next {
+  animation: page-slide-overlay-next 430ms ease-out both;
+}
+
+.page-effect-slide .page-flip--prev {
+  background: linear-gradient(
+    270deg,
+    rgba(0, 0, 0, 0.18) 0%,
+    transparent 16%,
+    transparent 100%
+  );
+  animation: page-slide-overlay-prev 430ms ease-out both;
+}
+
+.page-effect-fade .page-flip,
+.page-effect-zoom .page-flip,
+.page-effect-none .page-flip {
+  display: none;
 }
 
 @keyframes page-sweep-next {
@@ -1567,6 +1665,72 @@ input:focus-visible,
   0% { transform: perspective(1600px) translateX(-6px) rotateY(0deg) scale(0.998); }
   42% { transform: perspective(1600px) translateX(3px) rotateY(2deg) scale(0.996); }
   100% { transform: perspective(1600px) translateX(0) rotateY(0deg) scale(1); }
+}
+
+@keyframes page-curl-next {
+  0% {
+    transform: perspective(1800px) translateX(-2.5%) rotateY(-11deg) scale(0.992);
+    filter: brightness(0.82);
+  }
+  35% { filter: brightness(0.94); }
+  100% {
+    transform: perspective(1800px) translateX(0) rotateY(0deg) scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes page-curl-prev {
+  0% {
+    transform: perspective(1800px) translateX(2.5%) rotateY(11deg) scale(0.992);
+    filter: brightness(0.82);
+  }
+  35% { filter: brightness(0.94); }
+  100% {
+    transform: perspective(1800px) translateX(0) rotateY(0deg) scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes page-curl-overlay-next {
+  0% { transform: translateX(22%); opacity: 0; }
+  18% { opacity: 1; }
+  100% { transform: translateX(-14%); opacity: 0; }
+}
+
+@keyframes page-curl-overlay-prev {
+  0% { transform: translateX(-22%); opacity: 0; }
+  18% { opacity: 1; }
+  100% { transform: translateX(14%); opacity: 0; }
+}
+
+@keyframes page-slide-next {
+  0% { transform: translateX(7%); opacity: 0.45; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes page-slide-prev {
+  0% { transform: translateX(-7%); opacity: 0.45; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes page-slide-overlay-next {
+  0% { transform: translateX(-8%); opacity: 0.9; }
+  100% { transform: translateX(0); opacity: 0; }
+}
+
+@keyframes page-slide-overlay-prev {
+  0% { transform: translateX(8%); opacity: 0.9; }
+  100% { transform: translateX(0); opacity: 0; }
+}
+
+@keyframes page-fade {
+  0% { opacity: 0.25; }
+  100% { opacity: 1; }
+}
+
+@keyframes page-zoom {
+  0% { transform: scale(0.965); opacity: 0.55; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .reader__loading,
@@ -2128,8 +2292,7 @@ input:focus-visible,
 }
 
 .reading-mode-option:hover {
-  color: var(--ink);
-  background: var(--surface-2);
+  color: var(--ink);  background: var(--surface-2);
 }
 
 .reading-mode-option--active {
@@ -2314,6 +2477,80 @@ input:focus-visible,
   color: var(--ink);
   background: var(--surface);
   box-shadow: 0 2px 7px -3px var(--shadow);
+}
+
+.page-effect-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.page-effect-option {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+  padding: 7px;
+  color: var(--muted);
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+
+.page-effect-option:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.page-effect-option--active {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.page-effect-option > span:not(.page-effect-option__preview) {
+  font-size: 8.5px;
+  font-weight: 600;
+}
+
+.page-effect-option > small {
+  color: var(--faint);
+  font-size: 7.5px;
+}
+
+.page-effect-option__preview {
+  display: block;
+  width: 100%;
+  height: 19px;
+  margin-bottom: 2px;
+  border-radius: 4px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 30%, var(--surface)) 0%, var(--surface-2) 52%, var(--surface) 100%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line) 70%, transparent);
+}
+
+.page-effect-option__preview--curl {
+  background:
+    linear-gradient(100deg, var(--surface-2) 0 46%, color-mix(in srgb, var(--shadow) 38%, transparent) 47%, var(--surface) 53% 100%);
+  transform: perspective(40px) rotateY(-7deg);
+}
+
+.page-effect-option__preview--slide {
+  background: linear-gradient(90deg, var(--surface-2) 0 38%, var(--accent) 39% 41%, var(--surface) 42% 100%);
+}
+
+.page-effect-option__preview--fade {
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 24%, var(--surface)));
+}
+
+.page-effect-option__preview--zoom {
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 26%, var(--surface)) 0 45%, var(--surface-2) 46% 100%);
+}
+
+.page-effect-option__preview--none {
+  background: var(--surface-2);
 }
 
 .settings-note {

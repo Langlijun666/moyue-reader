@@ -1421,13 +1421,13 @@ export function Reader({
         </div>
       </header>
 
-      <div className={`reader__stage ${flip ? `is-turning is-turning--${flip}` : ""}`}>
+      <div className={`reader__stage page-effect-${settings.pageEffect} ${flip ? `is-turning is-turning--${flip}` : ""}`}>
         <div ref={viewerRef} className="reader__viewport" />
 
         {flip ? (
           <div
             key={`${flip}-${flipNonce}`}
-            className={`page-flip page-flip--${flip}`}
+            className={`page-flip page-flip--${flip} page-flip--effect-${settings.pageEffect}`}
             aria-hidden="true"
           />
         ) : null}

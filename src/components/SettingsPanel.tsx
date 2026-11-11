@@ -1,5 +1,11 @@
 import { useRef, useState } from "react";
-import type { FontFamily, FontWeight, ReaderSettings, ThemeName } from "../types";
+import type {
+  FontFamily,
+  FontWeight,
+  PageEffect,
+  ReaderSettings,
+  ThemeName,
+} from "../types";
 import { Icon } from "./Icons";
 
 interface SettingsPanelProps {
@@ -26,6 +32,15 @@ const weightOptions: { value: FontWeight; label: string }[] = [
   { value: 400, label: "常规" },
   { value: 500, label: "中等" },
   { value: 700, label: "加粗" },
+];
+
+const pageEffects: { id: PageEffect; label: string; hint: string }[] = [
+  { id: "sweep", label: "纸页扫光", hint: "轻盈" },
+  { id: "curl", label: "3D 翻页", hint: "立体" },
+  { id: "slide", label: "横向滑动", hint: "利落" },
+  { id: "fade", label: "淡入", hint: "安静" },
+  { id: "zoom", label: "轻微缩放", hint: "柔和" },
+  { id: "none", label: "无动画", hint: "最快" },
 ];
 
 export function SettingsPanel({
@@ -93,6 +108,30 @@ export function SettingsPanel({
               <span>上下滚动</span>
               <small>一镜到底</small>
             </button>
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <div className="settings-section__title">
+            <span>翻页动效</span>
+            <small>左右翻页时</small>
+          </div>
+          <div className="page-effect-options">
+            {pageEffects.map((effect) => (
+              <button
+                key={effect.id}
+                className={
+                  settings.pageEffect === effect.id
+                    ? "page-effect-option page-effect-option--active"
+                    : "page-effect-option"
+                }
+                onClick={() => onChange({ pageEffect: effect.id })}
+              >
+                <span className={`page-effect-option__preview page-effect-option__preview--${effect.id}`} />
+                <span>{effect.label}</span>
+                <small>{effect.hint}</small>
+              </button>
+            ))}
           </div>
         </section>
 

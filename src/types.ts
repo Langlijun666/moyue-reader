@@ -6,6 +6,8 @@ export type FontWeight = 300 | 400 | 500 | 700;
 
 export type ReadingMode = "paginated" | "scroll";
 
+export type PageEffect = "sweep" | "curl" | "slide" | "fade" | "zoom" | "none";
+
 export type ShelfView = "sidebar" | "full";
 
 export type BookFormat = "epub" | "txt";
@@ -17,6 +19,7 @@ export interface ReaderSettings {
   fontFamily: FontFamily;
   fontWeight: FontWeight;
   readingMode: ReadingMode;
+  pageEffect: PageEffect;
   shelfView: ShelfView;
   margin: number;
   paragraphSpacing: number;
