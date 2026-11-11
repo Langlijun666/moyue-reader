@@ -46,6 +46,16 @@ export interface TocEntry {
   children?: TocEntry[];
 }
 
+export interface SearchResult {
+  id: string;
+  sectionIndex: number;
+  href: string;
+  chapter: string;
+  snippet: string;
+  occurrence: number;
+  query: string;
+}
+
 export interface BookRecord extends BookMeta {
   data: ArrayBuffer;
 }

@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ePub from "epubjs";
-import type { BookMeta, Progress, ReaderSettings, TocEntry } from "../types";
+import type { BookMeta, Progress, ReaderSettings, SearchResult, TocEntry } from "../types";
 import { percentLabel } from "../lib/format";
 import { decodeTxt, txtToEpub } from "../lib/txt";
+import {
+  loadBookmarks,
+  newBookmarkId,
+  saveBookmarks,
+  type Bookmark,
+} from "../lib/bookmarks";
 import { Icon } from "./Icons";
 import { SettingsPanel } from "./SettingsPanel";
 import { TocPanel } from "./TocPanel";
 import { TtsPlayer } from "./TtsPlayer";
+import { ReaderToolsPanel } from "./ReaderToolsPanel";
 
 interface ReaderProps {
   meta: BookMeta;
@@ -29,6 +36,13 @@ interface RawNavItem {
   href?: string;
   label?: string;
   subitems?: RawNavItem[];
+}
+
+interface SearchIndexSection {
+  index: number;
+  href: string;
+  chapter: string;
+  text: string;
 }
 
 const palettes = {
@@ -91,6 +105,18 @@ export function Reader({
   const [tocOpen, setTocOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [ttsOpen, setTtsOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [toolsTab, setToolsTab] = useState<"search" | "bookmarks">("search");
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchDone, setSearchDone] = useState(0);
+  const [searchTotal, setSearchTotal] = useState(0);
+  const [searchHasRun, setSearchHasRun] = useState(false);
+  const [searchTotalHits, setSearchTotalHits] = useState(0);
+  const searchIndexRef = useRef<SearchIndexSection[] | null>(null);
+  const searchRunRef = useRef(0);
   const [flip, setFlip] = useState<"prev" | "next" | null>(null);
   const [flipNonce, setFlipNonce] = useState(0);
   const flipTimerRef = useRef<number | null>(null);
@@ -119,12 +145,22 @@ export function Reader({
   }, [toc]);
 
   useEffect(() => {
-    panelOpenRef.current = tocOpen || settingsOpen || ttsOpen;
-    if (tocOpen || settingsOpen) {
+    panelOpenRef.current = tocOpen || settingsOpen || ttsOpen || toolsOpen;
+    if (tocOpen || settingsOpen || toolsOpen) {
       // Close the page-turn overlay when a drawer opens.
       setFlip(null);
     }
-  }, [tocOpen, settingsOpen, ttsOpen]);
+  }, [tocOpen, settingsOpen, ttsOpen, toolsOpen]);
+
+  useEffect(() => {
+    setBookmarks(loadBookmarks(meta.id));
+    searchIndexRef.current = null;
+    setSearchResults([]);
+    setSearchHasRun(false);
+    setSearchTotalHits(0);
+    setSearchQuery("");
+    setToolsOpen(false);
+  }, [meta.id]);
 
   useEffect(() => {
     let disposed = false;
@@ -552,13 +588,24 @@ export function Reader({
       const target = event.target as HTMLElement | null;
       if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
 
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        setTocOpen(false);
+        setSettingsOpen(false);
+        setTtsOpen(false);
+        setToolsTab("search");
+        setToolsOpen(true);
+        return;
+      }
+
       if (event.key === "Escape") {
-        if (ttsOpen) setTtsOpen(false);
+        if (toolsOpen) setToolsOpen(false);
+        else if (ttsOpen) setTtsOpen(false);
         else if (tocOpen) setTocOpen(false);
         else if (settingsOpen) setSettingsOpen(false);
         return;
       }
-      if (!ready || tocOpen || settingsOpen || ttsOpen) return;
+      if (!ready || tocOpen || settingsOpen || ttsOpen || toolsOpen) return;
 
       if (settings.readingMode === "scroll") {
         const scroller = viewerRef.current?.querySelector<HTMLElement>(".epub-container") ?? viewerRef.current;
@@ -581,7 +628,7 @@ export function Reader({
         void turnPage("next");
       }
     },
-    [ready, tocOpen, settingsOpen, ttsOpen, settings.readingMode, turnPage],
+    [ready, tocOpen, settingsOpen, ttsOpen, toolsOpen, settings.readingMode, turnPage],
   );
 
   useEffect(() => {
@@ -626,6 +673,180 @@ export function Reader({
     }
   };
 
+  const openTools = (tab: "search" | "bookmarks") => {
+    setTocOpen(false);
+    setSettingsOpen(false);
+    setTtsOpen(false);
+    setToolsTab(tab);
+    setToolsOpen(true);
+  };
+
+  const getSearchIndex = async (): Promise<SearchIndexSection[]> => {
+    if (searchIndexRef.current) return searchIndexRef.current;
+    const book = bookRef.current;
+    if (!book) return [];
+    const items = book.spine?.spineItems ?? [];
+    const currentHref = (renditionRef.current?.currentLocation?.()?.start?.href ?? "").split("#")[0];
+    const sections: SearchIndexSection[] = [];
+    setSearchTotal(items.length);
+    setSearchDone(0);
+
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+      try {
+        await item.load(book.load.bind(book));
+        const text = collectSectionText(item.document);
+        if (text.trim().length > 0) {
+          sections.push({
+            index,
+            href: item.href,
+            chapter: findLabel(tocRef.current, item.href) || "正文",
+            text,
+          });
+        }
+        if (item.href.split("#")[0] !== currentHref && typeof item.unload === "function") {
+          item.unload();
+        }
+      } catch {
+        // A single broken section should not stop the whole search.
+      }
+      setSearchDone(index + 1);
+      if (index % 8 === 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+      }
+    }
+
+    searchIndexRef.current = sections;
+    return sections;
+  };
+
+  const runSearch = async () => {
+    const term = searchQuery.trim();
+    if (term.length < 2 || !bookRef.current) return;
+    const runId = ++searchRunRef.current;
+    setSearching(true);
+    setSearchHasRun(false);
+    setSearchResults([]);
+    setSearchTotalHits(0);
+
+    try {
+      const sections = await getSearchIndex();
+      if (runId !== searchRunRef.current) return;
+      const needle = term.toLowerCase();
+      const results: SearchResult[] = [];
+      let total = 0;
+
+      for (const section of sections) {
+        const haystack = section.text.toLowerCase();
+        let from = 0;
+        let occurrence = 0;
+        while (from < haystack.length) {
+          const position = haystack.indexOf(needle, from);
+          if (position < 0) break;
+          total += 1;
+          if (results.length < 100) {
+            const start = Math.max(0, position - 34);
+            const end = Math.min(section.text.length, position + term.length + 54);
+            results.push({
+              id: `${section.index}-${occurrence}`,
+              sectionIndex: section.index,
+              href: section.href,
+              chapter: section.chapter,
+              snippet: section.text.slice(start, end).replace(/\s+/g, " ").trim(),
+              occurrence,
+              query: term,
+            });
+          }
+          occurrence += 1;
+          from = position + Math.max(1, needle.length);
+          if (total >= 2000) break;
+        }
+        if (total >= 2000) break;
+      }
+
+      if (runId !== searchRunRef.current) return;
+      setSearchResults(results);
+      setSearchTotalHits(total);
+      setSearchHasRun(true);
+    } catch {
+      if (runId === searchRunRef.current) {
+        setSearchHasRun(true);
+        setSearchTotalHits(0);
+      }
+    } finally {
+      if (runId === searchRunRef.current) setSearching(false);
+    }
+  };
+
+  const jumpToSearchResult = async (result: SearchResult) => {
+    const book = bookRef.current;
+    const rendition = renditionRef.current;
+    if (!book || !rendition) return;
+    try {
+      const item = book.spine?.spineItems?.[result.sectionIndex];
+      if (item) {
+        await item.load(book.load.bind(book));
+        const { text, nodes } = collectTextNodes(item.document);
+        const position = findNthMatch(text, result.query, result.occurrence);
+        if (position >= 0) {
+          const start = locateOffset(nodes, position);
+          const end = locateOffset(nodes, position + result.query.length);
+          if (start && end) {
+            const range = item.document.createRange();
+            range.setStart(start.node, start.offset);
+            range.setEnd(end.node, end.offset);
+            const cfi = item.cfiFromRange(range);
+            await rendition.display(cfi);
+            setToolsOpen(false);
+            return;
+          }
+        }
+      }
+      await rendition.display(result.href);
+      setToolsOpen(false);
+    } catch {
+      await rendition.display(result.href).catch(() => undefined);
+      setToolsOpen(false);
+    }
+  };
+
+  const addBookmark = () => {
+    const rendition = renditionRef.current;
+    const location = rendition?.currentLocation?.();
+    const cfi = location?.start?.cfi;
+    if (!cfi) return;
+    if (bookmarks.some((bookmark) => bookmark.cfi === cfi)) {
+      setToolsTab("bookmarks");
+      return;
+    }
+    const next = [
+      ...bookmarks,
+      {
+        id: newBookmarkId(),
+        cfi,
+        percent: percentRef.current,
+        chapter: currentLabel,
+        createdAt: Date.now(),
+      },
+    ];
+    setBookmarks(next);
+    saveBookmarks(meta.id, next);
+    setToolsTab("bookmarks");
+  };
+
+  const jumpToBookmark = async (bookmark: Bookmark) => {
+    const rendition = renditionRef.current;
+    if (!rendition) return;
+    setToolsOpen(false);
+    await rendition.display(bookmark.cfi).catch(() => undefined);
+  };
+
+  const deleteBookmark = (id: string) => {
+    const next = bookmarks.filter((bookmark) => bookmark.id !== id);
+    setBookmarks(next);
+    saveBookmarks(meta.id, next);
+  };
+
   return (
     <section className={`reader reader--${settings.readingMode}`}>
       <header className="reader__topbar">
@@ -650,6 +871,17 @@ export function Reader({
           <span>{currentLabel}</span>
         </div>
         <div className="reader__tools">
+          <button
+            className={`icon-button ${toolsOpen ? "icon-button--active" : ""}`}
+            onClick={() => {
+              if (toolsOpen) setToolsOpen(false);
+              else openTools("search");
+            }}
+            title="全文搜索 (Ctrl+F)"
+            aria-label="全文搜索"
+          >
+            <Icon name="search" size={19} />
+          </button>
           <button
             className="icon-button"
             onClick={onToggleTheme}
@@ -765,6 +997,33 @@ export function Reader({
             />
           </>
         ) : null}
+
+        {toolsOpen ? (
+          <>
+            <div className="drawer-backdrop" onClick={() => setToolsOpen(false)} />
+            <ReaderToolsPanel
+              open={toolsOpen}
+              tab={toolsTab}
+              onTabChange={setToolsTab}
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+              onSearch={() => void runSearch()}
+              searching={searching}
+              searchDone={searchDone}
+              searchTotal={searchTotal}
+              searchResults={searchResults}
+              searchHasRun={searchHasRun}
+              searchTotalHits={searchTotalHits}
+              currentChapter={currentLabel}
+              bookmarks={bookmarks}
+              onJumpSearch={(result) => void jumpToSearchResult(result)}
+              onAddBookmark={addBookmark}
+              onJumpBookmark={(bookmark) => void jumpToBookmark(bookmark)}
+              onDeleteBookmark={deleteBookmark}
+              onClose={() => setToolsOpen(false)}
+            />
+          </>
+        ) : null}
       </div>
 
       <footer className="reader__footer">
@@ -817,6 +1076,73 @@ export function Reader({
       />
     </section>
   );
+}
+
+function collectSectionText(document?: Document): string {
+  return collectTextNodes(document).text;
+}
+
+interface TextNodePosition {
+  node: Text;
+  start: number;
+  end: number;
+}
+
+function collectTextNodes(document?: Document): { text: string; nodes: TextNodePosition[] } {
+  if (!document?.body) return { text: "", nodes: [] };
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (parent && ["SCRIPT", "STYLE", "NOSCRIPT"].includes(parent.tagName)) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const nodes: TextNodePosition[] = [];
+  let text = "";
+  let current = walker.nextNode();
+  while (current) {
+    const value = current.textContent ?? "";
+    if (value) {
+      nodes.push({
+        node: current as Text,
+        start: text.length,
+        end: text.length + value.length,
+      });
+      text += value;
+    }
+    current = walker.nextNode();
+  }
+  return { text, nodes };
+}
+
+function findNthMatch(text: string, query: string, occurrence: number): number {
+  const haystack = text.toLowerCase();
+  const needle = query.toLowerCase();
+  if (!needle) return -1;
+  let from = 0;
+  let count = 0;
+  while (from < haystack.length) {
+    const position = haystack.indexOf(needle, from);
+    if (position < 0) return -1;
+    if (count === occurrence) return position;
+    count += 1;
+    from = position + Math.max(1, needle.length);
+  }
+  return -1;
+}
+
+function locateOffset(
+  nodes: TextNodePosition[],
+  offset: number,
+): { node: Text; offset: number } | null {
+  for (const entry of nodes) {
+    if (offset >= entry.start && offset <= entry.end) {
+      return { node: entry.node, offset: Math.min(entry.end - entry.start, offset - entry.start) };
+    }
+  }
+  return null;
 }
 
 function mapToc(items: RawNavItem[]): TocEntry[] {

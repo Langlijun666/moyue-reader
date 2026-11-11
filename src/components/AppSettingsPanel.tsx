@@ -42,7 +42,7 @@ export function AppSettingsPanel({
   backupDir,
   onUninstall,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.6.0");
+  const [version, setVersion] = useState("0.7.0");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);

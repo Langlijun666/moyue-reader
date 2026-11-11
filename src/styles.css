@@ -1775,6 +1775,258 @@ input:focus-visible,
   font-weight: 600;
 }
 
+.reader-tools {
+  width: min(420px, calc(100% - 28px));
+}
+
+.reader-tools__tabs {
+  display: flex;
+  gap: 3px;
+  padding: 8px 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.reader-tools__tabs button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 10px 9px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.reader-tools__tabs button:hover {
+  color: var(--ink);
+}
+
+.reader-tools__tabs .reader-tools__tab--active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.reader-tools__tabs button span {
+  display: grid;
+  min-width: 14px;
+  height: 14px;
+  place-items: center;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 99px;
+  font-size: 7px;
+}
+
+.reader-tools__body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.reader-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 5px 4px 9px;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 9px;
+}
+
+.reader-search:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: var(--surface);
+}
+
+.reader-search input {
+  min-width: 0;
+  flex: 1;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 11px;
+}
+
+.reader-search button {
+  height: 27px;
+  padding: 0 10px;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.reader-search button:disabled {
+  opacity: 0.4;
+}
+
+.reader-tools__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 9px 2px 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.reader-tools__hint {
+  margin: 10px 2px 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.7;
+}
+
+.search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.search-result {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  border-radius: 7px;
+  text-align: left;
+}
+
+.search-result:hover {
+  background: var(--surface-2);
+}
+
+.search-result__chapter {
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.search-result__snippet {
+  color: var(--ink);
+  font-size: 10px;
+  line-height: 1.75;
+}
+
+.search-result__snippet mark {
+  padding: 0 1px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: 2px;
+}
+
+.reader-tools__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 20px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.reader-tools__empty p {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+.reader-bookmark-add {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 10px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
+  border-radius: 8px;
+  text-align: left;
+  font-size: 10px;
+}
+
+.reader-bookmark-add small {
+  margin-left: auto;
+  max-width: 150px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-bookmark-add:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.bookmark-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 10px;
+}
+
+.bookmark-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  border-radius: 8px;
+}
+
+.bookmark-row:hover {
+  background: var(--surface-2);
+}
+
+.bookmark-row__main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 8px;
+  text-align: left;
+}
+
+.bookmark-row__chapter {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmark-row__meta {
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.bookmark-row__delete {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--muted);
+  border-radius: 6px;
+  opacity: 0;
+}
+
+.bookmark-row:hover .bookmark-row__delete,
+.bookmark-row:focus-within .bookmark-row__delete {
+  opacity: 1;
+}
+
+.bookmark-row__delete:hover {
+  color: #b9473a;
+  background: color-mix(in srgb, #b9473a 10%, transparent);
+}
+
 .toc-list {
   flex: 1;
   padding: 10px 8px 18px;
