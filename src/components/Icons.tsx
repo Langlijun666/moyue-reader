@@ -25,6 +25,9 @@ export type IconName =
   | "pause"
   | "skip-back"
   | "skip-forward"
+  | "repeat"
+  | "repeat-one"
+  | "shuffle"
   | "volume"
   | "folder"
   | "tag"
@@ -158,6 +161,32 @@ const paths: Record<IconName, React.ReactNode> = {
     <>
       <path d="M5 5v14l11-7z" />
       <path d="M19 5v14" />
+    </>
+  ),
+  repeat: (
+    <>
+      <path d="m17 2 4 4-4 4" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <path d="m7 22-4-4 4-4" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </>
+  ),
+  "repeat-one": (
+    <>
+      <path d="m17 2 4 4-4 4" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <path d="m7 22-4-4 4-4" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+      <path d="M11 10h1v5" />
+    </>
+  ),
+  shuffle: (
+    <>
+      <path d="M16 3h5v5" />
+      <path d="m4 20 17-17" />
+      <path d="M21 16v5h-5" />
+      <path d="m15 15 6 6" />
+      <path d="m4 4 5 5" />
     </>
   ),
   volume: (

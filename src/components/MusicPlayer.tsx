@@ -1,7 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { formatBytes } from "../lib/format";
-import { Icon } from "./Icons";
+import { Icon, type IconName } from "./Icons";
+
+type PlayMode = "sequential" | "loop" | "single" | "shuffle";
+
+const VOLUME_KEY = "moyue.music.volume.v1";
+const MODE_KEY = "moyue.music.mode.v1";
+
+const playModes: { id: PlayMode; label: string; icon: IconName }[] = [
+  { id: "sequential", label: "顺序播放", icon: "list" },
+  { id: "loop", label: "列表循环", icon: "repeat" },
+  { id: "single", label: "单曲循环", icon: "repeat-one" },
+  { id: "shuffle", label: "随机播放", icon: "shuffle" },
+];
 
 interface MusicTrack {
   fileName: string;
@@ -20,8 +32,6 @@ interface MusicPlayerProps {
   onOpen: () => void;
   onClose: () => void;
 }
-
-const VOLUME_KEY = "moyue.music.volume.v1";
 
 export function MusicPlayer({ open, onOpen, onClose }: MusicPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -43,8 +53,17 @@ export function MusicPlayer({ open, onOpen, onClose }: MusicPlayerProps) {
       return 0.8;
     }
   });
+  const [playMode, setPlayMode] = useState<PlayMode>(() => {
+    try {
+      const saved = localStorage.getItem(MODE_KEY) as PlayMode | null;
+      return playModes.some((mode) => mode.id === saved) ? (saved as PlayMode) : "loop";
+    } catch {
+      return "loop";
+    }
+  });
 
   const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  const activeMode = playModes.find((mode) => mode.id === playMode) ?? playModes[1];
 
   const loadLibrary = useCallback(async () => {
     if (!isTauri) {
@@ -96,6 +115,14 @@ export function MusicPlayer({ open, onOpen, onClose }: MusicPlayerProps) {
       // Volume is best-effort.
     }
   }, [volume]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MODE_KEY, playMode);
+    } catch {
+      // Playback mode is optional.
+    }
+  }, [playMode]);
 
   useEffect(() => {
     if (!open) return;
@@ -171,8 +198,23 @@ export function MusicPlayer({ open, onOpen, onClose }: MusicPlayerProps) {
     setError(null);
   };
 
+  const playRandom = () => {
+    if (tracks.length === 0) return;
+    if (tracks.length === 1) {
+      playIndex(0);
+      return;
+    }
+    let next = Math.floor(Math.random() * tracks.length);
+    if (next === currentIndex) next = (next + 1) % tracks.length;
+    playIndex(next);
+  };
+
   const playNext = () => {
     if (tracks.length === 0) return;
+    if (playMode === "shuffle") {
+      playRandom();
+      return;
+    }
     const next = currentIndex === null ? 0 : (currentIndex + 1) % tracks.length;
     playIndex(next);
   };
@@ -184,9 +226,43 @@ export function MusicPlayer({ open, onOpen, onClose }: MusicPlayerProps) {
       return;
     }
     if (tracks.length === 0) return;
+    if (playMode === "shuffle") {
+      playRandom();
+      return;
+    }
     const previous =
       currentIndex === null ? 0 : (currentIndex - 1 + tracks.length) % tracks.length;
     playIndex(previous);
+  };
+
+  const cyclePlayMode = () => {
+    const index = playModes.findIndex((mode) => mode.id === playMode);
+    setPlayMode(playModes[(index + 1) % playModes.length].id);
+  };
+
+  const handleEnded = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (playMode === "single") {
+      audio.currentTime = 0;
+      void audio.play().catch(() => setPlaying(false));
+      return;
+    }
+    if (playMode === "shuffle") {
+      playRandom();
+      return;
+    }
+    if (currentIndex !== null && currentIndex < tracks.length - 1) {
+      playIndex(currentIndex + 1);
+      return;
+    }
+    if (playMode === "loop" && tracks.length > 0) {
+      playIndex(0);
+      return;
+    }
+    setPlaying(false);
+    setProgress(0);
   };
 
   const handleOpenFolder = async () => {
@@ -211,14 +287,7 @@ export function MusicPlayer({ open, onOpen, onClose }: MusicPlayerProps) {
         onPause={() => setPlaying(false)}
         onTimeUpdate={(event) => setProgress(event.currentTarget.currentTime)}
         onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
-        onEnded={() => {
-          if (currentIndex !== null && currentIndex < tracks.length - 1) {
-            playIndex(currentIndex + 1);
-          } else {
-            setPlaying(false);
-            setProgress(0);
-          }
-        }}
+        onEnded={handleEnded}
         onError={() => {
           if (current) setError("这首歌无法播放，可能是不受支持的音频编码");
         }}
@@ -351,6 +420,15 @@ export function MusicPlayer({ open, onOpen, onClose }: MusicPlayerProps) {
                   </button>
                   <button className="music-control" onClick={playNext} aria-label="下一首">
                     <Icon name="skip-forward" size={18} />
+                  </button>
+                  <button
+                    className="music-mode"
+                    onClick={cyclePlayMode}
+                    title={`播放模式：${activeMode.label}`}
+                    aria-label={`播放模式：${activeMode.label}`}
+                  >
+                    <Icon name={activeMode.icon} size={14} />
+                    <span>{activeMode.label}</span>
                   </button>
                   <div className="music-volume">
                     <Icon name="volume" size={15} />

@@ -30,7 +30,7 @@ export function AppSettingsPanel({
   onShelfViewChange,
   onUninstall,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.4.1");
+  const [version, setVersion] = useState("0.5.0");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);

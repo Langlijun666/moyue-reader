@@ -2370,6 +2370,23 @@ input:focus-visible,
   background: color-mix(in srgb, var(--accent) 84%, #000);
 }
 
+.music-mode {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 7px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 8.5px;
+  white-space: nowrap;
+}
+
+.music-mode:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
 .music-volume {
   display: flex;
   width: 104px;
