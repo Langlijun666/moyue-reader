@@ -3,6 +3,7 @@ import ePub from "epubjs";
 import type { BookMeta, Progress, ReaderSettings, SearchResult, TocEntry } from "../types";
 import { percentLabel } from "../lib/format";
 import { recordReading } from "../lib/stats";
+import { deleteFont, getFont, putFont } from "../lib/db";
 import { decodeTxt, txtToEpub } from "../lib/txt";
 import {
   loadBookmarks,
@@ -136,6 +137,7 @@ export function Reader({
   const openHighlightRef = useRef<(id: string) => void>(() => {});
   const currentLabelRef = useRef(initialProgress?.chapter || "正文");
   const readingActivityRef = useRef(0);
+  const customFontUrlRef = useRef<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -162,6 +164,47 @@ export function Reader({
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    let disposed = false;
+    let objectUrl: string | null = null;
+    const loadFont = async () => {
+      if (!settings.customFontId) {
+        if (customFontUrlRef.current) {
+          URL.revokeObjectURL(customFontUrlRef.current);
+          customFontUrlRef.current = null;
+        }
+        const rendition = renditionRef.current;
+        if (rendition) applyReaderTheme(rendition, settingsRef.current, null);
+        return;
+      }
+      try {
+        const record = await getFont(settings.customFontId);
+        if (!record || disposed) return;
+        objectUrl = URL.createObjectURL(
+          new Blob([record.data], { type: "font/ttf" }),
+        );
+        customFontUrlRef.current = objectUrl;
+        const rendition = renditionRef.current;
+        if (!rendition) return;
+        applyReaderTheme(rendition, settingsRef.current, objectUrl);
+        const contents = rendition.getContents?.() ?? [];
+        for (const content of Array.isArray(contents) ? contents : [contents]) {
+          injectCustomFont(content?.document, objectUrl);
+        }
+      } catch {
+        // A broken font should not prevent reading.
+      }
+    };
+    void loadFont();
+    return () => {
+      disposed = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        if (customFontUrlRef.current === objectUrl) customFontUrlRef.current = null;
+      }
+    };
+  }, [settings.customFontId]);
 
   useEffect(() => {
     let pending = 0;
@@ -273,6 +316,8 @@ export function Reader({
     let book: any = null;
     let removeViewerWheel: (() => void) | null = null;
     let removeScrollListener: (() => void) | null = null;
+    let resizeTimer = 0;
+    let resizeHandler: (() => void) | null = null;
     let scrollTimer = 0;
     let lastProgressAt = 0;
 
@@ -290,15 +335,15 @@ export function Reader({
         if (disposed) return;
 
         const rendition = book.renderTo(viewer, {
-          width: "100%",
-          height: "100%",
+          width: viewer.clientWidth || 900,
+          height: viewer.clientHeight || 640,
           flow: isScrollMode ? "scrolled-continuous" : "paginated",
           ...(isScrollMode ? { manager: "continuous" } : {}),
-          spread: "none",
+          spread: settings.columns === 2 && !isScrollMode ? "always" : "none",
           allowScriptedContent: false,
         });
         renditionRef.current = rendition;
-        applyReaderTheme(rendition, settingsRef.current);
+        applyReaderTheme(rendition, settingsRef.current, customFontUrlRef.current);
 
         const wheelDocs = new WeakSet<Document>();
         const onWheel = (event: WheelEvent) => {
@@ -330,6 +375,7 @@ export function Reader({
           const document = contents?.document as Document | undefined;
           if (!document || wheelDocs.has(document)) return;
           wheelDocs.add(document);
+          injectCustomFont(document, customFontUrlRef.current);
           document.addEventListener("wheel", onWheel, { passive: false });
           document.addEventListener(
             "pointerdown",
@@ -408,6 +454,24 @@ export function Reader({
         });
         viewer.addEventListener("wheel", onWheel, { passive: false });
         removeViewerWheel = () => viewer.removeEventListener("wheel", onWheel);
+
+        const onResize = () => {
+          if (resizeTimer) window.clearTimeout(resizeTimer);
+          resizeTimer = window.setTimeout(() => {
+            if (renditionRef.current !== rendition) return;
+            const width = viewer.clientWidth;
+            const height = viewer.clientHeight;
+            if (width > 0 && height > 0) {
+              try {
+                rendition.resize(width, height);
+              } catch {
+                // The rendition may be between teardown and re-render.
+              }
+            }
+          }, 120);
+        };
+        resizeHandler = onResize;
+        window.addEventListener("resize", onResize);
 
         const navigation = await book.loaded.navigation;
         if (!disposed) {
@@ -638,6 +702,8 @@ export function Reader({
       disposed = true;
       applyHighlightsRef.current = () => {};
       openHighlightRef.current = () => {};
+      if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+      if (resizeTimer) window.clearTimeout(resizeTimer);
       removeViewerWheel?.();
       removeScrollListener?.();
       if (scrollTimer) {
@@ -664,12 +730,12 @@ export function Reader({
     // The reader is intentionally tied to a book identity and reading mode,
     // not every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meta.id, isScrollMode]);
+  }, [meta.id, isScrollMode, settings.columns]);
 
   useEffect(() => {
     const rendition = renditionRef.current;
     if (!rendition) return;
-    applyReaderTheme(rendition, settings);
+    applyReaderTheme(rendition, settings, customFontUrlRef.current);
   }, [settings]);
 
   const turnPage = useCallback(async (direction: "prev" | "next") => {
@@ -1220,6 +1286,31 @@ export function Reader({
     await rendition.display(highlight.cfi).catch(() => undefined);
   };
 
+  const importCustomFont = async (file: File) => {
+    const name = file.name.toLowerCase();
+    if (!/\.(ttf|otf|woff2?|ttc)$/.test(name)) {
+      throw new Error("请选择 TTF、OTF、WOFF 或 WOFF2 字体文件");
+    }
+    if (file.size > 30 * 1024 * 1024) {
+      throw new Error("字体文件不能超过 30MB");
+    }
+    const data = await file.arrayBuffer();
+    const id = `font-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const displayName = file.name.replace(/\.[^.]+$/, "");
+    await putFont({ id, name: displayName, data, createdAt: Date.now() });
+    const previous = settings.customFontId;
+    onSettingsChange({ customFontId: id, customFontName: displayName });
+    if (previous && previous !== id) {
+      void deleteFont(previous).catch(() => undefined);
+    }
+  };
+
+  const removeCustomFont = () => {
+    const id = settings.customFontId;
+    onSettingsChange({ customFontId: undefined, customFontName: undefined });
+    if (id) void deleteFont(id).catch(() => undefined);
+  };
+
   return (
     <section className={`reader reader--${settings.readingMode}`}>
       <header className="reader__topbar">
@@ -1377,6 +1468,8 @@ export function Reader({
             <SettingsPanel
               settings={settings}
               onChange={onSettingsChange}
+              onImportFont={importCustomFont}
+              onRemoveFont={removeCustomFont}
               onClose={() => setSettingsOpen(false)}
             />
           </>
@@ -1655,13 +1748,20 @@ function findHrefByLabel(items: TocEntry[], label: string): string | undefined {
   return undefined;
 }
 
-function applyReaderTheme(rendition: any, settings: ReaderSettings): void {
+function applyReaderTheme(
+  rendition: any,
+  settings: ReaderSettings,
+  customFontUrl?: string | null,
+): void {
   if (!rendition?.themes) return;
   const palette = palettes[settings.theme] ?? palettes.paper;
-  const family =
+  const baseFamily =
     settings.fontFamily === "sans"
       ? '"Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", sans-serif'
       : '"Noto Serif CJK SC", "Songti SC", "Source Han Serif SC", SimSun, Georgia, serif';
+  const family = customFontUrl
+    ? `"MoyueCustom", ${baseFamily}`
+    : baseFamily;
 
   // Many Chinese system fonts only ship regular and bold faces. Intermediate
   // weights would otherwise look identical, so use a light text color for
@@ -1681,11 +1781,13 @@ function applyReaderTheme(rendition: any, settings: ReaderSettings): void {
       "font-family": `${family} !important`,
       "font-weight": `${settings.fontWeight} !important`,
       "line-height": `${settings.lineHeight} !important`,
-      "padding": "0 4px !important",
+      "padding": `0 ${settings.margin}px !important`,
+      "writing-mode": settings.vertical ? "vertical-rl !important" : "horizontal-tb !important",
+      "text-orientation": settings.vertical ? "upright !important" : "mixed !important",
     },
     p: {
       "line-height": `${settings.lineHeight} !important`,
-      "margin-bottom": "1em !important",
+      "margin-bottom": `${settings.paragraphSpacing}em !important`,
     },
     "p, li, blockquote, td": {
       "font-weight": `${settings.fontWeight} !important`,
@@ -1712,7 +1814,25 @@ function applyReaderTheme(rendition: any, settings: ReaderSettings): void {
     },
   };
 
-  rendition.themes.register("moyue", rules);
-  rendition.themes.select("moyue");
-  rendition.themes.fontSize(`${settings.fontSize}px`);
+  try {
+    rendition.themes.register("moyue", rules);
+    rendition.themes.select("moyue");
+    rendition.themes.fontSize(`${settings.fontSize}px`);
+  } catch {
+    // The iframe may have been torn down between settings updates.
+  }
+}
+function injectCustomFont(document: Document | undefined, url: string | null): void {
+  if (!document || !url) return;
+  try {
+    let style = document.getElementById("moyue-custom-font") as HTMLStyleElement | null;
+    if (!style) {
+      style = document.createElement("style");
+      style.id = "moyue-custom-font";
+      document.head.appendChild(style);
+    }
+    style.textContent = `@font-face { font-family: "MoyueCustom"; src: url("${url}"); font-display: swap; }`;
+  } catch {
+    // Ignore iframes that are no longer accessible.
+  }
 }

@@ -18,6 +18,12 @@ export interface ReaderSettings {
   fontWeight: FontWeight;
   readingMode: ReadingMode;
   shelfView: ShelfView;
+  margin: number;
+  paragraphSpacing: number;
+  columns: 1 | 2;
+  vertical: boolean;
+  customFontId?: string;
+  customFontName?: string;
 }
 
 export interface BookMeta {

@@ -11,6 +11,10 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   fontWeight: 400,
   readingMode: "paginated",
   shelfView: "sidebar",
+  margin: 16,
+  paragraphSpacing: 1,
+  columns: 1,
+  vertical: false,
 };
 
 export function loadSettings(): ReaderSettings {
@@ -26,6 +30,17 @@ export function loadSettings(): ReaderSettings {
       fontWeight: normalizeFontWeight(parsed.fontWeight),
       readingMode: parsed.readingMode === "scroll" ? "scroll" : "paginated",
       shelfView: parsed.shelfView === "full" ? "full" : "sidebar",
+      margin: clamp(Number(parsed.margin) || DEFAULT_SETTINGS.margin, 0, 40),
+      paragraphSpacing: clamp(
+        Number(parsed.paragraphSpacing) || DEFAULT_SETTINGS.paragraphSpacing,
+        0.2,
+        2.4,
+      ),
+      columns: parsed.columns === 2 ? 2 : 1,
+      vertical: parsed.vertical === true,
+      customFontId: typeof parsed.customFontId === "string" ? parsed.customFontId : undefined,
+      customFontName:
+        typeof parsed.customFontName === "string" ? parsed.customFontName : undefined,
     };
   } catch {
     return DEFAULT_SETTINGS;

@@ -3,8 +3,16 @@ import { formatFromFileName } from "./format";
 import { parseBookFileName } from "./filename";
 
 const DB_NAME = "moyue-library";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = "books";
+const FONT_STORE = "fonts";
+
+export interface FontRecord {
+  id: string;
+  name: string;
+  data: ArrayBuffer;
+  createdAt: number;
+}
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -17,6 +25,9 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE)) {
         const store = db.createObjectStore(STORE, { keyPath: "id" });
         store.createIndex("lastOpenedAt", "lastOpenedAt");
+      }
+      if (!db.objectStoreNames.contains(FONT_STORE)) {
+        db.createObjectStore(FONT_STORE, { keyPath: "id" });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -85,4 +96,24 @@ export async function deleteBook(id: string): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(STORE, "readwrite");
   await requestToPromise(tx.objectStore(STORE).delete(id));
+}
+
+export async function putFont(record: FontRecord): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(FONT_STORE, "readwrite");
+  await requestToPromise(tx.objectStore(FONT_STORE).put(record));
+}
+
+export async function getFont(id: string): Promise<FontRecord | undefined> {
+  const db = await openDb();
+  const tx = db.transaction(FONT_STORE, "readonly");
+  return requestToPromise(
+    tx.objectStore(FONT_STORE).get(id) as IDBRequest<FontRecord | undefined>,
+  );
+}
+
+export async function deleteFont(id: string): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(FONT_STORE, "readwrite");
+  await requestToPromise(tx.objectStore(FONT_STORE).delete(id));
 }

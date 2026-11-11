@@ -1,9 +1,12 @@
+import { useRef, useState } from "react";
 import type { FontFamily, FontWeight, ReaderSettings, ThemeName } from "../types";
 import { Icon } from "./Icons";
 
 interface SettingsPanelProps {
   settings: ReaderSettings;
   onChange: (patch: Partial<ReaderSettings>) => void;
+  onImportFont: (file: File) => Promise<void>;
+  onRemoveFont: () => void;
   onClose: () => void;
 }
 
@@ -25,7 +28,31 @@ const weightOptions: { value: FontWeight; label: string }[] = [
   { value: 700, label: "加粗" },
 ];
 
-export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProps) {
+export function SettingsPanel({
+  settings,
+  onChange,
+  onImportFont,
+  onRemoveFont,
+  onClose,
+}: SettingsPanelProps) {
+  const fontInputRef = useRef<HTMLInputElement>(null);
+  const [fontBusy, setFontBusy] = useState(false);
+  const [fontError, setFontError] = useState<string | null>(null);
+
+  const importFont = async (file: File | undefined) => {
+    if (!file || fontBusy) return;
+    setFontError(null);
+    setFontBusy(true);
+    try {
+      await onImportFont(file);
+    } catch (error) {
+      setFontError(error instanceof Error ? error.message : "字体导入失败");
+    } finally {
+      setFontBusy(false);
+      if (fontInputRef.current) fontInputRef.current.value = "";
+    }
+  };
+
   return (
     <div className="drawer drawer--right" role="dialog" aria-label="阅读设置">
       <div className="drawer__header">
@@ -55,7 +82,12 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
             </button>
             <button
               className={`reading-mode-option ${settings.readingMode === "scroll" ? "reading-mode-option--active" : ""}`}
-              onClick={() => onChange({ readingMode: "scroll" })}
+              onClick={() =>
+                onChange({
+                  readingMode: "scroll",
+                  ...(settings.vertical ? { vertical: false } : {}),
+                })
+              }
             >
               <Icon name="chevron-down" size={18} />
               <span>上下滚动</span>
@@ -162,19 +194,117 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
             {fontOptions.map((font) => (
               <button
                 key={font.id}
-                className={`segmented__item segmented__item--${font.id} ${settings.fontFamily === font.id ? "segmented__item--active" : ""}`}
-                onClick={() => onChange({ fontFamily: font.id })}
+                className={`segmented__item segmented__item--${font.id} ${!settings.customFontId && settings.fontFamily === font.id ? "segmented__item--active" : ""}`}
+                onClick={() =>
+                  onChange({
+                    fontFamily: font.id,
+                    customFontId: undefined,
+                    customFontName: undefined,
+                  })
+                }
               >
                 {font.sample}
                 <small>{font.label}</small>
               </button>
             ))}
           </div>
+
+          <input
+            ref={fontInputRef}
+            type="file"
+            accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2"
+            className="hidden-file-input"
+            onChange={(event) => void importFont(event.target.files?.[0])}
+          />
+          {settings.customFontId ? (
+            <div className="custom-font-row">
+              <span className="custom-font-row__name" title={settings.customFontName}>
+                <Icon name="pen" size={13} />
+                {settings.customFontName || "自定义字体"}
+              </span>
+              <button
+                className="text-button"
+                onClick={onRemoveFont}
+                aria-label="移除自定义字体"
+              >
+                移除
+              </button>
+            </div>
+          ) : null}
+          <button
+            className="button button--ghost settings-font-button"
+            onClick={() => fontInputRef.current?.click()}
+            disabled={fontBusy}
+          >
+            <Icon name="upload" size={14} />
+            {fontBusy ? "正在导入…" : "导入本地字体"}
+          </button>
+          <p className="settings-field-hint">支持 TTF / OTF / WOFF / WOFF2，建议不超过 30MB。</p>
+          {fontError ? <p className="settings-error">{fontError}</p> : null}
+        </section>
+
+        <section className="settings-section">
+          <div className="settings-section__title">
+            <span>页边距</span>
+            <small>{settings.margin} px</small>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={40}
+            step={1}
+            value={settings.margin}
+            onChange={(event) => onChange({ margin: Number(event.target.value) })}
+          />
+        </section>
+
+        <section className="settings-section">
+          <div className="settings-section__title">
+            <span>段间距</span>
+            <small>{settings.paragraphSpacing.toFixed(1)} em</small>
+          </div>
+          <input
+            type="range"
+            min={0.2}
+            max={2.4}
+            step={0.1}
+            value={settings.paragraphSpacing}
+            onChange={(event) =>
+              onChange({ paragraphSpacing: Number(event.target.value) })
+            }
+          />
+        </section>
+
+        <section className="settings-section">
+          <div className="settings-section__title">
+            <span>版式</span>
+            <small>栏数与方向</small>
+          </div>
+          <div className="layout-options">
+            <div className="layout-option">
+              <span>分栏</span>
+              <div className="segmented segmented--compact">
+                <button
+                  className={`segmented__item ${settings.columns === 1 ? "segmented__item--active" : ""}`}
+                  onClick={() => onChange({ columns: 1 })}
+                >
+                  单栏
+                </button>
+                <button
+                  className={`segmented__item ${settings.columns === 2 ? "segmented__item--active" : ""}`}
+                  onClick={() => onChange({ columns: 2 })}
+                >
+                  双栏
+                </button>
+              </div>
+            </div>
+          </div>
+          <p className="settings-field-hint">双栏在左右翻页时按两页显示；竖排暂未开放。</p>
         </section>
 
         <p className="settings-note">
           设置会自动保存。左右翻页时可用鼠标滚轮或方向键；上下滚动模式直接滚动阅读。
-          主题、字号和字重只影响阅读区域，不改变书本身的排版。
+          排版设置只影响阅读区域，不改写书文件。
         </p>
       </div>
     </div>
