@@ -30,6 +30,7 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 - **自定义封面**：为任意书籍选择本地图片，只修改书库显示，不改写原文件
 - **本地音乐**：扫描本地音乐文件夹，支持 MP3 / FLAC / WAV / M4A / AAC / OGG / OPUS
 - **音乐播放器**：列表播放、上一首 / 下一首、进度、音量；关闭面板后继续播放
+- **听书**：用系统中文语音朗读当前章节，支持暂停、语速、音色、定时关闭和自动下一章
 
 | 阅读界面 | 目录 |
 | --- | --- |
@@ -55,6 +56,10 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 | --- | --- |
 | ![全屏书架](docs/full-shelf.png) | ![软件设置](docs/settings.png) |
 
+| 听书 | 卸载 |
+| --- | --- |
+| ![听书](docs/tts.png) | ![卸载](docs/uninstall.png) |
+
 ## 技术栈
 
 - **桌面外壳**：Tauri 2（Rust + 系统 WebView2）
@@ -63,6 +68,7 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 - **TXT 转换**：JSZip 在内存中生成轻量 EPUB
 - **本地存储**：IndexedDB（书籍、封面、TXT 原文）+ localStorage（进度、设置、分类）
 - **音乐**：HTMLAudioElement + Tauri asset protocol
+- **听书**：Web Speech API + Windows 系统中文语音（离线）
 - **图标**：Python / Pillow 生成
 
 ## 开发环境
@@ -147,6 +153,18 @@ npm run tauri:build
 
 这个选择会自动保存，下次打开仍然生效。全屏书架模式下不再显示左下角书架控件，`Ctrl+B` 也不再生效；回到左侧书架模式后恢复。
 
+## 听书
+
+阅读界面右上角的耳机按钮打开听书面板：
+
+- 使用 Windows 系统语音，不需要联网
+- 朗读当前章节，读完自动进入下一章
+- 暂停 / 继续、语速调节、中文音色选择
+- 15 / 30 / 60 分钟定时关闭
+- 关闭面板后继续朗读，左下角显示迷你播放条
+
+当前版本从当前章节开头开始朗读，暂不支持逐句高亮。音色取决于系统已安装的语音；如果只有英文语音，可以在 Windows「设置 → 时间和语言 → 语音」中安装中文语音。
+
 ## 软件设置与卸载
 
 点击书架底部的齿轮按钮打开「软件设置」：
@@ -183,6 +201,7 @@ npm run tauri:build
 - 尚无全文搜索、划线批注、书签列表和多栏排版
 - TXT 章节识别依赖常见标题格式；没有标题时会按长度自动分节
 - 音乐只读取本地文件夹，不读取音频内嵌标签；歌名 / 歌手按文件名解析
+- 听书使用系统 TTS，音色取决于 Windows 已安装的语音，暂不支持逐句高亮
 - 音乐「打开文件夹」目前只支持 Windows
 - 本地数据保存在 WebView2 中；清除应用数据会同时清除书库和进度
 

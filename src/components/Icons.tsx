@@ -20,6 +20,7 @@ export type IconName =
   | "image"
   | "sidebar"
   | "music"
+  | "headphones"
   | "play"
   | "pause"
   | "skip-back"
@@ -132,6 +133,12 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="M9 18V5l12-2v13" />
       <circle cx="6" cy="18" r="3" />
       <circle cx="18" cy="16" r="3" />
+    </>
+  ),
+  headphones: (
+    <>
+      <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
+      <path d="M4 14h3v6H5a1 1 0 0 1-1-1zM20 14h-3v6h2a1 1 0 0 0 1-1z" />
     </>
   ),
   play: <path d="m8 5 11 7-11 7z" />,

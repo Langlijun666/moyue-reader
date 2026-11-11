@@ -6,6 +6,7 @@ import { decodeTxt, txtToEpub } from "../lib/txt";
 import { Icon } from "./Icons";
 import { SettingsPanel } from "./SettingsPanel";
 import { TocPanel } from "./TocPanel";
+import { TtsPlayer } from "./TtsPlayer";
 
 interface ReaderProps {
   meta: BookMeta;
@@ -87,6 +88,7 @@ export function Reader({
   const [error, setError] = useState<string | null>(null);
   const [tocOpen, setTocOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [ttsOpen, setTtsOpen] = useState(false);
   const [flip, setFlip] = useState<"prev" | "next" | null>(null);
   const [flipNonce, setFlipNonce] = useState(0);
   const flipTimerRef = useRef<number | null>(null);
@@ -111,12 +113,12 @@ export function Reader({
   }, [toc]);
 
   useEffect(() => {
-    panelOpenRef.current = tocOpen || settingsOpen;
+    panelOpenRef.current = tocOpen || settingsOpen || ttsOpen;
     if (tocOpen || settingsOpen) {
       // Close the page-turn overlay when a drawer opens.
       setFlip(null);
     }
-  }, [tocOpen, settingsOpen]);
+  }, [tocOpen, settingsOpen, ttsOpen]);
 
   useEffect(() => {
     let disposed = false;
@@ -473,6 +475,64 @@ export function Reader({
     turnPageRef.current = turnPage;
   }, [turnPage]);
 
+  const extractCurrentChapterText = useCallback(async (): Promise<string | null> => {
+    const rendition = renditionRef.current;
+    if (!rendition) return null;
+
+    const location = rendition.currentLocation?.();
+    const href = (location?.start?.href ?? "").split("#")[0];
+    const rawContents = rendition.getContents?.() ?? [];
+    const contents = Array.isArray(rawContents) ? rawContents : [rawContents];
+    const holder =
+      contents.find((item: any) => (item?.section?.href ?? "").split("#")[0] === href) ??
+      contents[0];
+    let documentElement = holder?.document as Document | undefined;
+
+    if (!documentElement) {
+      const frame = viewerRef.current?.querySelector<HTMLIFrameElement>("iframe");
+      documentElement = frame?.contentDocument ?? undefined;
+    }
+
+    try {
+      const raw = documentElement?.body?.innerText ?? documentElement?.body?.textContent ?? "";
+      const text = raw.replace(/\s+/g, " ").replace(/\u00a0/g, " ").trim();
+      return text.length > 5 ? text : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const loadCurrentChapterText = useCallback(async (): Promise<string | null> => {
+    return extractCurrentChapterText();
+  }, [extractCurrentChapterText]);
+
+  const loadNextChapterText = useCallback(async (): Promise<string | null> => {
+    const book = bookRef.current;
+    const rendition = renditionRef.current;
+    if (!book || !rendition) return null;
+
+    const currentHref = (rendition.currentLocation?.()?.start?.href ?? "").split("#")[0];
+    const items = book.spine?.spineItems ?? [];
+    const index = items.findIndex(
+      (item: any) => (item.href ?? "").split("#")[0] === currentHref,
+    );
+    if (index < 0) return null;
+
+    for (let nextIndex = index + 1; nextIndex < items.length; nextIndex += 1) {
+      const item = items[nextIndex];
+      if (item.linear === false) continue;
+      try {
+        await rendition.display(item.href);
+        await new Promise((resolve) => window.setTimeout(resolve, 260));
+        const text = await extractCurrentChapterText();
+        if (text && text.length > 20) return text;
+      } catch {
+        // Try the following section if this one cannot be displayed.
+      }
+    }
+    return null;
+  }, [extractCurrentChapterText]);
+
   useEffect(() => {
     return () => {
       if (flipTimerRef.current !== null) {
@@ -487,11 +547,12 @@ export function Reader({
       if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
 
       if (event.key === "Escape") {
-        if (tocOpen) setTocOpen(false);
+        if (ttsOpen) setTtsOpen(false);
+        else if (tocOpen) setTocOpen(false);
         else if (settingsOpen) setSettingsOpen(false);
         return;
       }
-      if (!ready || tocOpen || settingsOpen) return;
+      if (!ready || tocOpen || settingsOpen || ttsOpen) return;
 
       if (settings.readingMode === "scroll") {
         const scroller = viewerRef.current?.querySelector<HTMLElement>(".epub-container") ?? viewerRef.current;
@@ -514,7 +575,7 @@ export function Reader({
         void turnPage("next");
       }
     },
-    [ready, tocOpen, settingsOpen, settings.readingMode, turnPage],
+    [ready, tocOpen, settingsOpen, ttsOpen, settings.readingMode, turnPage],
   );
 
   useEffect(() => {
@@ -592,6 +653,19 @@ export function Reader({
             <Icon name="music" size={19} />
           </button>
           <button
+            className={`icon-button ${ttsOpen ? "icon-button--active" : ""}`}
+            onClick={() => {
+              setTocOpen(false);
+              setSettingsOpen(false);
+              setTtsOpen((open) => !open);
+            }}
+            aria-label="听书"
+            title="听书"
+            disabled={!ready}
+          >
+            <Icon name="headphones" size={19} />
+          </button>
+          <button
             className="icon-button"
             onClick={onChangeCover}
             title="更换封面"
@@ -603,6 +677,7 @@ export function Reader({
             className={`icon-button ${tocOpen ? "icon-button--active" : ""}`}
             onClick={() => {
               setSettingsOpen(false);
+              setTtsOpen(false);
               setTocOpen((open) => !open);
             }}
             aria-label="目录"
@@ -614,6 +689,7 @@ export function Reader({
             className={`icon-button ${settingsOpen ? "icon-button--active" : ""}`}
             onClick={() => {
               setTocOpen(false);
+              setTtsOpen(false);
               setSettingsOpen((open) => !open);
             }}
             aria-label="阅读设置"
@@ -716,6 +792,15 @@ export function Reader({
           </button>
         )}
       </footer>
+
+      <TtsPlayer
+        open={ttsOpen}
+        onOpen={() => setTtsOpen(true)}
+        onClose={() => setTtsOpen(false)}
+        chapterLabel={currentLabel}
+        loadCurrentChapter={loadCurrentChapterText}
+        loadNextChapter={loadNextChapterText}
+      />
     </section>
   );
 }
