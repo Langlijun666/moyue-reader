@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { ThemeName } from "../types";
+import type { ShelfView, ThemeName } from "../types";
 import { Icon } from "./Icons";
 
 interface AppSettingsPanelProps {
@@ -8,6 +8,8 @@ interface AppSettingsPanelProps {
   onClose: () => void;
   theme: ThemeName;
   onThemeChange: (theme: ThemeName) => void;
+  shelfView: ShelfView;
+  onShelfViewChange: (view: ShelfView) => void;
   onUninstall: () => void;
 }
 
@@ -24,9 +26,11 @@ export function AppSettingsPanel({
   onClose,
   theme,
   onThemeChange,
+  shelfView,
+  onShelfViewChange,
   onUninstall,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.2.1");
+  const [version, setVersion] = useState("0.3.0");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -132,6 +136,39 @@ export function AppSettingsPanel({
                   <small>{item.hint}</small>
                 </button>
               ))}
+            </div>
+          </section>
+
+          <section className="settings-section">
+            <div className="settings-section__title">
+              <span>书架视图</span>
+              <small>下次打开也生效</small>
+            </div>
+            <div className="app-shelf-options">
+              <button
+                className={`app-shelf-option ${shelfView === "sidebar" ? "app-shelf-option--active" : ""}`}
+                onClick={() => onShelfViewChange("sidebar")}
+              >
+                <span className="app-shelf-option__preview app-shelf-option__preview--sidebar">
+                  <i />
+                  <i />
+                </span>
+                <strong>左侧书架</strong>
+                <small>阅读时保留左侧书架</small>
+              </button>
+              <button
+                className={`app-shelf-option ${shelfView === "full" ? "app-shelf-option--active" : ""}`}
+                onClick={() => onShelfViewChange("full")}
+              >
+                <span className="app-shelf-option__preview app-shelf-option__preview--full">
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <strong>全屏书架</strong>
+                <small>书架占满窗口，阅读时正文全宽</small>
+              </button>
             </div>
           </section>
 

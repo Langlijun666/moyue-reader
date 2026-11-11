@@ -17,6 +17,7 @@ interface ReaderProps {
   onSettingsChange: (patch: Partial<ReaderSettings>) => void;
   onChangeCover: () => void;
   sidebarHidden: boolean;
+  showSidebarToggle: boolean;
   onToggleSidebar: () => void;
   onOpenMusic: () => void;
 }
@@ -62,6 +63,7 @@ export function Reader({
   onSettingsChange,
   onChangeCover,
   sidebarHidden,
+  showSidebarToggle,
   onToggleSidebar,
   onOpenMusic,
 }: ReaderProps) {
@@ -563,14 +565,16 @@ export function Reader({
         <button className="icon-button icon-button--quiet" onClick={onBack} aria-label="回到书架">
           <Icon name="arrow-left" size={20} />
         </button>
-        <button
-          className={`icon-button icon-button--quiet ${sidebarHidden ? "icon-button--active" : ""}`}
-          onClick={onToggleSidebar}
-          aria-label={sidebarHidden ? "显示书架" : "隐藏书架"}
-          title={sidebarHidden ? "显示书架 (Ctrl+B)" : "隐藏书架 (Ctrl+B)"}
-        >
-          <Icon name="sidebar" size={19} />
-        </button>
+        {showSidebarToggle ? (
+          <button
+            className={`icon-button icon-button--quiet ${sidebarHidden ? "icon-button--active" : ""}`}
+            onClick={onToggleSidebar}
+            aria-label={sidebarHidden ? "显示书架" : "隐藏书架"}
+            title={sidebarHidden ? "显示书架 (Ctrl+B)" : "隐藏书架 (Ctrl+B)"}
+          >
+            <Icon name="sidebar" size={19} />
+          </button>
+        ) : null}
         <div className="reader__identity">
           <span className="reader__title">{meta.title}</span>
           <span className="reader__author">{meta.author}</span>

@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   fontFamily: "serif",
   fontWeight: 400,
   readingMode: "paginated",
+  shelfView: "sidebar",
 };
 
 export function loadSettings(): ReaderSettings {
@@ -24,6 +25,7 @@ export function loadSettings(): ReaderSettings {
       fontFamily: parsed.fontFamily === "sans" ? "sans" : "serif",
       fontWeight: normalizeFontWeight(parsed.fontWeight),
       readingMode: parsed.readingMode === "scroll" ? "scroll" : "paginated",
+      shelfView: parsed.shelfView === "full" ? "full" : "sidebar",
     };
   } catch {
     return DEFAULT_SETTINGS;

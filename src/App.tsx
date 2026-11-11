@@ -17,6 +17,7 @@ import { loadProgressMap, loadSettings, saveProgress, saveSettings } from "./lib
 import { Sidebar } from "./components/Sidebar";
 import { EmptyState } from "./components/EmptyState";
 import { Reader } from "./components/Reader";
+import { FullShelf } from "./components/FullShelf";
 import { MusicPlayer } from "./components/MusicPlayer";
 import { CategoryManager } from "./components/CategoryManager";
 import { AssignCategories } from "./components/AssignCategories";
@@ -28,6 +29,7 @@ export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
   const [active, setActive] = useState<BookRecord | null>(null);
   const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
+  const fullShelf = settings.shelfView === "full";
   const [progressMap, setProgressMap] = useState<Record<string, Progress>>(loadProgressMap);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
@@ -134,7 +136,7 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!active) return;
+      if (!active || fullShelf) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
         event.preventDefault();
         setSidebarHidden((hidden) => !hidden);
@@ -142,7 +144,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [active]);
+  }, [active, fullShelf]);
 
   const shelf = useMemo(
     () => library.map((book) => ({ ...book, progress: progressMap[book.id] })),
@@ -395,7 +397,7 @@ export default function App() {
 
   return (
     <div
-      className={`app ${active && sidebarHidden ? "app--sidebar-hidden" : ""}`}
+      className={`app ${active && sidebarHidden && !fullShelf ? "app--sidebar-hidden" : ""} ${fullShelf ? "app--full-shelf" : ""}`}
       data-theme={settings.theme}
       onDragEnter={(event) => {
         event.preventDefault();
@@ -418,35 +420,37 @@ export default function App() {
         void onPickFile(event.dataTransfer.files);
       }}
     >
-      <Sidebar
-        books={shelf}
-        activeId={active?.id}
-        query={query}
-        settings={settings}
-        busy={busy}
-        hidden={Boolean(active && sidebarHidden)}
-        onQueryChange={setQuery}
-        onImport={() => fileInputRef.current?.click()}
-        onOpen={(book) => void openBook(book)}
-        onDelete={(book) => void removeBook(book)}
-        onChangeCover={requestCoverChange}
-        onSample={() => void loadSample()}
-        onToggleTheme={toggleTheme}
-        onOpenMusic={() => setMusicOpen(true)}
-        onOpenSettings={() => setAppSettingsOpen(true)}
-        categories={categoryData.categories}
-        assignments={categoryData.assignments}
-        categoryCounts={categoryCounts}
-        viewMode={viewMode}
-        selectedCategoryId={selectedCategoryId}
-        onViewModeChange={(mode) => {
-          setViewMode(mode);
-          if (mode === "all") setSelectedCategoryId("all");
-        }}
-        onCategorySelect={setSelectedCategoryId}
-        onManageCategories={() => setCategoryManagerOpen(true)}
-        onAssignCategories={(book) => setAssignBook(book)}
-      />
+      {!fullShelf ? (
+        <Sidebar
+          books={shelf}
+          activeId={active?.id}
+          query={query}
+          settings={settings}
+          busy={busy}
+          hidden={Boolean(active && sidebarHidden)}
+          onQueryChange={setQuery}
+          onImport={() => fileInputRef.current?.click()}
+          onOpen={(book) => void openBook(book)}
+          onDelete={(book) => void removeBook(book)}
+          onChangeCover={requestCoverChange}
+          onSample={() => void loadSample()}
+          onToggleTheme={toggleTheme}
+          onOpenMusic={() => setMusicOpen(true)}
+          onOpenSettings={() => setAppSettingsOpen(true)}
+          categories={categoryData.categories}
+          assignments={categoryData.assignments}
+          categoryCounts={categoryCounts}
+          viewMode={viewMode}
+          selectedCategoryId={selectedCategoryId}
+          onViewModeChange={(mode) => {
+            setViewMode(mode);
+            if (mode === "all") setSelectedCategoryId("all");
+          }}
+          onCategorySelect={setSelectedCategoryId}
+          onManageCategories={() => setCategoryManagerOpen(true)}
+          onAssignCategories={(book) => setAssignBook(book)}
+        />
+      ) : null}
 
       <main className="workspace">
         {active ? (
@@ -460,9 +464,38 @@ export default function App() {
             onProgress={handleProgress}
             onSettingsChange={updateSettings}
             onChangeCover={() => requestCoverChange(active)}
-            sidebarHidden={sidebarHidden}
+            sidebarHidden={fullShelf ? true : sidebarHidden}
+            showSidebarToggle={!fullShelf}
             onToggleSidebar={() => setSidebarHidden((hidden) => !hidden)}
             onOpenMusic={() => setMusicOpen(true)}
+          />
+        ) : fullShelf ? (
+          <FullShelf
+            books={shelf}
+            query={query}
+            onQueryChange={setQuery}
+            categories={categoryData.categories}
+            assignments={categoryData.assignments}
+            categoryCounts={categoryCounts}
+            viewMode={viewMode}
+            selectedCategoryId={selectedCategoryId}
+            onViewModeChange={(mode) => {
+              setViewMode(mode);
+              if (mode === "all") setSelectedCategoryId("all");
+            }}
+            onCategorySelect={setSelectedCategoryId}
+            onManageCategories={() => setCategoryManagerOpen(true)}
+            onAssignCategories={(book) => setAssignBook(book)}
+            onOpen={(book) => void openBook(book)}
+            onDelete={(book) => void removeBook(book)}
+            onChangeCover={requestCoverChange}
+            onImport={() => fileInputRef.current?.click()}
+            onSample={() => void loadSample()}
+            busy={busy}
+            theme={settings.theme}
+            onToggleTheme={toggleTheme}
+            onOpenMusic={() => setMusicOpen(true)}
+            onOpenSettings={() => setAppSettingsOpen(true)}
           />
         ) : (
           <EmptyState
@@ -554,6 +587,11 @@ export default function App() {
         theme={settings.theme}
         onClose={() => setAppSettingsOpen(false)}
         onThemeChange={(theme) => updateSettings({ theme })}
+        shelfView={settings.shelfView}
+        onShelfViewChange={(shelfView) => {
+          updateSettings({ shelfView });
+          if (shelfView === "sidebar") setSidebarHidden(false);
+        }}
         onUninstall={() => {
           setAppSettingsOpen(false);
           setUninstallOpen(true);
