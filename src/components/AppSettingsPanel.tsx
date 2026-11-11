@@ -16,6 +16,7 @@ interface AppSettingsPanelProps {
   backupBusy: boolean;
   backupMessage: string | null;
   backupDir: string;
+  onOpenSponsor: () => void;
   onUninstall: () => void;
 }
 
@@ -40,9 +41,10 @@ export function AppSettingsPanel({
   backupBusy,
   backupMessage,
   backupDir,
+  onOpenSponsor,
   onUninstall,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.7.0");
+  const [version, setVersion] = useState("0.8.0");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -267,6 +269,21 @@ export function AppSettingsPanel({
             </div>
             <p className="app-repo-url">{REPO_URL}</p>
             <p className="app-license">MIT License · 2026 Moyue contributors</p>
+          </section>
+
+          <section className="sponsor-support">
+            <div className="sponsor-support__copy">
+              <span>
+                <Icon name="spark" size={15} />
+              </span>
+              <div>
+                <strong>支持墨阅</strong>
+                <p>如果它帮你省下了一点时间，可以请我喝杯咖啡。</p>
+              </div>
+            </div>
+            <button className="button button--ghost" onClick={onOpenSponsor}>
+              支持开发
+            </button>
           </section>
 
           <section className="app-settings__danger">

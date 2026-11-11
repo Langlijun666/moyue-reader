@@ -113,6 +113,24 @@ fn open_backup_folder(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+const SPONSOR_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/issues/new?template=sponsorship.yml&title=%5B%E8%B5%9E%E5%8A%A9%E7%99%BB%E8%AE%B0%5D%20";
+
+#[tauri::command]
+fn open_sponsor_issue() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(SPONSOR_ISSUE_URL)
+            .spawn()
+            .map_err(|error| format!("无法打开赞助登记页面：{error}"))?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err("当前平台暂不支持自动打开浏览器".to_string());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn write_backup(
     app: tauri::AppHandle,
@@ -308,6 +326,7 @@ pub fn run() {
             backup_dir,
             open_backup_folder,
             write_backup,
+            open_sponsor_issue,
             uninstall_app
         ])
         .run(tauri::generate_context!())

@@ -3317,6 +3317,237 @@ input:focus-visible,
   background: var(--surface-2);
 }
 
+/* ---------- sponsorship ---------- */
+
+.sponsor-backdrop {
+  z-index: 85;
+}
+
+.sponsor-dialog {
+  display: flex;
+  width: min(580px, calc(100vw - 40px));
+  max-height: min(88vh, 760px);
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 28px 70px -28px var(--shadow);
+  animation: fade-up 180ms ease both;
+}
+
+.sponsor-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sponsor-dialog__header h3 {
+  margin: 5px 0 0;
+  font-family: var(--serif-font);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.sponsor-dialog__body {
+  padding: 16px 22px 22px;
+  overflow-y: auto;
+}
+
+.sponsor-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.8;
+}
+
+.sponsor-qr-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.sponsor-qr-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 11px 11px 10px;
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.sponsor-qr-card__title {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.sponsor-qr-card__badge {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  color: #fff;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sponsor-qr-card__badge--alipay {
+  background: #1677ff;
+}
+
+.sponsor-qr-card__badge--wechat {
+  background: #07c160;
+}
+
+.sponsor-qr-card img {
+  width: 100%;
+  max-width: 210px;
+  margin: 8px auto 5px;
+  display: block;
+  border-radius: 6px;
+}
+
+.sponsor-qr-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.sponsor-note {
+  margin: 11px 0 0;
+  color: var(--muted);
+  text-align: center;
+  font-size: 8.5px;
+}
+
+.sponsor-thanks {
+  margin-top: 16px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--surface-2) 42%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.sponsor-thanks__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.sponsor-thanks__title small {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 400;
+}
+
+.sponsor-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.sponsor-list span {
+  padding: 4px 8px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border-radius: 99px;
+  font-size: 9px;
+}
+
+.sponsor-thanks p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 8.5px;
+  line-height: 1.6;
+}
+
+.sponsor-register {
+  height: 30px;
+  margin-top: 9px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 9px;
+}
+
+.sponsor-error {
+  margin: 7px 0 0;
+  color: #b9473a;
+  font-size: 9px;
+}
+
+.sponsor-use {
+  margin: 14px 0 0;
+  color: var(--muted);
+  text-align: center;
+  font-size: 8.5px;
+  line-height: 1.7;
+}
+
+.sponsor-support {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
+  border-radius: 11px;
+}
+
+.sponsor-support__copy {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.sponsor-support__copy > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-radius: 8px;
+}
+
+.sponsor-support__copy strong {
+  display: block;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.sponsor-support__copy p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 8.5px;
+  line-height: 1.5;
+}
+
+.sponsor-support .button {
+  height: 30px;
+  flex: 0 0 auto;
+  padding: 0 9px;
+  border-radius: 7px;
+  font-size: 9px;
+}
+
 /* ---------- app settings ---------- */
 
 .app-settings-backdrop {

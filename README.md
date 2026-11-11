@@ -261,6 +261,24 @@ npm run tauri:build
 
 欢迎提交 issue 和 pull request。开发说明见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
+## 支持墨阅
+
+如果墨阅帮你省下了一点时间，可以请我喝杯咖啡。
+
+赞助是一次性的，不会解锁任何功能，所有功能仍然免费。赞助主要用于代码签名证书、域名和后续开发。
+
+| 支付宝 | 微信支付 |
+| --- | --- |
+| <img src="docs/sponsor-alipay.png" width="260" alt="支付宝赞助二维码"> | <img src="docs/sponsor-wechat.png" width="260" alt="微信支付赞助二维码"> |
+
+付款前请确认收款方为「浪里君」。
+
+赞助后如果想出现在公开感谢名单，可以提交[赞助登记](https://github.com/Langlijun666/moyue-reader/issues/new?template=sponsorship.yml)。名单只显示昵称，不显示金额或付款信息。
+
+### 感谢支持者
+
+- 浪里君
+
 ## 更新记录
 
 见 [CHANGELOG.md](CHANGELOG.md)。

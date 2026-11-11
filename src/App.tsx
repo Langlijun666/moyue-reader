@@ -24,11 +24,12 @@ import { CategoryManager } from "./components/CategoryManager";
 import { AssignCategories } from "./components/AssignCategories";
 import { AppSettingsPanel } from "./components/AppSettingsPanel";
 import { UninstallDialog } from "./components/UninstallDialog";
+import { SponsorDialog } from "./components/SponsorDialog";
 import { Icon } from "./components/Icons";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.7.0";
+const APP_VERSION = "0.8.0";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -54,6 +55,7 @@ export default function App() {
   const [assignBook, setAssignBook] = useState<BookMeta | null>(null);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [uninstallOpen, setUninstallOpen] = useState(false);
+  const [sponsorOpen, setSponsorOpen] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [backupDir, setBackupDir] = useState("");
@@ -544,6 +546,13 @@ export default function App() {
     }
   };
 
+  const openSponsorIssue = async () => {
+    if (!("__TAURI_INTERNALS__" in window)) {
+      throw new Error("赞助登记页面仅在桌面版中打开");
+    }
+    await invoke("open_sponsor_issue");
+  };
+
   const confirmUninstall = async (_reason: string, deleteData: boolean) => {
     if (!("__TAURI_INTERNALS__" in window)) {
       throw new Error("自动卸载仅在安装版中可用");
@@ -767,10 +776,17 @@ export default function App() {
         backupBusy={backupBusy}
         backupMessage={backupMessage}
         backupDir={backupDir}
+        onOpenSponsor={() => setSponsorOpen(true)}
         onUninstall={() => {
           setAppSettingsOpen(false);
           setUninstallOpen(true);
         }}
+      />
+
+      <SponsorDialog
+        open={sponsorOpen}
+        onClose={() => setSponsorOpen(false)}
+        onRegister={openSponsorIssue}
       />
 
       <UninstallDialog

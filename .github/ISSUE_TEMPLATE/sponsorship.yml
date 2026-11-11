@@ -1,0 +1,28 @@
+name: 赞助登记
+description: 登记公开展示的赞助昵称（只显示昵称）
+title: "[赞助登记] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢支持墨阅。
+
+        这个 Issue 用于登记公开感谢名单，**名单只显示昵称**，不会显示金额、付款信息或真实姓名。
+        如果不想公开昵称，关闭这个页面即可，不需要登记。
+
+  - type: input
+    id: nickname
+    attributes:
+      label: 公开昵称
+      description: 将显示在 README 和软件内的感谢名单中
+      placeholder: 例如：浪里君
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: 确认
+      options:
+        - label: 我同意只公开这个昵称，并理解名单为手动更新
+          required: true
