@@ -3068,6 +3068,91 @@ input:focus-visible,
   font-size: 9.5px;
 }
 
+.tts-engine-switch {
+  display: flex;
+  gap: 3px;
+  margin-top: 11px;
+  padding: 2px;
+  background: var(--surface-2);
+  border-radius: 7px;
+}
+
+.tts-engine-switch button {
+  flex: 1;
+  padding: 6px 4px;
+  color: var(--muted);
+  border-radius: 5px;
+  font-size: 8.5px;
+}
+
+.tts-engine-switch .tts-engine-switch__active {
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 2px 5px -4px var(--shadow);
+}
+
+.tts-neural-setup {
+  margin-top: 12px;
+  padding: 11px;
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
+  border-radius: 9px;
+}
+
+.tts-neural-setup p {
+  margin: 0 0 9px;
+  color: var(--muted);
+  font-size: 8.5px;
+  line-height: 1.65;
+}
+
+.tts-download-button {
+  width: 100%;
+  height: 31px;
+  border-radius: 7px;
+  font-size: 9px;
+}
+
+.tts-download-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.tts-download-status span {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.tts-neural-ready {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.tts-neural-ready .text-button {
+  padding: 0;
+  font-size: 8.5px;
+}
+
+.tts-field--neural-voice {
+  justify-content: space-between;
+}
+
+.tts-field--neural-voice > span:last-child {
+  color: var(--ink);
+  font-size: 8.5px;
+}
+
+.tts-audio {
+  display: none;
+}
+
 .tts-progress {
   height: 2px;
   margin-top: 6px;

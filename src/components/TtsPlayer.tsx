@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { formatBytes } from "../lib/format";
 import { Icon } from "./Icons";
 
 export interface TtsChapter {
@@ -27,10 +30,27 @@ interface TtsChunk {
 
 type TtsStatus = "idle" | "loading" | "playing" | "paused" | "ended";
 type TtsStyle = "calm" | "story" | "suspense" | "brisk";
+type TtsEngine = "system" | "neural";
+
+interface NeuralStatus {
+  installed: boolean;
+  directory: string;
+  bytes: number;
+  message: string;
+}
+
+interface NeuralProgress {
+  stage: string;
+  downloaded: number;
+  total: number;
+  percent: number;
+  message: string;
+}
 
 const VOICE_KEY = "moyue.tts.voice.v1";
 const RATE_KEY = "moyue.tts.rate.v1";
 const STYLE_KEY = "moyue.tts.style.v1";
+const ENGINE_KEY = "moyue.tts.engine.v1";
 const CHUNK_LIMIT = 180;
 
 const styles: {
@@ -57,6 +77,7 @@ export function TtsPlayer({
   onStop,
 }: TtsPlayerProps) {
   const supported = typeof window !== "undefined" && "speechSynthesis" in window;
+  const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
   const synth = supported ? window.speechSynthesis : null;
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [voiceURI, setVoiceURI] = useState(() => {
@@ -82,6 +103,17 @@ export function TtsPlayer({
       return "story";
     }
   });
+  const [engine, setEngine] = useState<TtsEngine>(() => {
+    try {
+      return localStorage.getItem(ENGINE_KEY) === "neural" ? "neural" : "system";
+    } catch {
+      return "system";
+    }
+  });
+  const [neuralStatus, setNeuralStatus] = useState<NeuralStatus | null>(null);
+  const [neuralBusy, setNeuralBusy] = useState(false);
+  const [neuralProgress, setNeuralProgress] = useState<NeuralProgress | null>(null);
+  const [neuralError, setNeuralError] = useState<string | null>(null);
   const [status, setStatus] = useState<TtsStatus>("idle");
   const [chunkIndex, setChunkIndex] = useState(0);
   const [chunkCount, setChunkCount] = useState(0);
@@ -95,8 +127,15 @@ export function TtsPlayer({
   const chapterRef = useRef<TtsChapter | null>(null);
   const rateRef = useRef(rate);
   const styleRef = useRef<TtsStyle>(style);
+  const engineRef = useRef<TtsEngine>(engine);
   const pauseTimerRef = useRef<number | null>(null);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  const neuralStatusRef = useRef<NeuralStatus | null>(null);
+  const neuralAudioRef = useRef<HTMLAudioElement>(null);
+  const neuralCacheRef = useRef<Map<number, string>>(new Map());
+  const neuralPromisesRef = useRef<Map<number, Promise<string>>>(new Map());
+  const neuralIndexRef = useRef(0);
+  const neuralRunRef = useRef(0);
   const loadCurrentRef = useRef(loadCurrentChapter);
   const loadNextRef = useRef(loadNextChapter);
   const onSentenceRef = useRef(onSentence);
@@ -121,6 +160,47 @@ export function TtsPlayer({
       // TTS still works without persistence.
     }
   }, [style]);
+
+  useEffect(() => {
+    engineRef.current = engine;
+    try {
+      localStorage.setItem(ENGINE_KEY, engine);
+    } catch {
+      // TTS still works without persistence.
+    }
+  }, [engine]);
+
+  useEffect(() => {
+    if (!open || !isTauri) return;
+    let cancelled = false;
+    let unlisten: (() => void) | null = null;
+    void invoke<NeuralStatus>("neural_status")
+      .then((status) => {
+        if (cancelled) return;
+        setNeuralStatus(status);
+        neuralStatusRef.current = status;
+      })
+      .catch(() => undefined);
+    void listen<NeuralProgress>("neural-progress", (event) => {
+      if (cancelled) return;
+      setNeuralProgress(event.payload);
+      if (event.payload.stage === "done") {
+        void invoke<NeuralStatus>("neural_status")
+          .then((status) => {
+            setNeuralStatus(status);
+            neuralStatusRef.current = status;
+          })
+          .catch(() => undefined);
+      }
+    }).then((cleanup) => {
+      if (cancelled) cleanup();
+      else unlisten = cleanup;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [open, isTauri]);
 
   useEffect(() => {
     loadCurrentRef.current = loadCurrentChapter;
@@ -210,6 +290,7 @@ export function TtsPlayer({
       pauseTimerRef.current = null;
     }
     if (synth) synth.cancel();
+    clearNeuralCache();
     chunksRef.current = [];
     chapterRef.current = null;
     setChunkCount(0);
@@ -221,7 +302,97 @@ export function TtsPlayer({
   };
   stopRef.current = stop;
 
+  const clearNeuralCache = () => {
+    neuralCacheRef.current.clear();
+    neuralPromisesRef.current.clear();
+    neuralIndexRef.current = 0;
+    neuralRunRef.current = 0;
+    const audio = neuralAudioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+    }
+  };
+
+  const ensureNeuralChunk = (index: number): Promise<string> => {
+    const cached = neuralCacheRef.current.get(index);
+    if (cached) return Promise.resolve(cached);
+    const pending = neuralPromisesRef.current.get(index);
+    if (pending) return pending;
+    const chunk = chunksRef.current[index];
+    if (!chunk) return Promise.reject(new Error("朗读片段不存在"));
+    const styleConfig = styles.find((item) => item.id === styleRef.current) ?? styles[1];
+    const speed = Math.min(2, Math.max(0.5, rateRef.current * styleConfig.rate));
+    const promise = invoke<string>("sherpa_speak", { text: chunk.text, speed })
+      .then((path) => {
+        neuralCacheRef.current.set(index, path);
+        return path;
+      })
+      .finally(() => {
+        neuralPromisesRef.current.delete(index);
+      });
+    neuralPromisesRef.current.set(index, promise);
+    return promise;
+  };
+
+  const playNeuralChunk = async (index: number, runId: number) => {
+    if (runId !== runIdRef.current) return;
+    const chunks = chunksRef.current;
+    if (index >= chunks.length) {
+      void advanceChapter(runId);
+      return;
+    }
+    const chapter = chapterRef.current;
+    const chunk = chunks[index];
+    const audio = neuralAudioRef.current;
+    if (!chapter || !chunk || !audio) return;
+    if (!neuralStatusRef.current?.installed) {
+      setError("离线自然语音尚未下载");
+      setStatus("idle");
+      return;
+    }
+
+    neuralIndexRef.current = index;
+    neuralRunRef.current = runId;
+    setChunkIndex(index);
+    setError(null);
+    onSentenceRef.current(chapter, chunk.start, chunk.text.length);
+    try {
+      setStatus("loading");
+      const path = await ensureNeuralChunk(index);
+      if (runId !== runIdRef.current) return;
+      audio.src = convertFileSrc(path);
+      audio.volume = 1;
+      setStatus("playing");
+      await audio.play();
+      if (runId === runIdRef.current) {
+        void ensureNeuralChunk(index + 1).catch(() => undefined);
+      }
+    } catch (playError) {
+      if (runId !== runIdRef.current) return;
+      setError(
+        typeof playError === "string"
+          ? playError
+          : playError instanceof Error
+            ? playError.message
+            : "离线语音播放失败",
+      );
+      setStatus("idle");
+    }
+  };
+
+  const handleNeuralEnded = () => {
+    const runId = neuralRunRef.current;
+    if (runId !== runIdRef.current) return;
+    void playNeuralChunk(neuralIndexRef.current + 1, runId);
+  };
+
   const speakChunk = (index: number, runId: number) => {
+    if (engineRef.current === "neural") {
+      void playNeuralChunk(index, runId);
+      return;
+    }
     if (!synth || runId !== runIdRef.current) return;
     const chunks = chunksRef.current;
     if (index >= chunks.length) {
@@ -286,11 +457,19 @@ export function TtsPlayer({
   };
 
   const startChunks = (chapter: TtsChapter, runId: number) => {
-    const chunks = splitIntoChunks(chapter.text, chapter.startOffset);
+    const chunks = splitIntoChunks(
+      chapter.text,
+      chapter.startOffset,
+      engineRef.current === "neural" ? 90 : CHUNK_LIMIT,
+    );
     if (chunks.length === 0) {
       setError("这一章没有可朗读的文字");
       setStatus("idle");
       return;
+    }
+    if (engineRef.current === "neural") {
+      neuralCacheRef.current.clear();
+      neuralPromisesRef.current.clear();
     }
     chapterRef.current = chapter;
     chunksRef.current = chunks;
@@ -321,8 +500,12 @@ export function TtsPlayer({
   };
 
   const begin = async () => {
-    if (!synth) {
+    if (engineRef.current === "system" && !synth) {
       setError("当前环境不支持系统朗读");
+      return;
+    }
+    if (engineRef.current === "neural" && !neuralStatusRef.current?.installed) {
+      setError("请先下载离线自然语音");
       return;
     }
     const runId = ++runIdRef.current;
@@ -345,6 +528,22 @@ export function TtsPlayer({
   };
 
   const toggle = () => {
+    if (engineRef.current === "neural") {
+      const audio = neuralAudioRef.current;
+      if (statusRef.current === "playing") {
+        audio?.pause();
+        setStatus("paused");
+        return;
+      }
+      if (statusRef.current === "paused") {
+        if (audio) void audio.play().catch(() => setError("继续播放失败"));
+        setStatus("playing");
+        return;
+      }
+      if (statusRef.current === "loading") return;
+      void begin();
+      return;
+    }
     if (!synth) {
       setError("当前环境不支持系统朗读");
       return;
@@ -373,11 +572,56 @@ export function TtsPlayer({
     setSleepAt(Date.now() + minutes * 60_000);
   };
 
+  const downloadNeural = async () => {
+    if (!isTauri || neuralBusy) return;
+    setNeuralBusy(true);
+    setNeuralError(null);
+    setNeuralProgress(null);
+    try {
+      await invoke("download_neural");
+      const status = await invoke<NeuralStatus>("neural_status");
+      setNeuralStatus(status);
+      neuralStatusRef.current = status;
+    } catch (downloadError) {
+      setNeuralError(
+        downloadError instanceof Error ? downloadError.message : "下载离线语音失败",
+      );
+    } finally {
+      setNeuralBusy(false);
+    }
+  };
+
+  const removeNeural = async () => {
+    if (!isTauri || neuralBusy) return;
+    if (!window.confirm("删除已下载的离线自然语音？之后可以重新下载。")) return;
+    try {
+      stop();
+      await invoke("remove_neural");
+      const status = await invoke<NeuralStatus>("neural_status");
+      setNeuralStatus(status);
+      neuralStatusRef.current = status;
+      clearNeuralCache();
+    } catch (removeError) {
+      setNeuralError(
+        removeError instanceof Error ? removeError.message : "删除离线语音失败",
+      );
+    }
+  };
+
+  const switchEngine = (next: TtsEngine) => {
+    if (next === engine) return;
+    stop();
+    setError(null);
+    setEngine(next);
+  };
+
   const statusText =
     status === "idle"
       ? "准备朗读当前章节"
       : status === "loading"
-        ? "正在准备章节…"
+        ? engine === "neural" && chunkCount > 0
+          ? "正在生成离线语音…"
+          : "正在准备章节…"
         : status === "paused"
           ? "已暂停"
           : status === "ended"
@@ -415,111 +659,202 @@ export function TtsPlayer({
             </button>
           </header>
 
-          <div className="tts-panel__status">{statusText}</div>
-          {chunkCount > 0 ? (
-            <div className="tts-progress" aria-hidden="true">
-              <span style={{ width: `${Math.round((chunkIndex / chunkCount) * 100)}%` }} />
-            </div>
-          ) : null}
-
-          <div className="tts-controls">
+          <div className="tts-engine-switch">
             <button
-              className="tts-play"
-              onClick={toggle}
-              disabled={!synth || status === "loading"}
-              aria-label={status === "playing" ? "暂停听书" : "开始听书"}
+              className={engine === "system" ? "tts-engine-switch__active" : ""}
+              onClick={() => switchEngine("system")}
             >
-              <Icon name={status === "playing" ? "pause" : "play"} size={20} />
+              系统语音
             </button>
             <button
-              className="tts-stop"
-              onClick={stop}
-              disabled={status === "idle" || status === "ended"}
-              aria-label="停止听书"
-              title="停止"
+              className={engine === "neural" ? "tts-engine-switch__active" : ""}
+              onClick={() => switchEngine("neural")}
             >
-              <Icon name="x" size={16} />
+              离线自然语音
             </button>
-            <span className="tts-controls__hint">
-              {status === "playing" ? "可以继续读正文" : "使用系统中文语音"}
-            </span>
           </div>
 
-          <label className="tts-field">
-            <span>语速</span>
-            <input
-              type="range"
-              min={0.6}
-              max={2}
-              step={0.1}
-              value={rate}
-              onChange={(event) => setRate(Number(event.target.value))}
-              aria-label="朗读语速"
-            />
-            <small>{rate.toFixed(1)}x</small>
-          </label>
-
-          <div className="tts-style">
-            <span>风格</span>
-            <div className="tts-style__options">
-              {styles.map((item) => (
+          {engine === "neural" && !neuralStatus?.installed ? (
+            <div className="tts-neural-setup">
+              <p>
+                下载离线自然语音后，不联网也能使用更自然的中文音色。
+                需要下载语音引擎和中文模型，约 190MB；安装后约 245MB。
+              </p>
+              {neuralBusy ? (
+                <>
+                  <div className="tts-download-status">
+                    {neuralProgress?.message ?? "正在下载…"}
+                    <span>
+                      {neuralProgress
+                        ? `${formatBytes(neuralProgress.downloaded)} / ${formatBytes(neuralProgress.total)}`
+                        : ""}
+                    </span>
+                  </div>
+                  <div className="tts-progress" aria-hidden="true">
+                    <span style={{ width: `${neuralProgress?.percent ?? 0}%` }} />
+                  </div>
+                </>
+              ) : (
                 <button
-                  key={item.id}
-                  className={
-                    style === item.id
-                      ? "tts-style__option tts-style__option--active"
-                      : "tts-style__option"
-                  }
-                  onClick={() => setStyle(item.id)}
+                  className="button button--primary tts-download-button"
+                  onClick={() => void downloadNeural()}
+                  disabled={!isTauri}
                 >
-                  {item.label}
+                  <Icon name="download" size={15} />
+                  下载离线自然语音
                 </button>
-              ))}
+              )}
+              {neuralError ? <p className="tts-error">{neuralError}</p> : null}
             </div>
-          </div>
+          ) : (
+            <>
+              {engine === "neural" ? (
+                <div className="tts-neural-ready">
+                  <span>
+                    已安装 · {formatBytes(neuralStatus?.bytes ?? 0)}
+                  </span>
+                  <button className="text-button" onClick={() => void removeNeural()}>
+                    删除
+                  </button>
+                </div>
+              ) : null}
 
-          <label className="tts-field tts-field--select">
-            <span>音色</span>
-            <select
-              value={currentVoice?.voiceURI ?? ""}
-              onChange={(event) => setVoiceURI(event.target.value)}
-              aria-label="朗读音色"
-            >
-              {voices.length === 0 ? <option value="">系统默认语音</option> : null}
-              {voices.map((voice) => (
-                <option key={voice.voiceURI} value={voice.voiceURI}>
-                  {voice.name} · {voice.lang}
-                </option>
-              ))}
-            </select>
-          </label>
+              <div className="tts-panel__status">{statusText}</div>
+              {chunkCount > 0 ? (
+                <div className="tts-progress" aria-hidden="true">
+                  <span style={{ width: `${Math.round((chunkIndex / chunkCount) * 100)}%` }} />
+                </div>
+              ) : null}
 
-          <div className="tts-sleep">
-            <div className="tts-sleep__label">
-              <span>定时关闭</span>
-              {sleepLeft > 0 ? <small>{formatRemaining(sleepLeft)}</small> : null}
-            </div>
-            <div className="tts-sleep__options">
-              {[0, 15, 30, 60].map((minutes) => (
+              <div className="tts-controls">
                 <button
-                  key={minutes}
-                  className={
-                    sleepMinutes === minutes
-                      ? "tts-sleep__option tts-sleep__option--active"
-                      : "tts-sleep__option"
+                  className="tts-play"
+                  onClick={toggle}
+                  disabled={
+                    status === "loading" ||
+                    (engine === "system" && !synth) ||
+                    (engine === "neural" && !neuralStatus?.installed)
                   }
-                  onClick={() => setSleep(minutes)}
+                  aria-label={status === "playing" ? "暂停听书" : "开始听书"}
                 >
-                  {minutes === 0 ? "不定时" : `${minutes} 分钟`}
+                  <Icon name={status === "playing" ? "pause" : "play"} size={20} />
                 </button>
-              ))}
-            </div>
-          </div>
+                <button
+                  className="tts-stop"
+                  onClick={stop}
+                  disabled={status === "idle" || status === "ended"}
+                  aria-label="停止听书"
+                  title="停止"
+                >
+                  <Icon name="x" size={16} />
+                </button>
+                <span className="tts-controls__hint">
+                  {status === "playing"
+                    ? "可以继续读正文"
+                    : engine === "neural"
+                      ? "离线自然语音"
+                      : "使用系统中文语音"}
+                </span>
+              </div>
 
-          <p className="tts-hint">从当前位置开始朗读，当前句子会在正文中高亮；读完自动进入下一章。</p>
-          {error ? <p className="tts-error">{error}</p> : null}
+              <label className="tts-field">
+                <span>语速</span>
+                <input
+                  type="range"
+                  min={0.6}
+                  max={2}
+                  step={0.1}
+                  value={rate}
+                  onChange={(event) => setRate(Number(event.target.value))}
+                  aria-label="朗读语速"
+                />
+                <small>{rate.toFixed(1)}x</small>
+              </label>
+
+              <div className="tts-style">
+                <span>风格</span>
+                <div className="tts-style__options">
+                  {styles.map((item) => (
+                    <button
+                      key={item.id}
+                      className={
+                        style === item.id
+                          ? "tts-style__option tts-style__option--active"
+                          : "tts-style__option"
+                      }
+                      onClick={() => setStyle(item.id)}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {engine === "system" ? (
+                <label className="tts-field tts-field--select">
+                  <span>音色</span>
+                  <select
+                    value={currentVoice?.voiceURI ?? ""}
+                    onChange={(event) => setVoiceURI(event.target.value)}
+                    aria-label="朗读音色"
+                  >
+                    {voices.length === 0 ? <option value="">系统默认语音</option> : null}
+                    {voices.map((voice) => (
+                      <option key={voice.voiceURI} value={voice.voiceURI}>
+                        {voice.name} · {voice.lang}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <div className="tts-field tts-field--neural-voice">
+                  <span>音色</span>
+                  <span>MeloTTS 中文 · 离线合成</span>
+                </div>
+              )}
+
+              <div className="tts-sleep">
+                <div className="tts-sleep__label">
+                  <span>定时关闭</span>
+                  {sleepLeft > 0 ? <small>{formatRemaining(sleepLeft)}</small> : null}
+                </div>
+                <div className="tts-sleep__options">
+                  {[0, 15, 30, 60].map((minutes) => (
+                    <button
+                      key={minutes}
+                      className={
+                        sleepMinutes === minutes
+                          ? "tts-sleep__option tts-sleep__option--active"
+                          : "tts-sleep__option"
+                      }
+                      onClick={() => setSleep(minutes)}
+                    >
+                      {minutes === 0 ? "不定时" : `${minutes} 分钟`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="tts-hint">
+                从当前位置开始朗读，当前句子会在正文中高亮；读完自动进入下一章。
+              </p>
+              {error ? <p className="tts-error">{error}</p> : null}
+            </>
+          )}
         </section>
       ) : null}
+
+      <audio
+        ref={neuralAudioRef}
+        className="tts-audio"
+        preload="auto"
+        onEnded={handleNeuralEnded}
+        onError={() => {
+          if (statusRef.current === "playing" || statusRef.current === "loading") {
+            setError("离线语音播放失败");
+          }
+        }}
+      />
 
       {!open && status !== "idle" && status !== "ended" ? (
         <div className="tts-mini">
@@ -544,7 +879,11 @@ export function TtsPlayer({
   );
 }
 
-function splitIntoChunks(text: string, startOffset: number): TtsChunk[] {
+function splitIntoChunks(
+  text: string,
+  startOffset: number,
+  limit: number = CHUNK_LIMIT,
+): TtsChunk[] {
   if (!text.trim()) return [];
   const chunks: TtsChunk[] = [];
   let bufferStart = -1;
@@ -568,13 +907,15 @@ function splitIntoChunks(text: string, startOffset: number): TtsChunk[] {
       if (/\s/.test(char)) continue;
       bufferStart = index;
     }
-    if ("。！？!?…\n".includes(char) || index - bufferStart >= CHUNK_LIMIT) {
+    if ("。！？!?…\n".includes(char) || index - bufferStart >= limit) {
       flush(index + 1);
     }
   }
   flush(text.length);
 
   return chunks
+    .filter((chunk) => chunk.text.trim().length > 0)
+    .filter((chunk) => /[\p{L}\p{N}]/u.test(chunk.text))
     .filter((chunk) => chunk.end > startOffset)
     .map((chunk, index) => {
       if (index > 0 || chunk.start >= startOffset) return chunk;
@@ -585,7 +926,7 @@ function splitIntoChunks(text: string, startOffset: number): TtsChunk[] {
         end: chunk.end,
       };
     })
-    .filter((chunk) => chunk.text.trim().length > 0);
+    .filter((chunk) => /[\p{L}\p{N}]/u.test(chunk.text));
 }
 
 function formatRemaining(milliseconds: number): string {

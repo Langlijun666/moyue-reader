@@ -1,9 +1,11 @@
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::fs;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 
 #[cfg(target_os = "windows")]
@@ -114,6 +116,334 @@ fn open_backup_folder(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 const SPONSOR_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/issues/new?template=sponsorship.yml&title=%5B%E8%B5%9E%E5%8A%A9%E7%99%BB%E8%AE%B0%5D%20";
+
+const SHERPA_ENGINE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-win-x64-shared-MD-Release.tar.bz2";
+const SHERPA_ENGINE_SHA256: &str = "ce987d5bfca42c74b54f7b3bbaaa8c1febe3c5cd0fea8f94be80ea30e72f1f61";
+const SHERPA_MODEL_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-melo-tts-zh_en.tar.bz2";
+const SHERPA_MODEL_SHA256: &str = "e58351ed7149f290a54534538badd4077cdbe6fddc964b24d0bee870415d1514";
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NeuralStatus {
+    installed: bool,
+    directory: String,
+    bytes: u64,
+    message: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NeuralProgress {
+    stage: String,
+    downloaded: u64,
+    total: u64,
+    percent: f64,
+    message: String,
+}
+
+#[tauri::command]
+fn neural_status(app: tauri::AppHandle) -> Result<NeuralStatus, String> {
+    let folder = neural_folder(&app)?;
+    let engine = neural_engine_path(&folder);
+    let model = neural_model_path(&folder);
+    let installed = engine.exists() && model.exists();
+    let bytes = folder_size(&folder);
+    Ok(NeuralStatus {
+        installed,
+        directory: folder.to_string_lossy().into_owned(),
+        bytes,
+        message: if installed {
+            "离线自然语音已就绪".to_string()
+        } else {
+            "尚未下载离线自然语音".to_string()
+        },
+    })
+}
+
+#[tauri::command]
+async fn download_neural(app: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || download_neural_blocking(app))
+        .await
+        .map_err(|error| format!("下载任务失败：{error}"))?
+}
+
+#[tauri::command]
+fn remove_neural(app: tauri::AppHandle) -> Result<(), String> {
+    let folder = neural_folder(&app)?;
+    fs::remove_dir_all(&folder).map_err(|error| format!("无法删除离线语音：{error}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn sherpa_speak(app: tauri::AppHandle, text: String, speed: f64) -> Result<String, String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return Err("没有可朗读的文字".to_string());
+    }
+    if trimmed.chars().count() > 500 {
+        return Err("朗读文本过长".to_string());
+    }
+
+    let folder = neural_folder(&app)?;
+    let engine = neural_engine_path(&folder);
+    let model = neural_model_path(&folder);
+    if !engine.exists() || !model.exists() {
+        return Err("离线自然语音尚未下载".to_string());
+    }
+
+    let cache = folder.join("cache");
+    fs::create_dir_all(&cache).map_err(|error| format!("无法创建语音缓存：{error}"))?;
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0);
+    let output = cache.join(format!("tts-{stamp}.wav"));
+    let bin_dir = engine.parent().ok_or_else(|| "无法定位语音引擎".to_string())?;
+    let model_dir = model
+        .parent()
+        .ok_or_else(|| "无法定位离线语音模型".to_string())?;
+
+    let result = Command::new(&engine)
+        .current_dir(bin_dir)
+        .arg(format!("--vits-model={}", model.to_string_lossy()))
+        .arg(format!(
+            "--vits-lexicon={}",
+            model_dir.join("lexicon.txt").to_string_lossy()
+        ))
+        .arg(format!(
+            "--vits-tokens={}",
+            model_dir.join("tokens.txt").to_string_lossy()
+        ))
+        .arg("--num-threads=4")
+        .arg(format!("--speed={}", speed.clamp(0.5, 2.0)))
+        .arg(format!("--output-filename={}", output.to_string_lossy()))
+        .arg(trimmed)
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map_err(|error| format!("无法启动离线语音：{error}"))?;
+
+    if !result.status.success() || !output.exists() {
+        let detail = String::from_utf8_lossy(&result.stderr);
+        eprintln!("sherpa tts failed: {}", detail.trim());
+        return Err("离线语音合成失败，请重试".to_string());
+    }
+    prune_cache(&cache, 40);
+    Ok(output.to_string_lossy().into_owned())
+}
+
+fn download_neural_blocking(app: tauri::AppHandle) -> Result<(), String> {
+    let folder = neural_folder(&app)?;
+    let downloads = folder.join("_downloads");
+    fs::create_dir_all(&downloads).map_err(|error| error.to_string())?;
+
+    let engine_archive = downloads.join("sherpa-onnx.tar.bz2");
+    let model_archive = downloads.join("vits-melo-tts-zh_en.tar.bz2");
+
+    download_file(
+        &app,
+        SHERPA_ENGINE_URL,
+        &engine_archive,
+        SHERPA_ENGINE_SHA256,
+        "engine",
+        "下载离线语音引擎",
+    )?;
+    download_file(
+        &app,
+        SHERPA_MODEL_URL,
+        &model_archive,
+        SHERPA_MODEL_SHA256,
+        "model",
+        "下载中文自然语音模型",
+    )?;
+
+    emit_neural_progress(&app, "extract", 0, 0, 0.0, "正在解压语音引擎…");
+    let engine_dir = folder.join("engine");
+    if engine_dir.exists() {
+        fs::remove_dir_all(&engine_dir).map_err(|error| error.to_string())?;
+    }
+    fs::create_dir_all(&engine_dir).map_err(|error| error.to_string())?;
+    extract_tar(&engine_archive, &engine_dir)?;
+
+    emit_neural_progress(&app, "extract", 0, 0, 0.0, "正在解压中文语音模型…");
+    let model_dir = folder.join("model");
+    if model_dir.exists() {
+        fs::remove_dir_all(&model_dir).map_err(|error| error.to_string())?;
+    }
+    fs::create_dir_all(&model_dir).map_err(|error| error.to_string())?;
+    extract_tar(&model_archive, &model_dir)?;
+
+    let _ = fs::remove_file(engine_archive);
+    let _ = fs::remove_file(model_archive);
+    emit_neural_progress(&app, "done", 1, 1, 1.0, "离线自然语音已就绪");
+    Ok(())
+}
+
+fn download_file(
+    app: &tauri::AppHandle,
+    url: &str,
+    destination: &Path,
+    expected_hash: &str,
+    stage: &str,
+    label: &str,
+) -> Result<(), String> {
+    if destination.exists() {
+        if file_hash(destination)? == expected_hash {
+            return Ok(());
+        }
+        let _ = fs::remove_file(destination);
+    }
+
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("Moyue/0.11 neural-tts")
+        .timeout(std::time::Duration::from_secs(1800))
+        .build()
+        .map_err(|error| format!("无法创建下载连接：{error}"))?;
+    let mut response = client
+        .get(url)
+        .send()
+        .map_err(|error| format!("下载失败：{error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("下载失败：HTTP {}", response.status()));
+    }
+    let total = response.content_length().unwrap_or(0);
+    let mut file = fs::File::create(destination).map_err(|error| error.to_string())?;
+    let mut hasher = Sha256::new();
+    let mut downloaded = 0u64;
+    let mut buffer = [0u8; 256 * 1024];
+    let started = std::time::Instant::now();
+    let mut last_emit = started;
+
+    loop {
+        let read = response
+            .read(&mut buffer)
+            .map_err(|error| format!("下载中断：{error}"))?;
+        if read == 0 {
+            break;
+        }
+        file.write_all(&buffer[..read])
+            .map_err(|error| format!("写入失败：{error}"))?;
+        hasher.update(&buffer[..read]);
+        downloaded += read as u64;
+        if last_emit.elapsed().as_millis() >= 180 || downloaded == total {
+            last_emit = std::time::Instant::now();
+            let percent = if total > 0 {
+                downloaded as f64 / total as f64 * 100.0
+            } else {
+                0.0
+            };
+            emit_neural_progress(app, stage, downloaded, total, percent, label);
+        }
+    }
+    file.flush().map_err(|error| error.to_string())?;
+
+    let actual = format!("{:x}", hasher.finalize());
+    if actual != expected_hash {
+        let _ = fs::remove_file(destination);
+        return Err("下载文件校验失败，已取消".to_string());
+    }
+    Ok(())
+}
+
+fn extract_tar(archive: &Path, destination: &Path) -> Result<(), String> {
+    let status = Command::new("tar")
+        .arg("-xjf")
+        .arg(archive)
+        .arg("-C")
+        .arg(destination)
+        .arg("--strip-components=1")
+        .creation_flags(CREATE_NO_WINDOW)
+        .status()
+        .map_err(|error| format!("无法解压语音文件：{error}"))?;
+    if !status.success() {
+        return Err("解压语音文件失败".to_string());
+    }
+    Ok(())
+}
+
+fn file_hash(path: &Path) -> Result<String, String> {
+    let mut file = fs::File::open(path).map_err(|error| error.to_string())?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 256 * 1024];
+    loop {
+        let read = file.read(&mut buffer).map_err(|error| error.to_string())?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn emit_neural_progress(
+    app: &tauri::AppHandle,
+    stage: &str,
+    downloaded: u64,
+    total: u64,
+    percent: f64,
+    message: &str,
+) {
+    let _ = app.emit(
+        "neural-progress",
+        NeuralProgress {
+            stage: stage.to_string(),
+            downloaded,
+            total,
+            percent,
+            message: message.to_string(),
+        },
+    );
+}
+
+fn neural_folder(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let folder = app_data_folder(app)?.join("neural");
+    fs::create_dir_all(&folder).map_err(|error| format!("无法创建离线语音目录：{error}"))?;
+    Ok(folder)
+}
+
+fn neural_engine_path(folder: &Path) -> PathBuf {
+    folder
+        .join("engine")
+        .join("bin")
+        .join("sherpa-onnx-offline-tts.exe")
+}
+
+fn neural_model_path(folder: &Path) -> PathBuf {
+    folder.join("model").join("model.onnx")
+}
+
+fn folder_size(folder: &Path) -> u64 {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return 0;
+    };
+    entries
+        .flatten()
+        .map(|entry| {
+            let path = entry.path();
+            if path.is_dir() {
+                folder_size(&path)
+            } else {
+                entry.metadata().map(|meta| meta.len()).unwrap_or(0)
+            }
+        })
+        .sum()
+}
+
+fn prune_cache(folder: &Path, keep: usize) {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return;
+    };
+    let mut files: Vec<PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("wav"))
+        .collect();
+    files.sort();
+    if files.len() > keep {
+        for path in &files[..files.len() - keep] {
+            let _ = fs::remove_file(path);
+        }
+    }
+}
 
 #[tauri::command]
 fn open_sponsor_issue() -> Result<(), String> {
@@ -331,6 +661,10 @@ pub fn run() {
             open_backup_folder,
             write_backup,
             open_sponsor_issue,
+            neural_status,
+            download_neural,
+            remove_neural,
+            sherpa_speak,
             uninstall_app
         ])
         .run(tauri::generate_context!())
