@@ -1,13 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icons";
 
+export interface TtsChapter {
+  text: string;
+  startOffset: number;
+  sectionIndex: number;
+  href: string;
+}
+
 interface TtsPlayerProps {
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
   chapterLabel: string;
-  loadCurrentChapter: () => Promise<string | null>;
-  loadNextChapter: () => Promise<string | null>;
+  loadCurrentChapter: () => Promise<TtsChapter | null>;
+  loadNextChapter: () => Promise<TtsChapter | null>;
+  onSentence: (chapter: TtsChapter, start: number, length: number) => void;
+  onStop: () => void;
+}
+
+interface TtsChunk {
+  text: string;
+  start: number;
+  end: number;
 }
 
 type TtsStatus = "idle" | "loading" | "playing" | "paused" | "ended";
@@ -23,6 +38,8 @@ export function TtsPlayer({
   chapterLabel,
   loadCurrentChapter,
   loadNextChapter,
+  onSentence,
+  onStop,
 }: TtsPlayerProps) {
   const supported = typeof window !== "undefined" && "speechSynthesis" in window;
   const synth = supported ? window.speechSynthesis : null;
@@ -51,11 +68,14 @@ export function TtsPlayer({
   const [sleepLeft, setSleepLeft] = useState(0);
 
   const runIdRef = useRef(0);
-  const chunksRef = useRef<string[]>([]);
+  const chunksRef = useRef<TtsChunk[]>([]);
+  const chapterRef = useRef<TtsChapter | null>(null);
   const rateRef = useRef(rate);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const loadCurrentRef = useRef(loadCurrentChapter);
   const loadNextRef = useRef(loadNextChapter);
+  const onSentenceRef = useRef(onSentence);
+  const onStopRef = useRef(onStop);
   const statusRef = useRef(status);
   const stopRef = useRef<() => void>(() => {});
 
@@ -71,7 +91,9 @@ export function TtsPlayer({
   useEffect(() => {
     loadCurrentRef.current = loadCurrentChapter;
     loadNextRef.current = loadNextChapter;
-  }, [loadCurrentChapter, loadNextChapter]);
+    onSentenceRef.current = onSentence;
+    onStopRef.current = onStop;
+  }, [loadCurrentChapter, loadNextChapter, onSentence, onStop]);
 
   useEffect(() => {
     statusRef.current = status;
@@ -142,6 +164,7 @@ export function TtsPlayer({
     return () => {
       runIdRef.current += 1;
       window.speechSynthesis?.cancel();
+      onStopRef.current();
     };
   }, []);
 
@@ -149,11 +172,13 @@ export function TtsPlayer({
     runIdRef.current += 1;
     if (synth) synth.cancel();
     chunksRef.current = [];
+    chapterRef.current = null;
     setChunkCount(0);
     setChunkIndex(0);
     setStatus("idle");
     setSleepAt(0);
     setSleepMinutes(0);
+    onStopRef.current();
   };
   stopRef.current = stop;
 
@@ -165,8 +190,12 @@ export function TtsPlayer({
       return;
     }
 
+    const chunk = chunks[index];
+    const chapter = chapterRef.current;
+    if (!chapter) return;
     setChunkIndex(index);
-    const utterance = new SpeechSynthesisUtterance(chunks[index]);
+    onSentenceRef.current(chapter, chunk.start, chunk.text.length);
+    const utterance = new SpeechSynthesisUtterance(chunk.text);
     const voice = voiceRef.current;
     if (voice) {
       utterance.voice = voice;
@@ -189,13 +218,14 @@ export function TtsPlayer({
     synth.speak(utterance);
   };
 
-  const startChunks = (text: string, runId: number) => {
-    const chunks = splitIntoChunks(text);
+  const startChunks = (chapter: TtsChapter, runId: number) => {
+    const chunks = splitIntoChunks(chapter.text, chapter.startOffset);
     if (chunks.length === 0) {
       setError("这一章没有可朗读的文字");
       setStatus("idle");
       return;
     }
+    chapterRef.current = chapter;
     chunksRef.current = chunks;
     setChunkCount(chunks.length);
     setChunkIndex(0);
@@ -211,6 +241,7 @@ export function TtsPlayer({
       if (runId !== runIdRef.current) return;
       if (!next) {
         setStatus("ended");
+        onStopRef.current();
         return;
       }
       startChunks(next, runId);
@@ -218,6 +249,7 @@ export function TtsPlayer({
       if (runId !== runIdRef.current) return;
       setError("没有找到下一章");
       setStatus("ended");
+      onStopRef.current();
     }
   };
 
@@ -230,14 +262,14 @@ export function TtsPlayer({
     setStatus("loading");
     setError(null);
     try {
-      const text = await loadCurrentRef.current();
+      const chapter = await loadCurrentRef.current();
       if (runId !== runIdRef.current) return;
-      if (!text) {
+      if (!chapter) {
         setError("这一章没有可朗读的文字");
         setStatus("idle");
         return;
       }
-      startChunks(text, runId);
+      startChunks(chapter, runId);
     } catch {
       if (runId !== runIdRef.current) return;
       setError("读取这一章失败，请重试");
@@ -398,7 +430,7 @@ export function TtsPlayer({
             </div>
           </div>
 
-          <p className="tts-hint">从当前章节开头朗读，读完自动进入下一章。</p>
+          <p className="tts-hint">从当前位置开始朗读，当前句子会在正文中高亮；读完自动进入下一章。</p>
           {error ? <p className="tts-error">{error}</p> : null}
         </section>
       ) : null}
@@ -426,58 +458,48 @@ export function TtsPlayer({
   );
 }
 
-function splitIntoChunks(text: string): string[] {
-  const normalized = text
-    .replace(/\u00a0/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!normalized) return [];
+function splitIntoChunks(text: string, startOffset: number): TtsChunk[] {
+  if (!text.trim()) return [];
+  const chunks: TtsChunk[] = [];
+  let bufferStart = -1;
 
-  let sentences: string[] = [];
-  const Segmenter = (Intl as any).Segmenter;
-  if (Segmenter) {
-    try {
-      const segmenter = new Segmenter("zh-CN", { granularity: "sentence" });
-      sentences = Array.from(segmenter.segment(normalized), (item: any) => item.segment);
-    } catch {
-      sentences = [];
+  const flush = (end: number) => {
+    if (bufferStart < 0 || end <= bufferStart) return;
+    const raw = text.slice(bufferStart, end);
+    const leading = raw.search(/\S/);
+    const trailing = raw.search(/\s*$/);
+    const start = bufferStart + (leading >= 0 ? leading : 0);
+    const stop = bufferStart + (trailing >= 0 ? trailing : raw.length);
+    if (stop > start) {
+      chunks.push({ text: text.slice(start, stop), start, end: stop });
     }
-  }
-  if (sentences.length === 0) {
-    sentences = normalized.match(/[^。！？!?…]+[。！？!?…]?/g) ?? [normalized];
-  }
-
-  const chunks: string[] = [];
-  let buffer = "";
-
-  const flush = () => {
-    if (buffer.trim()) chunks.push(buffer.trim());
-    buffer = "";
+    bufferStart = -1;
   };
 
-  for (const raw of sentences) {
-    const sentence = raw.trim();
-    if (!sentence) continue;
-    if (buffer.length + sentence.length > CHUNK_LIMIT) flush();
-    if (sentence.length > CHUNK_LIMIT) {
-      const pieces = sentence.match(/[^，,、；;：:]+[，,、；;：:]?/g) ?? [sentence];
-      for (const piece of pieces) {
-        if (piece.length > CHUNK_LIMIT) {
-          flush();
-          for (let index = 0; index < piece.length; index += CHUNK_LIMIT) {
-            chunks.push(piece.slice(index, index + CHUNK_LIMIT));
-          }
-        } else {
-          if (buffer.length + piece.length > CHUNK_LIMIT) flush();
-          buffer += piece;
-        }
-      }
-    } else {
-      buffer += sentence;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (bufferStart < 0) {
+      if (/\s/.test(char)) continue;
+      bufferStart = index;
+    }
+    if ("。！？!?…\n".includes(char) || index - bufferStart >= CHUNK_LIMIT) {
+      flush(index + 1);
     }
   }
-  flush();
-  return chunks;
+  flush(text.length);
+
+  return chunks
+    .filter((chunk) => chunk.end > startOffset)
+    .map((chunk, index) => {
+      if (index > 0 || chunk.start >= startOffset) return chunk;
+      const start = Math.min(chunk.end, startOffset);
+      return {
+        text: text.slice(start, chunk.end),
+        start,
+        end: chunk.end,
+      };
+    })
+    .filter((chunk) => chunk.text.trim().length > 0);
 }
 
 function formatRemaining(milliseconds: number): string {

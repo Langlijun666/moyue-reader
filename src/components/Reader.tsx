@@ -12,7 +12,7 @@ import {
 import { Icon } from "./Icons";
 import { SettingsPanel } from "./SettingsPanel";
 import { TocPanel } from "./TocPanel";
-import { TtsPlayer } from "./TtsPlayer";
+import { TtsPlayer, type TtsChapter } from "./TtsPlayer";
 import { ReaderToolsPanel } from "./ReaderToolsPanel";
 
 interface ReaderProps {
@@ -517,12 +517,17 @@ export function Reader({
     turnPageRef.current = turnPage;
   }, [turnPage]);
 
-  const extractCurrentChapterText = useCallback(async (): Promise<string | null> => {
+  const loadCurrentChapterText = useCallback(async (): Promise<TtsChapter | null> => {
+    const book = bookRef.current;
     const rendition = renditionRef.current;
-    if (!rendition) return null;
+    if (!book || !rendition) return null;
 
     const location = rendition.currentLocation?.();
     const href = (location?.start?.href ?? "").split("#")[0];
+    const sections = book.spine?.spineItems ?? [];
+    const sectionIndex = sections.findIndex(
+      (item: any) => (item.href ?? "").split("#")[0] === href,
+    );
     const rawContents = rendition.getContents?.() ?? [];
     const contents = Array.isArray(rawContents) ? rawContents : [rawContents];
     const holder =
@@ -535,20 +540,46 @@ export function Reader({
       documentElement = frame?.contentDocument ?? undefined;
     }
 
-    try {
-      const raw = documentElement?.body?.innerText ?? documentElement?.body?.textContent ?? "";
-      const text = raw.replace(/\s+/g, " ").replace(/\u00a0/g, " ").trim();
-      return text.length > 5 ? text : null;
-    } catch {
-      return null;
+    const { text, nodes } = collectTextNodes(documentElement);
+    if (text.trim().length <= 5) return null;
+
+    let startOffset = getVisibleTextOffset(documentElement, nodes) ?? 0;
+    if (startOffset === 0) {
+      try {
+        const range = await book.getRange(location?.start?.cfi);
+        let startContainer = range?.startContainer;
+        let startNodeOffset = range?.startOffset ?? 0;
+        if (startContainer && startContainer.nodeType !== Node.TEXT_NODE) {
+          const walker = documentElement?.createTreeWalker(
+            startContainer,
+            NodeFilter.SHOW_TEXT,
+          );
+          const firstText = walker?.nextNode();
+          if (firstText) {
+            startContainer = firstText;
+            startNodeOffset = 0;
+          }
+        }
+        if (startContainer) {
+          const entry = nodes.find((node) => node.node === startContainer);
+          if (entry) {
+            startOffset = Math.min(text.length, entry.start + startNodeOffset);
+          }
+        }
+      } catch {
+        // Fall back to the chapter start if the visible range cannot be resolved.
+      }
     }
+
+    return {
+      text,
+      startOffset,
+      sectionIndex: Math.max(0, sectionIndex),
+      href,
+    };
   }, []);
 
-  const loadCurrentChapterText = useCallback(async (): Promise<string | null> => {
-    return extractCurrentChapterText();
-  }, [extractCurrentChapterText]);
-
-  const loadNextChapterText = useCallback(async (): Promise<string | null> => {
+  const loadNextChapterText = useCallback(async (): Promise<TtsChapter | null> => {
     const book = bookRef.current;
     const rendition = renditionRef.current;
     if (!book || !rendition) return null;
@@ -566,14 +597,79 @@ export function Reader({
       try {
         await rendition.display(item.href);
         await new Promise((resolve) => window.setTimeout(resolve, 260));
-        const text = await extractCurrentChapterText();
-        if (text && text.length > 20) return text;
+        const { text } = collectTextNodes(item.document);
+        if (text.trim().length > 20) {
+          return {
+            text,
+            startOffset: 0,
+            sectionIndex: nextIndex,
+            href: item.href,
+          };
+        }
       } catch {
         // Try the following section if this one cannot be displayed.
       }
     }
     return null;
-  }, [extractCurrentChapterText]);
+  }, []);
+
+  const ttsHighlightRef = useRef<string | null>(null);
+
+  const clearTtsHighlight = useCallback(() => {
+    const rendition = renditionRef.current;
+    const cfi = ttsHighlightRef.current;
+    if (rendition && cfi) {
+      try {
+        rendition.annotations?.remove(cfi, "highlight");
+      } catch {
+        // The iframe may have been torn down already.
+      }
+    }
+    ttsHighlightRef.current = null;
+  }, []);
+
+  const highlightTtsSentence = useCallback(
+    async (chapter: TtsChapter, start: number, length: number) => {
+      const book = bookRef.current;
+      const rendition = renditionRef.current;
+      if (!book || !rendition) return;
+      const item = book.spine?.spineItems?.[chapter.sectionIndex];
+      if (!item) return;
+
+      try {
+        if (!item.document) {
+          await item.load(book.load.bind(book));
+        }
+        const { nodes } = collectTextNodes(item.document);
+        const startPosition = locateOffset(nodes, start);
+        const endPosition = locateOffset(nodes, start + length);
+        if (!startPosition || !endPosition) return;
+
+        const range = item.document.createRange();
+        range.setStart(startPosition.node, startPosition.offset);
+        range.setEnd(endPosition.node, endPosition.offset);
+        const cfi = item.cfiFromRange(range);
+
+        clearTtsHighlight();
+        rendition.annotations?.highlight(
+          cfi,
+          {},
+          undefined,
+          "tts-highlight",
+          { fill: "#d9a441", "fill-opacity": "0.28" },
+        );
+        ttsHighlightRef.current = cfi;
+        void rendition.display(cfi).catch(() => undefined);
+      } catch {
+        // TTS audio is more important than a highlight failure.
+      }
+    },
+    [clearTtsHighlight],
+  );
+
+  useEffect(() => {
+    return () => clearTtsHighlight();
+  }, [clearTtsHighlight]);
 
   useEffect(() => {
     return () => {
@@ -1073,6 +1169,10 @@ export function Reader({
         chapterLabel={currentLabel}
         loadCurrentChapter={loadCurrentChapterText}
         loadNextChapter={loadNextChapterText}
+        onSentence={(chapter, start, length) =>
+          void highlightTtsSentence(chapter, start, length)
+        }
+        onStop={clearTtsHighlight}
       />
     </section>
   );
@@ -1140,6 +1240,64 @@ function locateOffset(
   for (const entry of nodes) {
     if (offset >= entry.start && offset <= entry.end) {
       return { node: entry.node, offset: Math.min(entry.end - entry.start, offset - entry.start) };
+    }
+  }
+  return null;
+}
+
+function getVisibleTextOffset(
+  document: Document | undefined,
+  nodes: TextNodePosition[],
+): number | null {
+  const view = document?.defaultView;
+  if (!document || !view) return null;
+  const frame = view.frameElement as HTMLIFrameElement | null;
+  const frameRect = frame?.getBoundingClientRect();
+  const viewport = frame?.closest(".reader__viewport")?.getBoundingClientRect();
+  const left = frameRect
+    ? Math.max(0, (viewport?.left ?? frameRect.left) - frameRect.left)
+    : 0;
+  const right = frameRect
+    ? Math.min(frameRect.width, (viewport?.right ?? frameRect.right) - frameRect.left)
+    : view.innerWidth;
+  const top = frameRect
+    ? Math.max(0, (viewport?.top ?? frameRect.top) - frameRect.top)
+    : 0;
+  const bottom = frameRect
+    ? Math.min(frameRect.height, (viewport?.bottom ?? frameRect.bottom) - frameRect.top)
+    : view.innerHeight;
+  if (right <= left || bottom <= top) return null;
+
+  const visible: { entry: TextNodePosition; rect: DOMRect }[] = [];
+  for (const entry of nodes) {
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(entry.node);
+      for (const rect of Array.from(range.getClientRects())) {
+        if (
+          rect.width > 1 &&
+          rect.height > 1 &&
+          rect.bottom > top &&
+          rect.top < bottom &&
+          rect.right > left &&
+          rect.left < right
+        ) {
+          visible.push({ entry, rect });
+        }
+      }
+    } catch {
+      // Ignore detached or non-renderable nodes.
+    }
+  }
+  visible.sort((a, b) => a.rect.top - b.rect.top || a.rect.left - b.rect.left);
+
+  for (const item of visible) {
+    const x = Math.max(left, Math.min(right - 1, item.rect.left + 2));
+    const y = Math.max(top, Math.min(bottom - 1, item.rect.top + item.rect.height / 2));
+    const caret = document.caretRangeFromPoint(x, y);
+    if (caret?.startContainer.nodeType === Node.TEXT_NODE) {
+      const entry = nodes.find((node) => node.node === caret.startContainer);
+      if (entry) return entry.start + caret.startOffset;
     }
   }
   return null;
