@@ -28,16 +28,20 @@ import { UninstallDialog } from "./components/UninstallDialog";
 import { SponsorDialog } from "./components/SponsorDialog";
 import { Icon } from "./components/Icons";
 import { appThemeStyle, isDarkTheme, THEME_PRESETS } from "./lib/themes";
+import { UpdateNotice } from "./components/UpdateNotice";
+import { useUpdater } from "./lib/useUpdater";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.17.0";
+const APP_VERSION = "0.18.0";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
   const [active, setActive] = useState<BookRecord | null>(null);
   const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
+  const updater = useUpdater();
+  const updateCheckedRef = useRef(false);
   const fullShelf = settings.shelfView === "full";
   const [progressMap, setProgressMap] = useState<Record<string, Progress>>(loadProgressMap);
   const [query, setQuery] = useState("");
@@ -128,6 +132,15 @@ export default function App() {
   useEffect(() => {
     saveCategoryData(categoryData);
   }, [categoryData]);
+
+  useEffect(() => {
+    if (!updater.isTauri || !updater.autoCheck || updateCheckedRef.current) return;
+    updateCheckedRef.current = true;
+    const timer = window.setTimeout(() => {
+      void updater.checkForUpdates();
+    }, 6000);
+    return () => window.clearTimeout(timer);
+  }, [updater.autoCheck, updater.isTauri]);
 
   useEffect(() => {
     try {
@@ -818,6 +831,16 @@ export default function App() {
           setAppSettingsOpen(false);
           setUninstallOpen(true);
         }}
+        updatePhase={updater.phase}
+        updateVersion={updater.version}
+        updateProgress={updater.progress}
+        updateError={updater.error}
+        autoCheck={updater.autoCheck}
+        autoDownload={updater.autoDownload}
+        onAutoCheckChange={updater.setAutoCheck}
+        onAutoDownloadChange={updater.setAutoDownload}
+        onCheckUpdate={() => void updater.checkForUpdates(true)}
+        onInstallUpdate={() => void updater.install()}
       />
 
       <StatsDialog open={statsOpen} onClose={() => setStatsOpen(false)} />
@@ -832,6 +855,21 @@ export default function App() {
         open={uninstallOpen}
         onClose={() => setUninstallOpen(false)}
         onConfirm={confirmUninstall}
+      />
+
+      <UpdateNotice
+        phase={updater.phase}
+        version={updater.version}
+        body={updater.body}
+        progress={updater.progress}
+        downloaded={updater.downloaded}
+        total={updater.total}
+        error={updater.error}
+        onDownload={() => void updater.download()}
+        onInstall={() => void updater.install()}
+        onSkip={() => void updater.skip()}
+        onLater={updater.dismiss}
+        onRetry={() => void updater.checkForUpdates(true)}
       />
     </div>
   );

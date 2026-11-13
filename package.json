@@ -1,7 +1,7 @@
 {
   "name": "moyue-reader",
   "private": true,
-  "version": "0.17.0",
+  "version": "0.18.0",
   "type": "module",
   "description": "墨阅 · 一个安静的桌面 EPUB / TXT 阅读器",
   "scripts": {
@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.1",
     "epubjs": "^0.3.93",
     "jszip": "^3.10.2",
     "react": "^19.3.1",

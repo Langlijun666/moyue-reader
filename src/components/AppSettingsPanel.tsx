@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { ReaderSettings, ShelfView, ThemeName } from "../types";
 import { Icon } from "./Icons";
 import { THEME_PRESETS, themePreset } from "../lib/themes";
+import type { UpdatePhase } from "../lib/useUpdater";
 
 interface AppSettingsPanelProps {
   open: boolean;
@@ -21,6 +22,16 @@ interface AppSettingsPanelProps {
   backupDir: string;
   onOpenSponsor: () => void;
   onUninstall: () => void;
+  updatePhase: UpdatePhase;
+  updateVersion: string;
+  updateProgress: number;
+  updateError: string | null;
+  autoCheck: boolean;
+  autoDownload: boolean;
+  onAutoCheckChange: (value: boolean) => void;
+  onAutoDownloadChange: (value: boolean) => void;
+  onCheckUpdate: () => void;
+  onInstallUpdate: () => void;
 }
 
 const themes: { id: ThemeName; label: string; hint: string }[] = [
@@ -51,8 +62,18 @@ export function AppSettingsPanel({
   backupDir,
   onOpenSponsor,
   onUninstall,
+  updatePhase,
+  updateVersion,
+  updateProgress,
+  updateError,
+  autoCheck,
+  autoDownload,
+  onAutoCheckChange,
+  onAutoDownloadChange,
+  onCheckUpdate,
+  onInstallUpdate,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.17.0");
+  const [version, setVersion] = useState("0.18.0");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -291,6 +312,60 @@ export function AppSettingsPanel({
                 {backupMessage}
               </p>
             ) : null}
+          </section>
+
+          <section className="settings-section">
+            <div className="settings-section__title">
+              <span>软件更新</span>
+              <small>
+                {updatePhase === "checking"
+                  ? "正在检查"
+                  : updatePhase === "downloading"
+                    ? `下载 ${updateProgress}%`
+                    : updatePhase === "ready"
+                      ? `v${updateVersion} 已就绪`
+                      : updatePhase === "installing"
+                        ? "正在安装"
+                        : "自动更新"}
+              </small>
+            </div>
+            <div className="update-preferences">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={autoCheck}
+                  onChange={(event) => onAutoCheckChange(event.target.checked)}
+                />
+                <span>自动检查更新</span>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={autoDownload}
+                  onChange={(event) => onAutoDownloadChange(event.target.checked)}
+                />
+                <span>自动下载更新</span>
+              </label>
+            </div>
+            <div className="update-settings-actions">
+              <button
+                className="button button--ghost"
+                onClick={onCheckUpdate}
+                disabled={updatePhase === "checking" || updatePhase === "downloading"}
+              >
+                <Icon name="refresh" size={14} />
+                检查更新
+              </button>
+              {updatePhase === "ready" ? (
+                <button className="button button--primary" onClick={onInstallUpdate}>
+                  重启更新
+                </button>
+              ) : null}
+            </div>
+            {updateError ? <p className="settings-field-hint">{updateError}</p> : null}
+            <p className="settings-field-hint">
+              更新包会校验签名；离线语音模型和书库数据不会被覆盖。
+            </p>
           </section>
 
           <section className="settings-section">
