@@ -3,6 +3,7 @@ import ePub from "epubjs";
 import type { BookMeta, Progress, ReaderSettings, SearchResult, TocEntry } from "../types";
 import { percentLabel } from "../lib/format";
 import { recordReading } from "../lib/stats";
+import { readerPalette, themePreset } from "../lib/themes";
 import { deleteFont, getFont, putFont } from "../lib/db";
 import {
   deleteBackground,
@@ -70,50 +71,6 @@ interface SearchIndexSection {
   href: string;
   chapter: string;
   text: string;
-}
-
-const palettes = {
-  paper: {
-    background: "#f7f1e7",
-    text: "#312b24",
-    muted: "#9a8b78",
-    accent: "#a4542f",
-    selection: "rgba(164, 84, 47, .18)",
-  },
-  sepia: {
-    background: "#eee0c5",
-    text: "#3c3021",
-    muted: "#988467",
-    accent: "#965428",
-    selection: "rgba(150, 84, 40, .2)",
-  },
-  night: {
-    background: "#191715",
-    text: "#d9d0c1",
-    muted: "#8f8476",
-    accent: "#d18b5c",
-    selection: "rgba(209, 139, 92, .2)",
-  },
-  custom: {
-    background: "#f7f1e7",
-    text: "#312b24",
-    muted: "#9a8b78",
-    accent: "#a4542f",
-    selection: "rgba(164, 84, 47, .18)",
-  },
-} as const;
-
-function themePalette(settings: ReaderSettings) {
-  if (settings.theme !== "custom") {
-    return palettes[settings.theme] ?? palettes.paper;
-  }
-  return {
-    background: settings.customBackground,
-    text: settings.customText,
-    muted: hexToRgba(settings.customText, 0.58),
-    accent: settings.customAccent,
-    selection: hexToRgba(settings.customAccent, 0.2),
-  };
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -200,21 +157,13 @@ export function Reader({
   const wheelLockRef = useRef(0);
   const isScrollMode = settings.readingMode === "scroll";
   const themeLabel =
-    settings.theme === "night"
-      ? "夜墨"
-      : settings.theme === "sepia"
-        ? "茶褐"
-        : settings.theme === "custom"
-          ? "自定义"
-          : "纸白";
+    settings.theme === "custom" ? "自定义" : themePreset(settings.theme).label;
   const themeIcon =
-    settings.theme === "night"
-      ? "moon"
-      : settings.theme === "sepia"
-        ? "book"
-        : settings.theme === "custom"
-          ? "spark"
-          : "sun";
+    settings.theme === "custom"
+      ? "spark"
+      : themePreset(settings.theme).dark
+        ? "moon"
+        : "sun";
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -1874,7 +1823,7 @@ function applyReaderTheme(
   customFontUrl?: string | null,
 ): void {
   if (!rendition?.themes) return;
-  const palette = themePalette(settings);
+  const palette = readerPalette(settings);
   const bodyBackground = settings.backgroundImageId
     ? hexToRgba(palette.background, Math.max(0.2, 1 - settings.backgroundDim))
     : palette.background;

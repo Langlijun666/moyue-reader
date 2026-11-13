@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BookMeta, BookRecord, Progress, ReaderSettings } from "./types";
-import { deleteBook, getBook, listBooks, putBook } from "./lib/db";
+import { deleteBook, getBackground, getBook, listBooks, putBook } from "./lib/db";
 import { inspectEpub } from "./lib/epub";
 import { inspectTxt } from "./lib/txt";
 import { imageFileToCover } from "./lib/cover";
@@ -27,15 +27,17 @@ import { StatsDialog } from "./components/StatsDialog";
 import { UninstallDialog } from "./components/UninstallDialog";
 import { SponsorDialog } from "./components/SponsorDialog";
 import { Icon } from "./components/Icons";
+import { appThemeStyle, isDarkTheme, THEME_PRESETS } from "./lib/themes";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.16.0";
+const APP_VERSION = "0.17.0";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
   const [active, setActive] = useState<BookRecord | null>(null);
   const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
+  const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
   const fullShelf = settings.shelfView === "full";
   const [progressMap, setProgressMap] = useState<Record<string, Progress>>(loadProgressMap);
   const [query, setQuery] = useState("");
@@ -90,8 +92,36 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let disposed = false;
+    let objectUrl: string | null = null;
+    const load = async () => {
+      if (!settings.backgroundImageId) {
+        setBackgroundUrl(null);
+        return;
+      }
+      try {
+        const record = await getBackground(settings.backgroundImageId);
+        if (!record || disposed) return;
+        objectUrl = URL.createObjectURL(
+          new Blob([record.data], { type: record.type || "image/jpeg" }),
+        );
+        setBackgroundUrl(objectUrl);
+      } catch {
+        // A missing background should not block the library.
+      }
+    };
+    void load();
+    return () => {
+      disposed = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [settings.backgroundImageId]);
+
+  useEffect(() => {
     document.documentElement.dataset.theme = settings.theme;
-    document.documentElement.style.colorScheme = settings.theme === "night" ? "dark" : "light";
+    document.documentElement.style.colorScheme = isDarkTheme(settings.theme)
+      ? "dark"
+      : "light";
     saveSettings(settings);
   }, [settings]);
 
@@ -113,7 +143,7 @@ export default function App() {
     void import("@tauri-apps/api/window")
       .then(({ getCurrentWindow }) => {
         if (cancelled) return;
-        return getCurrentWindow().setTheme(settings.theme === "night" ? "dark" : "light");
+        return getCurrentWindow().setTheme(isDarkTheme(settings.theme) ? "dark" : "light");
       })
       .catch(() => {
         // The web preview has no native window; a theme failure is harmless.
@@ -337,7 +367,7 @@ export default function App() {
 
   const toggleTheme = () => {
     setSettings((current) => {
-      const order: ReaderSettings["theme"][] = ["paper", "sepia", "night"];
+      const order: ReaderSettings["theme"][] = THEME_PRESETS.map((preset) => preset.id);
       const index = order.indexOf(current.theme);
       return {
         ...current,
@@ -564,8 +594,9 @@ export default function App() {
 
   return (
     <div
-      className={`app ${active && sidebarHidden && !fullShelf ? "app--sidebar-hidden" : ""} ${fullShelf ? "app--full-shelf" : ""}`}
+      className={`app ${active && sidebarHidden && !fullShelf ? "app--sidebar-hidden" : ""} ${fullShelf ? "app--full-shelf" : ""} ${backgroundUrl ? "app--background-image" : ""}`}
       data-theme={settings.theme}
+      style={appThemeStyle(settings, backgroundUrl)}
       onDragEnter={(event) => {
         event.preventDefault();
         dragDepth.current += 1;
@@ -769,6 +800,8 @@ export default function App() {
         theme={settings.theme}
         onClose={() => setAppSettingsOpen(false)}
         onThemeChange={(theme) => updateSettings({ theme })}
+        settings={settings}
+        onSettingsChange={updateSettings}
         shelfView={settings.shelfView}
         onShelfViewChange={(shelfView) => {
           updateSettings({ shelfView });

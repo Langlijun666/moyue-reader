@@ -106,7 +106,18 @@ export function saveProgress(id: string, progress: Progress): void {
 }
 
 function isTheme(value: unknown): value is ThemeName {
-  return value === "paper" || value === "night" || value === "sepia" || value === "custom";
+  return (
+    value === "paper" ||
+    value === "night" ||
+    value === "sepia" ||
+    value === "jade" ||
+    value === "rose" ||
+    value === "ocean" ||
+    value === "dusk" ||
+    value === "forest" ||
+    value === "midnight" ||
+    value === "custom"
+  );
 }
 
 function normalizeColor(value: unknown, fallback: string): string {

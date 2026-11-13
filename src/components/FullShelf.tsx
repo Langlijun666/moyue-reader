@@ -3,6 +3,7 @@ import type { Category } from "../lib/categories";
 import { formatBytes, percentLabel } from "../lib/format";
 import { BookCover } from "./BookCover";
 import { Icon } from "./Icons";
+import { themeLabel as getThemeLabel, themePreset } from "../lib/themes";
 
 interface FullShelfProps {
   books: (BookMeta & { progress?: Progress })[];
@@ -73,22 +74,9 @@ export function FullShelf({
       )
     : baseBooks;
 
-  const themeLabel =
-    theme === "night"
-      ? "夜墨"
-      : theme === "sepia"
-        ? "茶褐"
-        : theme === "custom"
-          ? "自定义"
-          : "纸白";
+  const themeLabel = getThemeLabel(theme);
   const themeIcon =
-    theme === "night"
-      ? "moon"
-      : theme === "sepia"
-        ? "book"
-        : theme === "custom"
-          ? "spark"
-          : "sun";
+    theme === "custom" ? "spark" : themePreset(theme).dark ? "moon" : "sun";
 
   return (
     <section className="full-shelf">

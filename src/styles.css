@@ -112,6 +112,16 @@ img {
     radial-gradient(circle at 92% 100%, rgba(211, 138, 88, 0.07), transparent 32%);
 }
 
+.app--background-image .sidebar {
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.app--background-image .workspace,
+.app--background-image .empty-state {
+  background: color-mix(in srgb, var(--bg) 68%, transparent);
+}
+
 button:focus-visible,
 input:focus-visible,
 .book-card:focus-visible {
@@ -4829,6 +4839,36 @@ input:focus-visible,
 .app-theme-option__swatch--custom {
   background:
     linear-gradient(135deg, #e8f0e9 0 35%, #f6eaea 35% 55%, #e8f0f4 55% 75%, #2a2635 75% 100%);
+}
+
+.app-custom-colors {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.app-custom-color {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.app-custom-color input[type="color"] {
+  width: 27px;
+  height: 22px;
+  padding: 1px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  cursor: pointer;
 }
 
 .app-shelf-options {

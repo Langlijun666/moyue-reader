@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { ShelfView, ThemeName } from "../types";
+import type { ReaderSettings, ShelfView, ThemeName } from "../types";
 import { Icon } from "./Icons";
+import { THEME_PRESETS, themePreset } from "../lib/themes";
 
 interface AppSettingsPanelProps {
   open: boolean;
   onClose: () => void;
   theme: ThemeName;
   onThemeChange: (theme: ThemeName) => void;
+  settings: ReaderSettings;
+  onSettingsChange: (patch: Partial<ReaderSettings>) => void;
   shelfView: ShelfView;
   onShelfViewChange: (view: ShelfView) => void;
   onBackupNow: () => void;
@@ -21,10 +24,12 @@ interface AppSettingsPanelProps {
 }
 
 const themes: { id: ThemeName; label: string; hint: string }[] = [
-  { id: "paper", label: "纸白", hint: "温润米白" },
-  { id: "sepia", label: "茶褐", hint: "旧书页" },
-  { id: "night", label: "夜墨", hint: "低光环境" },
-  { id: "custom", label: "自定义", hint: "阅读设置里调整" },
+  ...THEME_PRESETS.map((preset) => ({
+    id: preset.id,
+    label: preset.label,
+    hint: preset.hint,
+  })),
+  { id: "custom", label: "自定义", hint: "自己的颜色" },
 ];
 
 const REPO_URL = "https://github.com/Langlijun666/moyue-reader";
@@ -34,6 +39,8 @@ export function AppSettingsPanel({
   onClose,
   theme,
   onThemeChange,
+  settings,
+  onSettingsChange,
   shelfView,
   onShelfViewChange,
   onBackupNow,
@@ -45,7 +52,7 @@ export function AppSettingsPanel({
   onOpenSponsor,
   onUninstall,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.16.0");
+  const [version, setVersion] = useState("0.17.0");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -146,12 +153,44 @@ export function AppSettingsPanel({
                   className={`app-theme-option ${theme === item.id ? "app-theme-option--active" : ""}`}
                   onClick={() => onThemeChange(item.id)}
                 >
-                  <span className={`app-theme-option__swatch app-theme-option__swatch--${item.id}`} />
+                  <span
+                    className={`app-theme-option__swatch app-theme-option__swatch--${item.id}`}
+                    style={{
+                      background:
+                        item.id === "custom"
+                          ? "linear-gradient(135deg,#e8f0e9 0 35%,#f6eaea 35% 55%,#e8f0f4 55% 75%,#2a2635 75% 100%)"
+                          : `linear-gradient(135deg, ${themePreset(item.id).app.bg} 0 62%, ${themePreset(item.id).app.surface} 62% 80%, ${themePreset(item.id).app.accent} 80% 100%)`,
+                    }}
+                  />
                   <span>{item.label}</span>
                   <small>{item.hint}</small>
                 </button>
               ))}
             </div>
+            {theme === "custom" ? (
+              <div className="app-custom-colors">
+                {[
+                  ["背景", "customBackground"],
+                  ["文字", "customText"],
+                  ["强调", "customAccent"],
+                ].map(([label, key]) => (
+                  <label className="app-custom-color" key={key}>
+                    <span>{label}</span>
+                    <input
+                      type="color"
+                      value={
+                        settings[
+                          key as "customBackground" | "customText" | "customAccent"
+                        ]
+                      }
+                      onChange={(event) =>
+                        onSettingsChange({ [key]: event.target.value })
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+            ) : null}
           </section>
 
           <section className="settings-section">

@@ -7,6 +7,7 @@ import type {
   ThemeName,
 } from "../types";
 import { Icon } from "./Icons";
+import { THEME_PRESETS, themePreset } from "../lib/themes";
 
 interface SettingsPanelProps {
   settings: ReaderSettings;
@@ -19,20 +20,22 @@ interface SettingsPanelProps {
 }
 
 const themes: { id: ThemeName; label: string; hint: string }[] = [
-  { id: "paper", label: "纸白", hint: "温润的米白" },
-  { id: "sepia", label: "茶褐", hint: "像旧书页" },
-  { id: "night", label: "夜墨", hint: "低光环境" },
+  ...THEME_PRESETS.map((preset) => ({
+    id: preset.id,
+    label: preset.label,
+    hint: preset.hint,
+  })),
   { id: "custom", label: "自定义", hint: "自己的颜色" },
 ];
 
-const customPresets = [
-  { label: "青瓷", background: "#e8f0e9", text: "#2e4035", accent: "#6f927a" },
-  { label: "玫瑰", background: "#f6eaea", text: "#4a3232", accent: "#b77c7c" },
-  { label: "海盐", background: "#e8f0f4", text: "#293e49", accent: "#6c96ab" },
-  { label: "墨绿", background: "#e6ece5", text: "#27382d", accent: "#5f816a" },
-  { label: "暮紫", background: "#eee9f2", text: "#3b3047", accent: "#8b739d" },
-  { label: "暖沙", background: "#f3eadb", text: "#453a2b", accent: "#b0885c" },
-];
+const customPresets = THEME_PRESETS.filter((preset) => !preset.dark).map(
+  (preset) => ({
+    label: preset.label,
+    background: preset.reader.background,
+    text: preset.reader.text,
+    accent: preset.reader.accent,
+  }),
+);
 
 const fontOptions: { id: FontFamily; label: string; sample: string }[] = [
   { id: "serif", label: "宋体", sample: "读书" },
@@ -178,7 +181,15 @@ export function SettingsPanel({
                 className={`theme-option theme-option--${theme.id} ${settings.theme === theme.id ? "theme-option--active" : ""}`}
                 onClick={() => onChange({ theme: theme.id })}
               >
-                <span className="theme-option__swatch" />
+                <span
+                  className="theme-option__swatch"
+                  style={{
+                    background:
+                      theme.id === "custom"
+                        ? "linear-gradient(135deg, #e8f0e9 0 35%, #f6eaea 35% 55%, #e8f0f4 55% 75%, #2a2635 75% 100%)"
+                        : `linear-gradient(135deg, ${themePreset(theme.id).app.bg} 0 62%, ${themePreset(theme.id).app.surface} 62% 80%, ${themePreset(theme.id).app.accent} 80% 100%)`,
+                  }}
+                />
                 <span className="theme-option__label">{theme.label}</span>
                 <span className="theme-option__hint">{theme.hint}</span>
                 {settings.theme === theme.id ? (

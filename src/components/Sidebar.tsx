@@ -3,6 +3,7 @@ import type { Category } from "../lib/categories";
 import { formatBytes, percentLabel } from "../lib/format";
 import { BookCover } from "./BookCover";
 import { Icon } from "./Icons";
+import { themeLabel as getThemeLabel, themePreset } from "../lib/themes";
 
 interface LibraryBook extends BookMeta {
   progress?: Progress;
@@ -81,22 +82,13 @@ export function Sidebar({
       )
     : baseBooks;
 
-  const themeLabel =
-    settings.theme === "night"
-      ? "夜墨"
-      : settings.theme === "sepia"
-        ? "茶褐"
-        : settings.theme === "custom"
-          ? "自定义"
-          : "纸白";
+  const themeLabel = getThemeLabel(settings.theme);
   const themeIcon =
-    settings.theme === "night"
-      ? "moon"
-      : settings.theme === "sepia"
-        ? "book"
-        : settings.theme === "custom"
-          ? "spark"
-          : "sun";
+    settings.theme === "custom"
+      ? "spark"
+      : themePreset(settings.theme).dark
+        ? "moon"
+        : "sun";
 
   return (
     <aside
@@ -307,24 +299,20 @@ export function Sidebar({
           <button className="theme-chip" onClick={onToggleTheme}>
             <Icon
               name={
-                settings.theme === "night"
-                  ? "moon"
-                  : settings.theme === "sepia"
-                    ? "book"
-                    : settings.theme === "custom"
-                      ? "spark"
+                settings.theme === "custom"
+                  ? "spark"
+                  : themePreset(settings.theme).dark
+                    ? "moon"
+                    : settings.theme === "sepia"
+                      ? "book"
                       : "coffee"
               }
               size={15}
             />
             <span>
-              {settings.theme === "night"
-                ? "夜间模式"
-                : settings.theme === "sepia"
-                  ? "茶褐书页"
-                  : settings.theme === "custom"
-                    ? "自定义纸张"
-                    : "纸感阅读"}
+              {settings.theme === "custom"
+                ? "自定义纸张"
+                : `${themeLabel}${settings.theme === "paper" ? "阅读" : "模式"}`}
             </span>
           </button>
           <button className="theme-chip" onClick={onOpenMusic}>

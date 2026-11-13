@@ -1,4 +1,14 @@
-export type ThemeName = "paper" | "night" | "sepia" | "custom";
+export type ThemeName =
+  | "paper"
+  | "night"
+  | "sepia"
+  | "jade"
+  | "rose"
+  | "ocean"
+  | "dusk"
+  | "forest"
+  | "midnight"
+  | "custom";
 
 export type FontFamily = "serif" | "sans";
 
