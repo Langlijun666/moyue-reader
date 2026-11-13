@@ -3,6 +3,7 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::panic;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager};
@@ -116,6 +117,8 @@ fn open_backup_folder(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 const SPONSOR_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/issues/new?template=sponsorship.yml&title=%5B%E8%B5%9E%E5%8A%A9%E7%99%BB%E8%AE%B0%5D%20";
+const BUG_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/issues/new?template=bug_report.yml&title=%5B%E9%97%AE%E9%A2%98%5D%20";
+const FEATURE_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/issues/new?template=feature_request.yml&title=%5B%E5%BB%BA%E8%AE%AE%5D%20";
 
 const SHERPA_ENGINE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-win-x64-shared-MD-Release.tar.bz2";
 const SHERPA_ENGINE_SHA256: &str = "ce987d5bfca42c74b54f7b3bbaaa8c1febe3c5cd0fea8f94be80ea30e72f1f61";
@@ -466,6 +469,119 @@ fn open_sponsor_issue() -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_feedback(kind: String) -> Result<(), String> {
+    let url = if kind == "feature" {
+        FEATURE_ISSUE_URL
+    } else {
+        BUG_ISSUE_URL
+    };
+    open_external_url(url)
+}
+
+#[tauri::command]
+fn append_diagnostic(
+    app: tauri::AppHandle,
+    level: String,
+    message: String,
+    detail: String,
+) -> Result<(), String> {
+    let folder = diagnostic_folder(&app)?;
+    let level = level.chars().take(12).collect::<String>();
+    let message = message.chars().take(2000).collect::<String>();
+    let detail = detail.chars().take(12000).collect::<String>();
+    let line = format!(
+        "[{}] [{}] {}{}\n",
+        now_millis(),
+        level,
+        message.replace('\n', " "),
+        if detail.is_empty() {
+            String::new()
+        } else {
+            format!("\n{}", detail)
+        }
+    );
+    append_log(&folder.join("moyue.log"), &line)
+}
+
+#[tauri::command]
+fn write_diagnostic_report(app: tauri::AppHandle, content: String) -> Result<String, String> {
+    if content.len() > 200_000 {
+        return Err("诊断内容过大".to_string());
+    }
+    let folder = diagnostic_folder(&app)?;
+    let path = folder.join(format!("diagnostics-{}.txt", now_millis()));
+    fs::write(&path, content).map_err(|error| format!("无法保存诊断报告：{error}"))?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn open_diagnostics_folder(app: tauri::AppHandle) -> Result<(), String> {
+    let folder = diagnostic_folder(&app)?;
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .arg(&folder)
+            .spawn()
+            .map_err(|error| format!("无法打开日志文件夹：{error}"))?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err("当前平台暂不支持自动打开文件夹".to_string());
+    }
+    Ok(())
+}
+
+fn diagnostic_folder(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let folder = app_data_folder(app)?.join("logs");
+    fs::create_dir_all(&folder).map_err(|error| format!("无法创建日志目录：{error}"))?;
+    Ok(folder)
+}
+
+fn now_millis() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0)
+}
+
+fn append_log(path: &Path, line: &str) -> Result<(), String> {
+    if let Ok(metadata) = fs::metadata(path) {
+        if metadata.len() > 2 * 1024 * 1024 {
+            let first = path.with_extension("log.1");
+            let second = path.with_extension("log.2");
+            let _ = fs::remove_file(&second);
+            let _ = fs::rename(&first, &second);
+            let _ = fs::rename(path, &first);
+        }
+    }
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|error| format!("无法写入日志：{error}"))?;
+    file.write_all(line.as_bytes())
+        .map_err(|error| format!("无法写入日志：{error}"))
+}
+
+fn open_external_url(url: &str) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("rundll32.exe")
+            .arg("url.dll,FileProtocolHandler")
+            .arg(url)
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+            .map_err(|error| format!("无法打开浏览器：{error}"))?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = url;
+        return Err("当前平台暂不支持自动打开浏览器".to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn write_backup(
     app: tauri::AppHandle,
     data_base64: String,
@@ -652,6 +768,19 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .setup(|app| {
+            if let Ok(dir) = app.path().app_local_data_dir() {
+                let logs = dir.join("logs");
+                let _ = fs::create_dir_all(&logs);
+                let previous = panic::take_hook();
+                panic::set_hook(Box::new(move |info| {
+                    let line = format!("[{}] [PANIC] {}\n", now_millis(), info);
+                    let _ = append_log(&logs.join("moyue.log"), &line);
+                    previous(info);
+                }));
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             app_info,
             music_dir,
@@ -663,6 +792,10 @@ pub fn run() {
             open_backup_folder,
             write_backup,
             open_sponsor_issue,
+            open_feedback,
+            append_diagnostic,
+            write_diagnostic_report,
+            open_diagnostics_folder,
             neural_status,
             download_neural,
             remove_neural,

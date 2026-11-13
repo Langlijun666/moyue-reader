@@ -1,0 +1,59 @@
+name: 问题反馈
+description: 报告一个可以复现的问题
+title: "[问题] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请先确认已经尝试重新打开应用。
+        不要把书籍正文、笔记或包含个人信息的路径直接贴进来。
+  - type: input
+    id: version
+    attributes:
+      label: 墨阅版本
+      description: 可以在「软件设置 → 关于」中看到
+      placeholder: 例如 0.18.0
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Windows 版本
+      placeholder: 例如 Windows 11 23H2
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 发生了什么？
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开……
+        2. 点击……
+        3. 出现……
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 诊断信息
+      description: 可在「帮助与反馈 → 复制诊断」后粘贴到这里
+      render: text
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: 确认
+      options:
+        - label: 我确认没有在内容中包含书籍正文、笔记或敏感个人信息
+          required: true

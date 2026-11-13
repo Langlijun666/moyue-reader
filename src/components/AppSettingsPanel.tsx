@@ -4,6 +4,13 @@ import type { ReaderSettings, ShelfView, ThemeName } from "../types";
 import { Icon } from "./Icons";
 import { THEME_PRESETS, themePreset } from "../lib/themes";
 import type { UpdatePhase } from "../lib/useUpdater";
+import {
+  copyDiagnosticReport,
+  exportDiagnosticReport,
+  getRecentDiagnostics,
+  openDiagnosticFolder,
+  openFeedback,
+} from "../lib/diagnostics";
 
 interface AppSettingsPanelProps {
   open: boolean;
@@ -73,10 +80,13 @@ export function AppSettingsPanel({
   onCheckUpdate,
   onInstallUpdate,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.18.0");
+  const [version, setVersion] = useState("0.19.0");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [feedbackStatus, setFeedbackStatus] = useState("");
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const diagnostics = getRecentDiagnostics();
   const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
   useEffect(() => {
@@ -312,6 +322,79 @@ export function AppSettingsPanel({
                 {backupMessage}
               </p>
             ) : null}
+          </section>
+
+          <section className="settings-section">
+            <div className="settings-section__title">
+              <span>帮助与反馈</span>
+              <small>{diagnostics.length > 0 ? `${diagnostics.length} 条记录` : "需要帮助时"}</small>
+            </div>
+            <div className="feedback-actions">
+              <button
+                className="button button--ghost"
+                onClick={() => void openFeedback("bug")}
+              >
+                反馈问题
+              </button>
+              <button
+                className="button button--ghost"
+                onClick={() => void openFeedback("feature")}
+              >
+                功能建议
+              </button>
+              <button
+                className="button button--ghost"
+                onClick={() => {
+                  void copyDiagnosticReport()
+                    .then(() => setFeedbackStatus("诊断信息已复制，可粘贴到反馈里"))
+                    .catch(() => setFeedbackStatus("复制失败，请尝试导出诊断文件"));
+                }}
+              >
+                复制诊断
+              </button>
+              <button
+                className="button button--ghost"
+                onClick={() => {
+                  void exportDiagnosticReport()
+                    .then((path) => setFeedbackStatus(`诊断报告已保存：${path}`))
+                    .catch((error) =>
+                      setFeedbackStatus(
+                        error instanceof Error ? error.message : "导出诊断失败",
+                      ),
+                    );
+                }}
+              >
+                导出诊断
+              </button>
+              <button
+                className="button button--ghost"
+                onClick={() => setShowDiagnostics((value) => !value)}
+              >
+                {showDiagnostics ? "收起最近错误" : "查看最近错误"}
+              </button>
+              <button
+                className="button button--ghost"
+                onClick={() => void openDiagnosticFolder()}
+              >
+                打开日志目录
+              </button>
+            </div>
+            {feedbackStatus ? <p className="settings-field-hint">{feedbackStatus}</p> : null}
+            {showDiagnostics ? (
+              <pre className="diagnostic-preview">
+                {diagnostics.length > 0
+                  ? diagnostics
+                      .map(
+                        (entry) =>
+                          `[${new Date(entry.time).toLocaleString("zh-CN")}] ${entry.message}`,
+                      )
+                      .join("\n")
+                  : "暂无错误记录"}
+              </pre>
+            ) : null}
+            <p className="settings-field-hint">
+              反馈会打开 GitHub Issue。诊断报告不包含书籍正文、笔记和搜索内容。
+            </p>
           </section>
 
           <section className="settings-section">

@@ -5024,6 +5024,120 @@ input:focus-visible,
   background: color-mix(in srgb, #b45545 10%, transparent);
 }
 
+.feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.feedback-actions .button {
+  height: 27px;
+  padding: 0 8px;
+  font-size: 8.5px;
+  border-radius: 6px;
+}
+
+.diagnostic-preview {
+  max-height: 150px;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 8px;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-family: var(--ui-font);
+  font-size: 8px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.crash-screen {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 28px;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 45%),
+    var(--bg);
+}
+
+.crash-card {
+  width: min(620px, 100%);
+  padding: 26px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 24px 70px -35px var(--shadow);
+}
+
+.crash-card__icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 12px;
+  place-items: center;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-radius: 12px;
+}
+
+.crash-card h1 {
+  margin: 7px 0 8px;
+  font-family: var(--serif-font);
+  font-size: 25px;
+  font-weight: 500;
+}
+
+.crash-card > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+.crash-card__error {
+  max-height: 130px;
+  overflow: auto;
+  margin: 13px 0 0;
+  padding: 10px;
+  color: #b45545;
+  background: color-mix(in srgb, #b45545 6%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, #b45545 20%, var(--line));
+  border-radius: 8px;
+  font-family: var(--ui-font);
+  font-size: 9px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.crash-card__status {
+  margin-top: 9px !important;
+  color: var(--accent) !important;
+}
+
+.crash-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.crash-card__actions .button {
+  height: 31px;
+  padding: 0 10px;
+  font-size: 9px;
+  border-radius: 7px;
+}
+
+.crash-card > small {
+  display: block;
+  margin-top: 12px;
+  color: var(--faint);
+  font-size: 8px;
+}
+
 .app-shelf-options {
   display: grid;
   grid-template-columns: 1fr 1fr;
