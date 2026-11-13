@@ -122,8 +122,10 @@ const FEATURE_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/is
 const FEEDBACK_EMAIL: &str = "xuxinyang121@gmail.com";
 
 const SHERPA_ENGINE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-win-x64-shared-MD-Release.tar.bz2";
+const SHERPA_ENGINE_MIRROR: &str = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/tts/sherpa-onnx.tar.bz2";
 const SHERPA_ENGINE_SHA256: &str = "ce987d5bfca42c74b54f7b3bbaaa8c1febe3c5cd0fea8f94be80ea30e72f1f61";
 const SHERPA_MODEL_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-melo-tts-zh_en.tar.bz2";
+const SHERPA_MODEL_MIRROR: &str = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/tts/vits-melo-tts-zh_en.tar.bz2";
 const SHERPA_MODEL_SHA256: &str = "e58351ed7149f290a54534538badd4077cdbe6fddc964b24d0bee870415d1514";
 
 #[derive(Serialize)]
@@ -243,17 +245,17 @@ fn download_neural_blocking(app: tauri::AppHandle) -> Result<(), String> {
     let engine_archive = downloads.join("sherpa-onnx.tar.bz2");
     let model_archive = downloads.join("vits-melo-tts-zh_en.tar.bz2");
 
-    download_file(
+    download_with_fallback(
         &app,
-        SHERPA_ENGINE_URL,
+        &[SHERPA_ENGINE_URL, SHERPA_ENGINE_MIRROR],
         &engine_archive,
         SHERPA_ENGINE_SHA256,
         "engine",
         "下载离线语音引擎",
     )?;
-    download_file(
+    download_with_fallback(
         &app,
-        SHERPA_MODEL_URL,
+        &[SHERPA_MODEL_URL, SHERPA_MODEL_MIRROR],
         &model_archive,
         SHERPA_MODEL_SHA256,
         "model",
@@ -280,6 +282,27 @@ fn download_neural_blocking(app: tauri::AppHandle) -> Result<(), String> {
     let _ = fs::remove_file(model_archive);
     emit_neural_progress(&app, "done", 1, 1, 1.0, "离线自然语音已就绪");
     Ok(())
+}
+
+fn download_with_fallback(
+    app: &tauri::AppHandle,
+    urls: &[&str],
+    destination: &Path,
+    expected_hash: &str,
+    stage: &str,
+    label: &str,
+) -> Result<(), String> {
+    let mut last_error = "下载失败".to_string();
+    for url in urls {
+        match download_file(app, url, destination, expected_hash, stage, label) {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                last_error = error;
+                let _ = fs::remove_file(destination);
+            }
+        }
+    }
+    Err(last_error)
 }
 
 fn download_file(
