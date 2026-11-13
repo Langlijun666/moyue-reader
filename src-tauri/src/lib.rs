@@ -483,6 +483,38 @@ fn open_feedback(kind: String) -> Result<(), String> {
     open_external_url(&url)
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DroppedFile {
+    name: String,
+    data_base64: String,
+}
+
+#[tauri::command]
+fn read_dropped_file(path: String) -> Result<DroppedFile, String> {
+    let file_path = PathBuf::from(&path);
+    if !file_path.is_file() {
+        return Err("拖入的文件不存在".to_string());
+    }
+    let name = file_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "无法读取文件名".to_string())?
+        .to_string();
+    if !name.to_lowercase().ends_with(".epub") && !name.to_lowercase().ends_with(".txt") {
+        return Err("只支持 EPUB 和 TXT".to_string());
+    }
+    let metadata = fs::metadata(&file_path).map_err(|error| format!("无法读取文件：{error}"))?;
+    if metadata.len() > 250 * 1024 * 1024 {
+        return Err("这本书超过 250 MB，暂时无法导入".to_string());
+    }
+    let bytes = fs::read(&file_path).map_err(|error| format!("无法读取文件：{error}"))?;
+    Ok(DroppedFile {
+        name,
+        data_base64: STANDARD.encode(bytes),
+    })
+}
+
 fn encode_uri_component(value: &str) -> String {
     let mut result = String::new();
     for byte in value.as_bytes() {
@@ -811,6 +843,7 @@ pub fn run() {
             write_backup,
             open_sponsor_issue,
             open_feedback,
+            read_dropped_file,
             append_diagnostic,
             write_diagnostic_report,
             open_diagnostics_folder,

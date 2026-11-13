@@ -33,7 +33,7 @@ import { useUpdater } from "./lib/useUpdater";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.19.1";
+const APP_VERSION = "0.19.2";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -269,6 +269,67 @@ export default function App() {
     if (file) void importFile(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  const importFileRef = useRef(importFile);
+  useEffect(() => {
+    importFileRef.current = importFile;
+  }, [importFile]);
+
+  useEffect(() => {
+    if (!("__TAURI_INTERNALS__" in window)) return;
+    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+    const handleDrop = async (paths: string[]) => {
+      const path = paths.find((item) => /\.(epub|txt)$/i.test(item));
+      if (!path) {
+        setToast("只支持拖入 EPUB 或 TXT 文件");
+        return;
+      }
+      try {
+        const dropped = await invoke<{ name: string; dataBase64: string }>(
+          "read_dropped_file",
+          { path },
+        );
+        const binary = atob(dropped.dataBase64);
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index += 1) {
+          bytes[index] = binary.charCodeAt(index);
+        }
+        const file = new File([bytes], dropped.name, {
+          type: dropped.name.toLowerCase().endsWith(".epub")
+            ? "application/epub+zip"
+            : "text/plain",
+        });
+        await importFileRef.current(file);
+      } catch (error) {
+        setToast(error instanceof Error ? error.message : "拖入文件导入失败");
+      }
+    };
+    void import("@tauri-apps/api/window")
+      .then(({ getCurrentWindow }) =>
+        getCurrentWindow().onDragDropEvent((event) => {
+          if (cancelled) return;
+          const payload = event.payload;
+          if (payload.type === "enter" || payload.type === "over") {
+            setDragging(true);
+          } else if (payload.type === "leave") {
+            setDragging(false);
+          } else if (payload.type === "drop") {
+            setDragging(false);
+            void handleDrop(payload.paths);
+          }
+        }),
+      )
+      .then((cleanup) => {
+        if (cancelled) cleanup();
+        else unlisten = cleanup;
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
 
   const requestCoverChange = (book: BookMeta) => {
     coverTargetRef.current = book;
