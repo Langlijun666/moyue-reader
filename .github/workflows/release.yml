@@ -42,3 +42,61 @@ jobs:
           args: --bundles nsis
           uploadUpdaterJson: true
           updaterJsonPreferNsis: true
+
+      - name: Prepare OSS mirror
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $version = (Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json).version
+          $setup = "src-tauri/target/release/bundle/nsis/Moyue_${version}_x64-setup.exe"
+          if (-not (Test-Path $setup)) {
+            throw "Installer not found: $setup"
+          }
+          $signature = (Get-Content "$setup.sig" -Raw).Trim()
+          $manifest = [ordered]@{
+            version = $version
+            notes = "墨阅 ${version}。完整更新内容见 GitHub Release。"
+            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = [ordered]@{
+              "windows-x86_64" = [ordered]@{
+                signature = $signature
+                url = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/Moyue_${version}_x64-setup.exe"
+              }
+            }
+          }
+          New-Item -ItemType Directory -Force -Path "oss-upload" | Out-Null
+          Set-Content -Path "oss-upload/version.txt" -Value $version -NoNewline -Encoding ascii
+          Copy-Item $setup "oss-upload/Moyue_${version}_x64-setup.exe"
+          Copy-Item "$setup.sig" "oss-upload/Moyue_${version}_x64-setup.exe.sig"
+          [System.IO.File]::WriteAllText(
+            "oss-upload/latest.json",
+            ($manifest | ConvertTo-Json -Depth 6 -Compress),
+            (New-Object System.Text.UTF8Encoding($false))
+          )
+
+      - name: Upload OSS mirror
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.ALIYUN_OSS_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_OSS_ACCESS_KEY_SECRET }}
+        run: |
+          python -m pip install --quiet oss2
+          @'
+          import os
+          import oss2
+
+          auth = oss2.Auth(os.environ["OSS_ACCESS_KEY_ID"], os.environ["OSS_ACCESS_KEY_SECRET"])
+          bucket = oss2.Bucket(auth, "https://oss-cn-hangzhou.aliyuncs.com", "moyue-release-files")
+          with open("oss-upload/version.txt", encoding="ascii") as version_file:
+              version = version_file.read().strip()
+          files = {
+              "oss-upload/latest.json": "updates/latest.json",
+              f"oss-upload/Moyue_{version}_x64-setup.exe": f"updates/Moyue_{version}_x64-setup.exe",
+              f"oss-upload/Moyue_{version}_x64-setup.exe.sig": f"updates/Moyue_{version}_x64-setup.exe.sig",
+          }
+          for local, remote in files.items():
+              bucket.put_object_from_file(remote, local)
+              print("uploaded", remote)
+          '@ | python -
+
