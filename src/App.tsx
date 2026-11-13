@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BookMeta, BookRecord, Progress, ReaderSettings } from "./types";
-import { deleteBook, getBackground, getBook, listBooks, putBook, putBackground, putFont } from "./lib/db";
+import {
+  deleteBook,
+  getBackground,
+  getBook,
+  listBooks,
+  listDeletedBooks,
+  purgeExpiredTrash,
+  putBackground,
+  putBook,
+  putFont,
+  restoreBook,
+  trashBook,
+} from "./lib/db";
 import { inspectEpub } from "./lib/epub";
 import { inspectTxt } from "./lib/txt";
 import { imageFileToCover } from "./lib/cover";
@@ -39,7 +51,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.21.1";
+const APP_VERSION = "0.22.0";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -70,6 +82,7 @@ export default function App() {
   const [statsOpen, setStatsOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [libraryManagerOpen, setLibraryManagerOpen] = useState(false);
+  const [deletedBooks, setDeletedBooks] = useState<BookMeta[]>([]);
   const [sortBy, setSortBy] = useState<LibrarySort>(() => {
     try {
       const saved = localStorage.getItem("moyue.sort.v1");
@@ -106,9 +119,13 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    listBooks()
-      .then((books) => {
-        if (!cancelled) setLibrary(books);
+    void purgeExpiredTrash()
+      .then(() => Promise.all([listBooks(), listDeletedBooks()]))
+      .then(([books, deleted]) => {
+        if (!cancelled) {
+          setLibrary(books);
+          setDeletedBooks(deleted);
+        }
       })
       .catch(() => {
         if (!cancelled) setToast("本地书库初始化失败，请刷新后重试");
@@ -458,16 +475,37 @@ export default function App() {
   }, [watchedFolder, scanFolder]);
 
   const batchDelete = async (ids: string[]) => {
-    if (!window.confirm(`删除选中的 ${ids.length} 本书？笔记和进度不会被单独删除。`)) return;
-    for (const id of ids) await deleteBook(id);
+    if (!window.confirm(`将选中的 ${ids.length} 本书移入回收站？30 天内可以恢复。`)) return;
+    const trashed = library.filter((book) => ids.includes(book.id));
+    for (const id of ids) await trashBook(id);
     setLibrary((books) => books.filter((book) => !ids.includes(book.id)));
-    setCategoryData((current) => {
-      const assignments = { ...current.assignments };
-      for (const id of ids) delete assignments[id];
-      return { ...current, assignments };
-    });
+    setDeletedBooks((current) => [
+      ...trashed.map((book) => ({ ...book, deletedAt: Date.now() })),
+      ...current,
+    ]);
     setLibraryManagerOpen(false);
-    setToast(`已删除 ${ids.length} 本书`);
+    setToast(`已将 ${ids.length} 本书移入回收站`);
+  };
+
+  const restoreTrash = async (ids: string[]) => {
+    for (const id of ids) await restoreBook(id);
+    setDeletedBooks((books) => books.filter((book) => !ids.includes(book.id)));
+    setLibrary(await listBooks());
+    setToast(`已恢复 ${ids.length} 本书`);
+  };
+
+  const purgeTrash = async (ids: string[]) => {
+    if (!window.confirm(`彻底删除选中的 ${ids.length} 本书？删除后无法恢复。`)) return;
+    for (const id of ids) await deleteBook(id);
+    setDeletedBooks((books) => books.filter((book) => !ids.includes(book.id)));
+    setToast(`已彻底删除 ${ids.length} 本书`);
+  };
+
+  const emptyTrash = async () => {
+    if (!window.confirm(`清空回收站中的 ${deletedBooks.length} 本书？删除后无法恢复。`)) return;
+    for (const book of deletedBooks) await deleteBook(book.id);
+    setDeletedBooks([]);
+    setToast("回收站已清空");
   };
 
   const batchAssignCategories = (ids: string[], categoryIds: string[]) => {
@@ -1116,6 +1154,7 @@ export default function App() {
       <LibraryManager
         open={libraryManagerOpen}
         books={shelf}
+        deletedBooks={deletedBooks}
         categories={categoryData.categories}
         assignments={categoryData.assignments}
         sortBy={sortBy}
@@ -1129,6 +1168,9 @@ export default function App() {
         onSetSeries={(ids, series) => void batchSetSeries(ids, series)}
         onDelete={(ids) => void batchDelete(ids)}
         onSetCover={(ids, file) => void batchSetCover(ids, file)}
+        onRestore={(ids) => void restoreTrash(ids)}
+        onPurge={(ids) => void purgeTrash(ids)}
+        onEmptyTrash={() => void emptyTrash()}
       />
 
       <SponsorDialog

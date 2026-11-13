@@ -56,6 +56,7 @@ export interface BookMeta {
   fileName: string;
   size: number;
   series?: string;
+  deletedAt?: number;
   description?: string;
   addedAt: number;
   lastOpenedAt: number;

@@ -61,8 +61,40 @@ export async function listBooks(): Promise<BookMeta[]> {
   const records = await requestToPromise(tx.objectStore(STORE).getAll() as IDBRequest<BookRecord[]>);
   return records
     .map(normalizeRecord)
+    .filter((record) => !record.deletedAt)
     .map(({ data: _data, ...meta }) => meta)
     .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt || b.addedAt - a.addedAt);
+}
+
+export async function listDeletedBooks(): Promise<BookMeta[]> {
+  const db = await openDb();
+  const tx = db.transaction(STORE, "readonly");
+  const records = await requestToPromise(tx.objectStore(STORE).getAll() as IDBRequest<BookRecord[]>);
+  return records
+    .map(normalizeRecord)
+    .filter((record) => record.deletedAt)
+    .map(({ data: _data, ...meta }) => meta)
+    .sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0));
+}
+
+export async function trashBook(id: string): Promise<void> {
+  const record = await getBook(id);
+  if (record) await putBook({ ...record, deletedAt: Date.now() });
+}
+
+export async function restoreBook(id: string): Promise<void> {
+  const record = await getBook(id);
+  if (!record) return;
+  const { deletedAt: _deletedAt, ...restored } = record;
+  await putBook(restored);
+}
+
+export async function purgeExpiredTrash(days = 30): Promise<void> {
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  const deleted = await listDeletedBooks();
+  for (const book of deleted) {
+    if ((book.deletedAt ?? 0) < cutoff) await deleteBook(book.id);
+  }
 }
 
 export async function getBook(id: string): Promise<BookRecord | undefined> {

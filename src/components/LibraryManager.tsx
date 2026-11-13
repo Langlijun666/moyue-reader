@@ -7,6 +7,7 @@ import { Icon } from "./Icons";
 interface LibraryManagerProps {
   open: boolean;
   books: BookMeta[];
+  deletedBooks: BookMeta[];
   categories: Category[];
   assignments: Record<string, string[]>;
   sortBy: LibrarySort;
@@ -20,6 +21,9 @@ interface LibraryManagerProps {
   onSetSeries: (ids: string[], series: string) => void;
   onDelete: (ids: string[]) => void;
   onSetCover: (ids: string[], file: File) => void;
+  onRestore: (ids: string[]) => void;
+  onPurge: (ids: string[]) => void;
+  onEmptyTrash: () => void;
 }
 
 function duplicateKeys(books: BookMeta[]): Map<string, BookMeta[]> {
@@ -34,6 +38,7 @@ function duplicateKeys(books: BookMeta[]): Map<string, BookMeta[]> {
 export function LibraryManager({
   open,
   books,
+  deletedBooks,
   categories,
   assignments,
   sortBy,
@@ -47,10 +52,14 @@ export function LibraryManager({
   onSetSeries,
   onDelete,
   onSetCover,
+  onRestore,
+  onPurge,
+  onEmptyTrash,
 }: LibraryManagerProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [series, setSeries] = useState("");
+  const [showTrash, setShowTrash] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef<HTMLInputElement>(null);
   const duplicateMap = useMemo(() => duplicateKeys(books), [books]);
@@ -65,6 +74,7 @@ export function LibraryManager({
       setSelected(new Set());
       setCategoryIds([]);
       setSeries("");
+      setShowTrash(false);
     }
   }, [open]);
 
@@ -114,6 +124,9 @@ export function LibraryManager({
             <Icon name="folder" size={14} />
             选择监视文件夹
           </button>
+          <button className="button button--ghost" onClick={() => setShowTrash((value) => !value)}>
+            回收站（{deletedBooks.length}）
+          </button>
           <select
             value={sortBy}
             onChange={(event) => onSortChange(event.target.value as LibrarySort)}
@@ -156,6 +169,8 @@ export function LibraryManager({
           </div>
         ) : null}
 
+        {!showTrash ? (
+          <>
         <div className="library-manager__batch">
           <label className="library-select-all">
             <input
@@ -253,6 +268,37 @@ export function LibraryManager({
             );
           })}
         </div>
+          </>
+        ) : (
+          <div className="library-manager__list library-trash-list">
+            <div className="library-trash-head">
+              <span>回收站 · 保留 30 天</span>
+              {deletedBooks.length > 0 ? (
+                <button className="text-button" onClick={onEmptyTrash}>清空回收站</button>
+              ) : null}
+            </div>
+            {deletedBooks.length === 0 ? (
+              <p className="library-trash-empty">回收站是空的。</p>
+            ) : (
+              deletedBooks.map((book) => (
+                <div className="library-manager-row library-manager-row--trash" key={book.id}>
+                  <span className="library-manager-row__title">{book.title}</span>
+                  <span className="library-manager-row__meta">{book.author}</span>
+                  <span className="library-manager-row__meta">
+                    {new Date(book.deletedAt ?? Date.now()).toLocaleDateString("zh-CN")} 删除
+                  </span>
+                  <span className="library-manager-row__meta">{formatBytes(book.size)}</span>
+                  <button className="button button--ghost" onClick={() => onRestore([book.id])}>
+                    恢复
+                  </button>
+                  <button className="button button--ghost" onClick={() => onPurge([book.id])}>
+                    彻底删除
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </section>
     </div>
   );

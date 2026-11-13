@@ -5404,6 +5404,33 @@ input:focus-visible,
   text-align: center;
 }
 
+.library-trash-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 8px;
+  color: var(--muted);
+  font-size: 9px;
+  border-bottom: 1px solid var(--line);
+}
+
+.library-manager-row--trash {
+  grid-template-columns: minmax(180px, 1.6fr) 1fr 1fr 70px 70px 80px;
+}
+
+.library-manager-row--trash .button {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 8px;
+}
+
+.library-trash-empty {
+  padding: 32px 8px;
+  color: var(--faint);
+  font-size: 9px;
+  text-align: center;
+}
+
 .app-shelf-options {
   display: grid;
   grid-template-columns: 1fr 1fr;
