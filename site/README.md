@@ -83,6 +83,25 @@ updates/latest.json
 2. GitHub Releases API
 3. GitHub Releases 页面
 
+## GitHub Pages
+
+如果不想备案域名，可以用 GitHub Pages 托管网页：
+
+- 仓库 Settings → Pages
+- Build and deployment → Source 选择 **GitHub Actions**
+- 推送 `site/` 后自动部署
+- 地址：`https://langlijun666.github.io/moyue-reader/`
+
+网页仍然从 OSS 下载安装包和语音模型；网页只是展示和跳转。
+
+如果希望网页直接读取 OSS 的 `latest.json`，在 OSS「数据管理 → 跨域设置」添加：
+
+- 来源：`https://langlijun666.github.io`
+- 方法：GET、HEAD
+- 允许 Headers：`*`
+
+即使不配置 CORS，网页也会通过 GitHub Releases API 获取版本号，并自动拼出 OSS 下载地址。
+
 ## 注意
 
 - Bucket 权限：公共读，私有写

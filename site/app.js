@@ -3,6 +3,10 @@ const GITHUB_REPO = "Langlijun666/moyue-reader";
 const GITHUB_RELEASE = `https://github.com/${GITHUB_REPO}/releases/latest`;
 const FALLBACK_VERSION = "0.21.1";
 
+function ossInstaller(version) {
+  return `${OSS_BASE}/updates/Moyue_${version}_x64-setup.exe`;
+}
+
 const shots = {
   reader: { src: "assets/reader.png", caption: "左右翻页，纸页扫光，也可以上下滚动。" },
   highlights: { src: "assets/highlights.png", caption: "四种颜色，随手写想法，点击笔记跳回原文。" },
@@ -94,16 +98,21 @@ async function resolveDownload() {
 
   try {
     const release = await fetchJson(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
+    const version = release?.tag_name?.replace(/^v/, "") || FALLBACK_VERSION;
     const asset = release?.assets?.find((item) => /x64-setup\.exe$/i.test(item.name));
+    if (version) {
+      applyDownload(version, ossInstaller(version));
+      return;
+    }
     if (asset?.browser_download_url) {
-      applyDownload(release.tag_name?.replace(/^v/, "") || FALLBACK_VERSION, asset.browser_download_url);
+      applyDownload(version, asset.browser_download_url);
       return;
     }
   } catch {
     // Fall through to the releases page.
   }
 
-  applyDownload(FALLBACK_VERSION, GITHUB_RELEASE);
+  applyDownload(FALLBACK_VERSION, ossInstaller(FALLBACK_VERSION));
   for (const id of ["downloadButton", "downloadButtonBottom"]) {
     const element = document.getElementById(id);
     if (element) {
