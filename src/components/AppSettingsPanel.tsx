@@ -7,6 +7,7 @@ import type { UpdatePhase } from "../lib/useUpdater";
 import {
   copyDiagnosticReport,
   exportDiagnosticReport,
+  FEEDBACK_EMAIL,
   getRecentDiagnostics,
   openDiagnosticFolder,
   openFeedback,
@@ -80,7 +81,7 @@ export function AppSettingsPanel({
   onCheckUpdate,
   onInstallUpdate,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.19.0");
+  const [version, setVersion] = useState("0.19.1");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -341,6 +342,23 @@ export function AppSettingsPanel({
                 onClick={() => void openFeedback("feature")}
               >
                 功能建议
+              </button>
+              <button
+                className="button button--ghost"
+                onClick={() => void openFeedback("email")}
+              >
+                邮件反馈
+              </button>
+              <button
+                className="button button--ghost"
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(FEEDBACK_EMAIL)
+                    .then(() => setFeedbackStatus(`邮箱已复制：${FEEDBACK_EMAIL}`))
+                    .catch(() => setFeedbackStatus(FEEDBACK_EMAIL));
+                }}
+              >
+                复制邮箱
               </button>
               <button
                 className="button button--ghost"

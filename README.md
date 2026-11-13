@@ -286,6 +286,8 @@ npm run tauri:build
 
 欢迎提交 issue 和 pull request。开发说明见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
+反馈邮箱：`xuxinyang121@gmail.com`
+
 ## 支持墨阅
 
 如果墨阅帮你省下了一点时间，可以请我喝杯咖啡。

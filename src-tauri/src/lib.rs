@@ -119,6 +119,7 @@ fn open_backup_folder(app: tauri::AppHandle) -> Result<(), String> {
 const SPONSOR_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/issues/new?template=sponsorship.yml&title=%5B%E8%B5%9E%E5%8A%A9%E7%99%BB%E8%AE%B0%5D%20";
 const BUG_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/issues/new?template=bug_report.yml&title=%5B%E9%97%AE%E9%A2%98%5D%20";
 const FEATURE_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/issues/new?template=feature_request.yml&title=%5B%E5%BB%BA%E8%AE%AE%5D%20";
+const FEEDBACK_EMAIL: &str = "xuxinyang121@gmail.com";
 
 const SHERPA_ENGINE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-win-x64-shared-MD-Release.tar.bz2";
 const SHERPA_ENGINE_SHA256: &str = "ce987d5bfca42c74b54f7b3bbaaa8c1febe3c5cd0fea8f94be80ea30e72f1f61";
@@ -471,11 +472,28 @@ fn open_sponsor_issue() -> Result<(), String> {
 #[tauri::command]
 fn open_feedback(kind: String) -> Result<(), String> {
     let url = if kind == "feature" {
-        FEATURE_ISSUE_URL
+        FEATURE_ISSUE_URL.to_string()
+    } else if kind == "email" {
+        let subject = encode_uri_component("墨阅反馈");
+        let body = encode_uri_component("请描述你遇到的问题或建议：\n\n");
+        format!("mailto:{FEEDBACK_EMAIL}?subject={subject}&body={body}")
     } else {
-        BUG_ISSUE_URL
+        BUG_ISSUE_URL.to_string()
     };
-    open_external_url(url)
+    open_external_url(&url)
+}
+
+fn encode_uri_component(value: &str) -> String {
+    let mut result = String::new();
+    for byte in value.as_bytes() {
+        let character = *byte as char;
+        if character.is_ascii_alphanumeric() || "-_.~".contains(character) {
+            result.push(character);
+        } else {
+            result.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    result
 }
 
 #[tauri::command]

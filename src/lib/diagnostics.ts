@@ -113,7 +113,9 @@ export async function exportDiagnosticReport(): Promise<string> {
   return invoke<string>("write_diagnostic_report", { content: report });
 }
 
-export async function openFeedback(kind: "bug" | "feature"): Promise<void> {
+export const FEEDBACK_EMAIL = "xuxinyang121@gmail.com";
+
+export async function openFeedback(kind: "bug" | "feature" | "email"): Promise<void> {
   if (!isTauri()) return;
   await invoke("open_feedback", { kind });
 }
