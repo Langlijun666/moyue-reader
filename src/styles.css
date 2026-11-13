@@ -5053,6 +5053,17 @@ input:focus-visible,
 }
 
 .crash-screen {
+  --bg: #f2ece1;
+  --surface: #faf6ed;
+  --surface-2: #efe6d7;
+  --ink: #2f2a23;
+  --muted: #8d806f;
+  --line: rgba(47, 42, 35, 0.12);
+  --accent: #a5522d;
+  --accent-ink: #fff8ee;
+  --faint: #a99983;
+  --shadow: rgba(54, 43, 28, 0.13);
+  --serif-font: "Noto Serif CJK SC", "Songti SC", "Source Han Serif SC", SimSun, Georgia, serif;
   display: grid;
   min-height: 100dvh;
   place-items: center;

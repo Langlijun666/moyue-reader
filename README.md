@@ -88,6 +88,8 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 
 ![主题预设](docs/themes.png)
 
+![帮助与反馈](docs/feedback.png)
+
 ## 技术栈
 
 - **桌面外壳**：Tauri 2（Rust + 系统 WebView2）
