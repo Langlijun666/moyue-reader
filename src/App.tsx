@@ -33,10 +33,11 @@ import { Icon } from "./components/Icons";
 import { appThemeStyle, isDarkTheme, THEME_PRESETS } from "./lib/themes";
 import { UpdateNotice } from "./components/UpdateNotice";
 import { useUpdater } from "./lib/useUpdater";
+import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.20.0";
+const APP_VERSION = "0.20.1";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -65,6 +66,7 @@ export default function App() {
   const [assignBook, setAssignBook] = useState<BookMeta | null>(null);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  const [changelogOpen, setChangelogOpen] = useState(false);
   const [uninstallOpen, setUninstallOpen] = useState(false);
   const [sponsorOpen, setSponsorOpen] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
@@ -123,6 +125,17 @@ export default function App() {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [settings.backgroundImageId]);
+
+  useEffect(() => {
+    try {
+      const key = "moyue.lastSeenVersion.v1";
+      const lastSeen = localStorage.getItem(key);
+      localStorage.setItem(key, APP_VERSION);
+      if (lastSeen !== APP_VERSION) setChangelogOpen(true);
+    } catch {
+      // The changelog remains available from settings.
+    }
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme;
@@ -930,9 +943,15 @@ export default function App() {
         onAutoDownloadChange={updater.setAutoDownload}
         onCheckUpdate={() => void updater.checkForUpdates(true)}
         onInstallUpdate={() => void updater.install()}
+        onOpenChangelog={() => {
+          setAppSettingsOpen(false);
+          setChangelogOpen(true);
+        }}
       />
 
       <StatsDialog open={statsOpen} onClose={() => setStatsOpen(false)} />
+
+      <ChangelogDialog open={changelogOpen} onClose={() => setChangelogOpen(false)} />
 
       <SponsorDialog
         open={sponsorOpen}
@@ -947,8 +966,7 @@ export default function App() {
       />
 
       <UpdateNotice
-        phase={updater.phase}
-        version={updater.version}
+        phase={updater.phase}        version={updater.version}
         body={updater.body}
         progress={updater.progress}
         downloaded={updater.downloaded}

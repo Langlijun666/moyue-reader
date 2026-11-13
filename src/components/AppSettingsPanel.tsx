@@ -40,6 +40,7 @@ interface AppSettingsPanelProps {
   onAutoDownloadChange: (value: boolean) => void;
   onCheckUpdate: () => void;
   onInstallUpdate: () => void;
+  onOpenChangelog: () => void;
 }
 
 const themes: { id: ThemeName; label: string; hint: string }[] = [
@@ -80,8 +81,9 @@ export function AppSettingsPanel({
   onAutoDownloadChange,
   onCheckUpdate,
   onInstallUpdate,
+  onOpenChangelog,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.20.0");
+  const [version, setVersion] = useState("0.20.1");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -481,6 +483,9 @@ export function AppSettingsPanel({
               </div>
               <button className="button button--ghost" onClick={() => void copyRepo()}>
                 {copied ? "已复制" : "复制仓库地址"}
+              </button>
+              <button className="button button--ghost" onClick={onOpenChangelog}>
+                更新日志
               </button>
             </div>
             <p className="app-repo-url">{REPO_URL}</p>
