@@ -81,7 +81,7 @@ export function AppSettingsPanel({
   onCheckUpdate,
   onInstallUpdate,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.19.2");
+  const [version, setVersion] = useState("0.20.0");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -291,7 +291,7 @@ export function AppSettingsPanel({
               <small>每天自动备份</small>
             </div>
             <p className="settings-note settings-note--compact">
-              备份包含书籍文件、封面、阅读进度、分类和软件设置。自动保留最近 8 份，只保存在本机。
+              备份包含书籍、封面、进度、分类、书签、划线与笔记、阅读统计、主题、字体和背景。自动保留最近 8 份，只保存在本机。
             </p>
             <div className="backup-actions">
               <button

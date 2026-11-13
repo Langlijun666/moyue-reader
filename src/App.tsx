@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BookMeta, BookRecord, Progress, ReaderSettings } from "./types";
-import { deleteBook, getBackground, getBook, listBooks, putBook } from "./lib/db";
+import { deleteBook, getBackground, getBook, listBooks, putBook, putBackground, putFont } from "./lib/db";
 import { inspectEpub } from "./lib/epub";
 import { inspectTxt } from "./lib/txt";
 import { imageFileToCover } from "./lib/cover";
 import { formatFromFileName } from "./lib/format";
 import { invoke } from "@tauri-apps/api/core";
 import { createBackupBase64, readBackupFile } from "./lib/backup";
+import { loadBookmarksMap, saveBookmarksMap } from "./lib/bookmarks";
+import { loadHighlightsMap, saveHighlightsMap } from "./lib/highlights";
+import { loadStats, mergeStats, saveStats } from "./lib/stats";
 import {
   loadCategoryData,
   newCategoryId,
@@ -33,7 +36,7 @@ import { useUpdater } from "./lib/useUpdater";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.19.2";
+const APP_VERSION = "0.20.0";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -590,7 +593,7 @@ export default function App() {
         throw new Error("备份中没有书籍");
       }
       const confirmed = window.confirm(
-        `将恢复 ${parsed.records.length} 本书，并合并阅读进度、分类和设置。\n\n现有书籍不会被删除；恢复前会先自动备份当前书库。`,
+        `将恢复 ${parsed.records.length} 本书，并合并阅读进度、分类、书签、划线笔记、统计和外观设置。\n\n现有书籍不会被删除；恢复前会先自动备份当前书库。`,
       );
       if (!confirmed) return;
 
@@ -605,6 +608,22 @@ export default function App() {
       for (const record of parsed.records) {
         await putBook(record);
       }
+      for (const font of parsed.fonts) {
+        await putFont(font);
+      }
+      for (const background of parsed.backgrounds) {
+        await putBackground(background);
+      }
+
+      saveBookmarksMap({
+        ...loadBookmarksMap(),
+        ...(parsed.manifest.bookmarks ?? {}),
+      });
+      saveHighlightsMap({
+        ...loadHighlightsMap(),
+        ...(parsed.manifest.highlights ?? {}),
+      });
+      saveStats(mergeStats(loadStats(), parsed.manifest.stats ?? { days: {}, books: {} }));
 
       const mergedProgress = { ...progressMap, ...parsed.manifest.progress };
       for (const [id, progress] of Object.entries(parsed.manifest.progress)) {
@@ -634,8 +653,17 @@ export default function App() {
 
       setLibrary(await listBooks());
       setActive(null);
-      setBackupMessage(`已恢复 ${parsed.records.length} 本书`);
-      setToast(`已恢复 ${parsed.records.length} 本书`);
+      const restoredHighlights = Object.values(parsed.manifest.highlights ?? {}).reduce(
+        (sum, list) => sum + list.length,
+        0,
+      );
+      const restoredBookmarks = Object.values(parsed.manifest.bookmarks ?? {}).reduce(
+        (sum, list) => sum + list.length,
+        0,
+      );
+      const restoredMessage = `已恢复 ${parsed.records.length} 本书、${restoredHighlights} 条划线、${restoredBookmarks} 个书签`;
+      setBackupMessage(restoredMessage);
+      setToast(restoredMessage);
     } catch (restoreError) {
       setToast(restoreError instanceof Error ? restoreError.message : "恢复备份失败");
     } finally {

@@ -25,6 +25,25 @@ export const HIGHLIGHT_COLORS: {
 
 const KEY = "moyue.highlights.v1";
 
+export function loadHighlightsMap(): Record<string, Highlight[]> {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, Highlight[]>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveHighlightsMap(map: Record<string, Highlight[]>): void {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(map));
+  } catch {
+    // Highlights are optional; reading must not depend on them.
+  }
+}
+
 export function loadHighlights(bookId: string): Highlight[] {
   try {
     const raw = localStorage.getItem(KEY);

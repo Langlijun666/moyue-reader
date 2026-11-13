@@ -116,6 +116,14 @@ export async function putFont(record: FontRecord): Promise<void> {
   await requestToPromise(tx.objectStore(FONT_STORE).put(record));
 }
 
+export async function listFonts(): Promise<FontRecord[]> {
+  const db = await openDb();
+  const tx = db.transaction(FONT_STORE, "readonly");
+  return requestToPromise(
+    tx.objectStore(FONT_STORE).getAll() as IDBRequest<FontRecord[]>,
+  );
+}
+
 export async function getFont(id: string): Promise<FontRecord | undefined> {
   const db = await openDb();
   const tx = db.transaction(FONT_STORE, "readonly");
@@ -134,6 +142,14 @@ export async function putBackground(record: BackgroundRecord): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(BACKGROUND_STORE, "readwrite");
   await requestToPromise(tx.objectStore(BACKGROUND_STORE).put(record));
+}
+
+export async function listBackgrounds(): Promise<BackgroundRecord[]> {
+  const db = await openDb();
+  const tx = db.transaction(BACKGROUND_STORE, "readonly");
+  return requestToPromise(
+    tx.objectStore(BACKGROUND_STORE).getAll() as IDBRequest<BackgroundRecord[]>,
+  );
 }
 
 export async function getBackground(id: string): Promise<BackgroundRecord | undefined> {

@@ -168,3 +168,30 @@ export function formatShortDuration(seconds: number): string {
   const rest = minutes % 60;
   return rest > 0 ? `${hours}h ${rest}m` : `${hours}h`;
 }
+
+export function mergeStats(current: ReadingStats, incoming: ReadingStats): ReadingStats {
+  const days = { ...current.days };
+  for (const [date, incomingDay] of Object.entries(incoming.days ?? {})) {
+    const existing = days[date];
+    days[date] = existing
+      ? {
+          seconds: Math.max(existing.seconds, incomingDay.seconds),
+          pages: Math.max(existing.pages, incomingDay.pages),
+        }
+      : incomingDay;
+  }
+  const books = { ...current.books };
+  for (const [id, incomingBook] of Object.entries(incoming.books ?? {})) {
+    const existing = books[id];
+    books[id] = existing
+      ? {
+          ...existing,
+          title: existing.title || incomingBook.title,
+          seconds: Math.max(existing.seconds, incomingBook.seconds),
+          pages: Math.max(existing.pages, incomingBook.pages),
+          lastReadAt: Math.max(existing.lastReadAt, incomingBook.lastReadAt),
+        }
+      : incomingBook;
+  }
+  return { days, books };
+}

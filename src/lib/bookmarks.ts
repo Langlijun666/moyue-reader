@@ -8,6 +8,25 @@ export interface Bookmark {
 
 const KEY = "moyue.bookmarks.v1";
 
+export function loadBookmarksMap(): Record<string, Bookmark[]> {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, Bookmark[]>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveBookmarksMap(map: Record<string, Bookmark[]>): void {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(map));
+  } catch {
+    // Bookmarks are optional; reading must not depend on them.
+  }
+}
+
 export function loadBookmarks(bookId: string): Bookmark[] {
   try {
     const raw = localStorage.getItem(KEY);
