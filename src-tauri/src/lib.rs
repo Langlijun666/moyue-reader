@@ -491,6 +491,43 @@ struct DroppedFile {
 }
 
 #[tauri::command]
+fn scan_book_folder(path: String) -> Result<Vec<String>, String> {
+    let folder = PathBuf::from(&path);
+    if !folder.is_dir() {
+        return Err("文件夹不存在".to_string());
+    }
+    let mut files = Vec::new();
+    collect_book_files(&folder, &mut files, 0);
+    files.sort();
+    files.truncate(1000);
+    Ok(files)
+}
+
+fn collect_book_files(folder: &Path, files: &mut Vec<String>, depth: u8) {
+    if depth > 4 || files.len() >= 1000 {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(folder) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_book_files(&path, files, depth + 1);
+        } else {
+            let extension = path
+                .extension()
+                .and_then(|value| value.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            if extension == "epub" || extension == "txt" {
+                files.push(path.to_string_lossy().into_owned());
+            }
+        }
+    }
+}
+
+#[tauri::command]
 fn read_dropped_file(path: String) -> Result<DroppedFile, String> {
     let file_path = PathBuf::from(&path);
     if !file_path.is_file() {
@@ -818,6 +855,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             if let Ok(dir) = app.path().app_local_data_dir() {
                 let logs = dir.join("logs");
@@ -844,6 +882,7 @@ pub fn run() {
             open_sponsor_issue,
             open_feedback,
             read_dropped_file,
+            scan_book_folder,
             append_diagnostic,
             write_diagnostic_report,
             open_diagnostics_folder,

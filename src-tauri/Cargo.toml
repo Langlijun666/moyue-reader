@@ -1,6 +1,6 @@
 [package]
 name = "moyue"
-version = "0.20.1"
+version = "0.21.0"
 description = "墨阅 · 一个安静的桌面 EPUB / TXT 阅读器"
 authors = ["Moyue"]
 edition = "2021"
@@ -24,6 +24,7 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 sha2 = "0.10"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+tauri-plugin-dialog = "2"
 
 [profile.release]
 panic = "abort"

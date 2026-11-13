@@ -20,6 +20,8 @@ export type PageEffect = "sweep" | "curl" | "slide" | "fade" | "zoom" | "none";
 
 export type ShelfView = "sidebar" | "full";
 
+export type LibrarySort = "recent" | "author" | "series" | "added";
+
 export type BookFormat = "epub" | "txt";
 
 export interface ReaderSettings {
@@ -53,6 +55,7 @@ export interface BookMeta {
   cover?: string;
   fileName: string;
   size: number;
+  series?: string;
   description?: string;
   addedAt: number;
   lastOpenedAt: number;

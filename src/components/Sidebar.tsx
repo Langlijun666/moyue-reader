@@ -34,6 +34,7 @@ interface SidebarProps {
   onManageCategories: () => void;
   onAssignCategories: (book: BookMeta) => void;
   onOpenStats: () => void;
+  onOpenLibraryManager: () => void;
   onOpenSettings: () => void;
 }
 
@@ -62,6 +63,7 @@ export function Sidebar({
   onManageCategories,
   onAssignCategories,
   onOpenStats,
+  onOpenLibraryManager,
   onOpenSettings,
 }: SidebarProps) {
   const normalized = query.trim().toLowerCase();
@@ -322,6 +324,10 @@ export function Sidebar({
           <button className="theme-chip" onClick={onOpenStats} title="阅读统计" aria-label="阅读统计">
             <Icon name="chart" size={15} />
             <span>统计</span>
+          </button>
+          <button className="theme-chip" onClick={onOpenLibraryManager} title="书库管理">
+            <Icon name="folder" size={15} />
+            <span>管理</span>
           </button>
           <button
             className="theme-chip theme-chip--icon"

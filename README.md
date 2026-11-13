@@ -20,6 +20,7 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 - **TXT 纯文本**：自动识别 UTF-8 / UTF-16 / GBK 编码，识别章节标题，并过滤作者更新说明
 - **文件名识别**：从 `书名_作者.txt`、`书名 - 作者.txt`、`《书名》作者.txt` 等文件名自动提取书名和作者
 - **本地书库**：使用 IndexedDB 保存书籍文件，重启后仍然可读；支持从资源管理器直接拖入 EPUB / TXT
+- **书库管理**：批量导入、文件夹监视、重复检测、系列分组、批量分类 / 删除 / 换封面、按作者和系列排序
 - **自动更新**：启动静默检查、后台下载，下载完成后提示重启；支持跳过版本，更新包带签名校验
 - **错误报告**：本地记录崩溃和异常，错误页面可重新加载、导出诊断；设置中可反馈问题或功能建议
 - **内置更新日志**：软件内查看当前版本和历史更新内容，更新后首次启动自动显示
@@ -92,6 +93,8 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 ![帮助与反馈](docs/feedback.png)
 
 ![更新日志](docs/changelog.png)
+
+![书库管理](docs/library-manager.png)
 
 ## 技术栈
 

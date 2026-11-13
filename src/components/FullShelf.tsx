@@ -28,6 +28,7 @@ interface FullShelfProps {
   onToggleTheme: () => void;
   onOpenMusic: () => void;
   onOpenStats: () => void;
+  onOpenLibraryManager: () => void;
   onOpenSettings: () => void;
 }
 
@@ -54,6 +55,7 @@ export function FullShelf({
   onToggleTheme,
   onOpenMusic,
   onOpenStats,
+  onOpenLibraryManager,
   onOpenSettings,
 }: FullShelfProps) {
   const normalized = query.trim().toLowerCase();
@@ -106,6 +108,14 @@ export function FullShelf({
             aria-label="打开阅读统计"
           >
             <Icon name="chart" size={18} />
+          </button>
+          <button
+            className="icon-button"
+            onClick={onOpenLibraryManager}
+            title="书库管理"
+            aria-label="打开书库管理"
+          >
+            <Icon name="folder" size={18} />
           </button>
           <button
             className="icon-button"

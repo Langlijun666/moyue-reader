@@ -19,6 +19,8 @@ import {
 } from "./lib/categories";
 import { loadProgressMap, loadSettings, saveProgress, saveSettings } from "./lib/storage";
 import { Sidebar } from "./components/Sidebar";
+import { LibraryManager } from "./components/LibraryManager";
+import type { LibrarySort } from "./types";
 import { EmptyState } from "./components/EmptyState";
 import { Reader } from "./components/Reader";
 import { FullShelf } from "./components/FullShelf";
@@ -37,7 +39,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.20.1";
+const APP_VERSION = "0.21.0";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -67,6 +69,22 @@ export default function App() {
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const [libraryManagerOpen, setLibraryManagerOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<LibrarySort>(() => {
+    try {
+      const saved = localStorage.getItem("moyue.sort.v1");
+      return saved === "author" || saved === "series" || saved === "added" ? saved : "recent";
+    } catch {
+      return "recent";
+    }
+  });
+  const [watchedFolder, setWatchedFolder] = useState(() => {
+    try {
+      return localStorage.getItem("moyue.watchFolder.v1") ?? "";
+    } catch {
+      return "";
+    }
+  });
   const [uninstallOpen, setUninstallOpen] = useState(false);
   const [sponsorOpen, setSponsorOpen] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
@@ -125,6 +143,14 @@ export default function App() {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [settings.backgroundImageId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("moyue.sort.v1", sortBy);
+    } catch {
+      // Sorting still works without persistence.
+    }
+  }, [sortBy]);
 
   useEffect(() => {
     try {
@@ -219,10 +245,21 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [active, fullShelf]);
 
-  const shelf = useMemo(
-    () => library.map((book) => ({ ...book, progress: progressMap[book.id] })),
-    [library, progressMap],
-  );
+  const shelf = useMemo(() => {
+    const sorted = [...library];
+    if (sortBy === "author") {
+      sorted.sort((a, b) => a.author.localeCompare(b.author, "zh-CN"));
+    } else if (sortBy === "series") {
+      sorted.sort((a, b) =>
+        (a.series || "未分组").localeCompare(b.series || "未分组", "zh-CN"),
+      );
+    } else if (sortBy === "added") {
+      sorted.sort((a, b) => b.addedAt - a.addedAt);
+    } else {
+      sorted.sort((a, b) => b.lastOpenedAt - a.lastOpenedAt);
+    }
+    return sorted.map((book) => ({ ...book, progress: progressMap[book.id] }));
+  }, [library, progressMap, sortBy]);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -238,7 +275,8 @@ export default function App() {
   }, [categoryData, library]);
 
   const importFile = useCallback(
-    async (file: File) => {
+    async (file: File, options: { open?: boolean; skipExisting?: boolean } = {}) => {
+      const openAfter = options.open ?? true;
       if (!/\.(epub|txt)$/i.test(file.name)) {
         setToast("请选择 .epub 或 .txt 格式的书籍");
         return;
@@ -257,6 +295,10 @@ export default function App() {
             ? await inspectTxt(data, file.name)
             : await inspectEpub(data, file.name);
         const existing = library.find((book) => book.id === info.id);
+        if (existing && options.skipExisting) {
+          setToast(`《${existing.title}》已在书架中`);
+          return;
+        }
         const now = Date.now();
         const record: BookRecord = {
           ...info,
@@ -268,7 +310,7 @@ export default function App() {
         };
         await putBook(record);
         setLibrary((books) => [stripData(record), ...books.filter((book) => book.id !== record.id)]);
-        setActive(record);
+        if (openAfter) setActive(record);
         setToast(existing ? "已更新书架中的这本书" : `《${record.title}》已放上书架`);
       } catch (error) {
         console.error(error);
@@ -347,6 +389,122 @@ export default function App() {
     };
   }, []);
 
+  const batchImportFiles = async (files: FileList) => {
+    for (const file of Array.from(files)) {
+      await importFile(file, { open: false, skipExisting: true });
+    }
+    setToast(`已批量导入 ${files.length} 个文件`);
+  };
+
+  const importDroppedPath = async (path: string) => {
+    const dropped = await invoke<{ name: string; dataBase64: string }>(
+      "read_dropped_file",
+      { path },
+    );
+    const binary = atob(dropped.dataBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    const file = new File([bytes], dropped.name, {
+      type: dropped.name.toLowerCase().endsWith(".epub")
+        ? "application/epub+zip"
+        : "text/plain",
+    });
+    return importFile(file, { open: false, skipExisting: true });
+  };
+
+  const scanFolder = async (folder: string) => {
+    try {
+      const paths = await invoke<string[]>("scan_book_folder", { path: folder });
+      for (const path of paths) {
+        await importDroppedPath(path);
+      }
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "扫描文件夹失败");
+    }
+  };
+
+  const pickWatchFolder = async () => {
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({ directory: true, multiple: false });
+      if (typeof selected !== "string") return;
+      localStorage.setItem("moyue.watchFolder.v1", selected);
+      setWatchedFolder(selected);
+      await scanFolder(selected);
+      setToast("已开始监视文件夹，新书会自动导入");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "无法选择文件夹");
+    }
+  };
+
+  const stopWatchFolder = () => {
+    localStorage.removeItem("moyue.watchFolder.v1");
+    setWatchedFolder("");
+    setToast("已停止监视文件夹");
+  };
+
+  useEffect(() => {
+    if (!watchedFolder) return;
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      if (!cancelled) void scanFolder(watchedFolder);
+    }, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [watchedFolder, scanFolder]);
+
+  const batchDelete = async (ids: string[]) => {
+    if (!window.confirm(`删除选中的 ${ids.length} 本书？笔记和进度不会被单独删除。`)) return;
+    for (const id of ids) await deleteBook(id);
+    setLibrary((books) => books.filter((book) => !ids.includes(book.id)));
+    setCategoryData((current) => {
+      const assignments = { ...current.assignments };
+      for (const id of ids) delete assignments[id];
+      return { ...current, assignments };
+    });
+    setLibraryManagerOpen(false);
+    setToast(`已删除 ${ids.length} 本书`);
+  };
+
+  const batchAssignCategories = (ids: string[], categoryIds: string[]) => {
+    setCategoryData((current) => {
+      const assignments = { ...current.assignments };
+      for (const id of ids) {
+        assignments[id] = [...new Set([...(assignments[id] ?? []), ...categoryIds])];
+      }
+      return { ...current, assignments };
+    });
+    setToast(`已为 ${ids.length} 本书添加分类`);
+  };
+
+  const batchSetSeries = async (ids: string[], series: string) => {
+    for (const id of ids) {
+      const record = await getBook(id);
+      if (!record) continue;
+      await putBook({ ...record, series });
+    }
+    setLibrary((books) =>
+      books.map((book) => (ids.includes(book.id) ? { ...book, series } : book)),
+    );
+    setToast(`已设置系列：${series}`);
+  };
+
+  const batchSetCover = async (ids: string[], file: File) => {
+    const cover = await imageFileToCover(file);
+    for (const id of ids) {
+      const record = await getBook(id);
+      if (!record) continue;
+      await putBook({ ...record, cover });
+    }
+    setLibrary((books) =>
+      books.map((book) => (ids.includes(book.id) ? { ...book, cover } : book)),
+    );
+    setToast(`已更新 ${ids.length} 本书的封面`);
+  };
   const requestCoverChange = (book: BookMeta) => {
     coverTargetRef.current = book;
     coverInputRef.current?.click();
@@ -750,6 +908,7 @@ export default function App() {
           onToggleTheme={toggleTheme}
           onOpenMusic={() => setMusicOpen(true)}
           onOpenStats={() => setStatsOpen(true)}
+          onOpenLibraryManager={() => setLibraryManagerOpen(true)}
           onOpenSettings={() => setAppSettingsOpen(true)}
           categories={categoryData.categories}
           assignments={categoryData.assignments}
@@ -811,6 +970,7 @@ export default function App() {
             onToggleTheme={toggleTheme}
             onOpenMusic={() => setMusicOpen(true)}
             onOpenStats={() => setStatsOpen(true)}
+            onOpenLibraryManager={() => setLibraryManagerOpen(true)}
             onOpenSettings={() => setAppSettingsOpen(true)}
           />
         ) : (
@@ -952,6 +1112,24 @@ export default function App() {
       <StatsDialog open={statsOpen} onClose={() => setStatsOpen(false)} />
 
       <ChangelogDialog open={changelogOpen} onClose={() => setChangelogOpen(false)} />
+
+      <LibraryManager
+        open={libraryManagerOpen}
+        books={shelf}
+        categories={categoryData.categories}
+        assignments={categoryData.assignments}
+        sortBy={sortBy}
+        watchedFolder={watchedFolder}
+        onSortChange={setSortBy}
+        onClose={() => setLibraryManagerOpen(false)}
+        onImport={(files) => void batchImportFiles(files)}
+        onPickFolder={() => void pickWatchFolder()}
+        onStopWatch={stopWatchFolder}
+        onAssignCategories={batchAssignCategories}
+        onSetSeries={(ids, series) => void batchSetSeries(ids, series)}
+        onDelete={(ids) => void batchDelete(ids)}
+        onSetCover={(ids, file) => void batchSetCover(ids, file)}
+      />
 
       <SponsorDialog
         open={sponsorOpen}
