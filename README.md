@@ -212,6 +212,8 @@ npm run tauri:build
 
 单页下载站源码位于 [`site/`](site/)，可直接上传到阿里云 OSS 静态托管，自动读取 `updates/latest.json` 获取最新版本。部署说明见 [site/README.md](site/README.md)。
 
+![官网首页](docs/website.png)
+
 ## 书库备份
 
 在「软件设置 → 书库备份」中：
