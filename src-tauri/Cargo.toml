@@ -1,6 +1,6 @@
 [package]
 name = "moyue"
-version = "0.24.0"
+version = "0.24.1"
 description = "墨阅 · 一个安静的桌面 EPUB / TXT 阅读器"
 authors = ["Moyue"]
 edition = "2021"

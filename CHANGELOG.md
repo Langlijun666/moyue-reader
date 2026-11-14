@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.1
+
+- PDF 阅读完善
+  - 支持 PDF 目录（有 outline 的文档）
+  - 支持方向键、PageUp / PageDown、空格、Home / End 翻页
+  - 保存当前页码进度
+
 ## 0.24.0
 
 - 新增 PDF 阅读（第一版）

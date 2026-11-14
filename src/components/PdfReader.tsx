@@ -21,6 +21,44 @@ function pageFromProgress(progress?: Progress): number {
   return Math.max(1, Number(match?.[1] ?? 1));
 }
 
+interface PdfTocItem {
+  title: string;
+  page: number;
+  level: number;
+}
+
+async function resolveOutline(
+  doc: PDFDocumentProxy,
+  items: Array<{ title: string; dest?: unknown; items?: unknown[] }> | null,
+  level = 0,
+): Promise<PdfTocItem[]> {
+  if (!items) return [];
+  const result: PdfTocItem[] = [];
+  for (const item of items) {
+    let page: number | null = null;
+    try {
+      let destination = item.dest;
+      if (typeof destination === "string") {
+        destination = await doc.getDestination(destination);
+      }
+      if (Array.isArray(destination) && destination[0]) {
+        page = (await doc.getPageIndex(destination[0] as Parameters<PDFDocumentProxy["getPageIndex"]>[0])) + 1;
+      }
+    } catch {
+      // Ignore outline entries with a broken destination.
+    }
+    if (page) result.push({ title: item.title, page, level });
+    result.push(
+      ...(await resolveOutline(
+        doc,
+        (item.items as Array<{ title: string; dest?: unknown; items?: unknown[] }>) ?? [],
+        level + 1,
+      )),
+    );
+  }
+  return result;
+}
+
 export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: PdfReaderProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const docRef = useRef<PDFDocumentProxy | null>(null);
@@ -31,6 +69,8 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
   const [scale, setScale] = useState(1.2);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [toc, setToc] = useState<PdfTocItem[]>([]);
+  const [tocOpen, setTocOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +84,15 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
         setPageCount(doc.numPages);
         setPage((value) => Math.min(Math.max(1, value), doc.numPages));
         setLoading(false);
+        void doc
+          .getOutline()
+          .then((outline) =>
+             resolveOutline(doc, outline as Array<{ title: string; dest?: unknown; items?: unknown[] }> | null),
+          )
+          .then((items) => {
+            if (!cancelled) setToc(items);
+          })
+          .catch(() => undefined);
       })
       .catch(() => {
         if (!cancelled) {
@@ -98,6 +147,28 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
     void renderPage();
   }, [renderPage]);
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
+      if (event.key === "ArrowLeft" || event.key === "PageUp") {
+        event.preventDefault();
+        setPage((value) => Math.max(1, value - 1));
+      } else if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+        event.preventDefault();
+        setPage((value) => Math.min(pageCount || 1, value + 1));
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        setPage(1);
+      } else if (event.key === "End") {
+        event.preventDefault();
+        setPage(pageCount || 1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pageCount]);
+
   const go = (delta: number) => {
     setPage((value) => Math.min(pageCount || 1, Math.max(1, value + delta)));
   };
@@ -115,6 +186,15 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
           </small>
         </div>
         <div className="pdf-reader__tools">
+          <button
+            className="icon-button"
+            onClick={() => setTocOpen((value) => !value)}
+            disabled={toc.length === 0}
+            aria-label="PDF 目录"
+            title={toc.length > 0 ? "目录" : "这个 PDF 没有目录"}
+          >
+            <Icon name="list" size={17} />
+          </button>
           <button className="icon-button" onClick={() => setScale((value) => Math.max(0.6, value - 0.15))} aria-label="缩小">
             −
           </button>
@@ -124,6 +204,30 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
           </button>
         </div>
       </header>
+
+      {tocOpen ? (
+        <aside className="pdf-reader__toc">
+          <div className="pdf-reader__toc-head">
+            <strong>目录</strong>
+            <button className="icon-button" onClick={() => setTocOpen(false)} aria-label="关闭目录">
+              <Icon name="x" size={15} />
+            </button>
+          </div>
+          {toc.map((item, index) => (
+            <button
+              key={`${item.page}-${item.title}-${index}`}
+              className={`pdf-reader__toc-item ${item.level > 0 ? "pdf-reader__toc-item--sub" : ""}`}
+              onClick={() => {
+                setPage(item.page);
+                setTocOpen(false);
+              }}
+            >
+              <span>{item.title}</span>
+              <small>{item.page}</small>
+            </button>
+          ))}
+        </aside>
+      ) : null}
 
       <div className="pdf-reader__viewport">
         {loading ? <div className="pdf-reader__hint">正在打开 PDF…</div> : null}
