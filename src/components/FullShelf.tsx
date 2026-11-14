@@ -301,7 +301,7 @@ export function FullShelf({
                   <div className="shelf-tile__meta">
                     <span>{book.progress ? percentLabel(percent) : formatBytes(book.size)}</span>
                     <span>
-                      {book.format === "txt" ? "TXT" : "EPUB"} · {book.progress ? "已读" : "未读"}
+                      {book.format === "txt" ? "TXT" : book.format === "pdf" ? "PDF" : "EPUB"} · {book.progress ? "已读" : "未读"}
                     </span>
                   </div>
                   <div className="shelf-tile__track" aria-hidden="true">

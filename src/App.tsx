@@ -14,6 +14,7 @@ import {
   trashBook,
 } from "./lib/db";
 import { inspectEpub } from "./lib/epub";
+import { inspectPdf } from "./lib/pdf";
 import { inspectTxt } from "./lib/txt";
 import { imageFileToCover } from "./lib/cover";
 import { formatFromFileName } from "./lib/format";
@@ -35,6 +36,7 @@ import { LibraryManager } from "./components/LibraryManager";
 import type { LibrarySort } from "./types";
 import { EmptyState } from "./components/EmptyState";
 import { Reader } from "./components/Reader";
+import { PdfReader } from "./components/PdfReader";
 import { FullShelf } from "./components/FullShelf";
 import { MusicPlayer } from "./components/MusicPlayer";
 import { CategoryManager } from "./components/CategoryManager";
@@ -51,7 +53,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.23.0";
+const APP_VERSION = "0.24.0";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -302,8 +304,8 @@ export default function App() {
     ): Promise<"added" | "updated" | "skipped" | "failed"> => {
       const openAfter = options.open ?? true;
       const silent = options.silent ?? false;
-      if (!/\.(epub|txt)$/i.test(file.name)) {
-        if (!silent) setToast("请选择 .epub 或 .txt 格式的书籍");
+      if (!/\.(epub|txt|pdf)$/i.test(file.name)) {
+        if (!silent) setToast("请选择 .epub、.txt 或 .pdf 格式的书籍");
         return "failed";
       }
       if (file.size > 250 * 1024 * 1024) {
@@ -318,7 +320,9 @@ export default function App() {
         const info =
           format === "txt"
             ? await inspectTxt(data, file.name)
-            : await inspectEpub(data, file.name);
+            : format === "pdf"
+              ? await inspectPdf(data, file.name)
+              : await inspectEpub(data, file.name);
         const existing = library.find((book) => book.id === info.id);
         if (existing && options.skipExisting) {
           return "skipped";
@@ -342,7 +346,7 @@ export default function App() {
       } catch (error) {
         console.error(error);
         if (!silent) {
-          setToast("导入失败：文件可能损坏，或不是有效的 EPUB / TXT");
+          setToast("导入失败：文件可能损坏，或不是有效的 EPUB / TXT / PDF");
         }
         return "failed";
       } finally {
@@ -368,9 +372,9 @@ export default function App() {
     let unlisten: (() => void) | null = null;
     let cancelled = false;
     const handleDrop = async (paths: string[]) => {
-      const path = paths.find((item) => /\.(epub|txt)$/i.test(item));
+      const path = paths.find((item) => /\.(epub|txt|pdf)$/i.test(item));
       if (!path) {
-        setToast("只支持拖入 EPUB 或 TXT 文件");
+        setToast("只支持拖入 EPUB、TXT 或 PDF 文件");
         return;
       }
       try {
@@ -386,7 +390,9 @@ export default function App() {
         const file = new File([bytes], dropped.name, {
           type: dropped.name.toLowerCase().endsWith(".epub")
             ? "application/epub+zip"
-            : "text/plain",
+            : dropped.name.toLowerCase().endsWith(".pdf")
+              ? "application/pdf"
+              : "text/plain",
         });
         await importFileRef.current(file);
       } catch (error) {
@@ -447,7 +453,9 @@ export default function App() {
     const file = new File([bytes], dropped.name, {
       type: dropped.name.toLowerCase().endsWith(".epub")
         ? "application/epub+zip"
-        : "text/plain",
+        : dropped.name.toLowerCase().endsWith(".pdf")
+          ? "application/pdf"
+          : "text/plain",
     });
     return importFile(file, { open: false, skipExisting: true, silent });
   };
@@ -1054,6 +1062,16 @@ export default function App() {
 
       <main className="workspace">
         {active ? (
+          active.format === "pdf" ? (
+            <PdfReader
+              key={active.id}
+              meta={active}
+              data={active.data}
+              initialProgress={progressMap[active.id]}
+              onBack={() => setActive(null)}
+              onProgress={handleProgress}
+            />
+          ) : (
           <Reader
             key={active.id}
             meta={active}
@@ -1070,6 +1088,7 @@ export default function App() {
             onOpenMusic={() => setMusicOpen(true)}
             onToggleTheme={toggleTheme}
           />
+          )
         ) : fullShelf ? (
           <FullShelf
             books={shelf}
@@ -1120,7 +1139,7 @@ export default function App() {
         ref={fileInputRef}
         className="visually-hidden"
         type="file"
-        accept=".epub,.txt,application/epub+zip,text/plain"
+        accept=".epub,.txt,.pdf,application/epub+zip,text/plain,application/pdf"
         onChange={(event) => onPickFile(event.target.files)}
       />
 

@@ -22,7 +22,7 @@ export type ShelfView = "sidebar" | "full";
 
 export type LibrarySort = "recent" | "author" | "series" | "added";
 
-export type BookFormat = "epub" | "txt";
+export type BookFormat = "epub" | "txt" | "pdf";
 
 export interface ReaderSettings {
   theme: ThemeName;

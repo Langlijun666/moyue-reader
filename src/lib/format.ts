@@ -4,8 +4,10 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function formatFromFileName(fileName: string): "txt" | "epub" {
-  return /\.txt$/i.test(fileName) ? "txt" : "epub";
+export function formatFromFileName(fileName: string): "txt" | "epub" | "pdf" {
+  if (/\.txt$/i.test(fileName)) return "txt";
+  if (/\.pdf$/i.test(fileName)) return "pdf";
+  return "epub";
 }
 
 export function formatDate(timestamp: number): string {

@@ -139,7 +139,8 @@ export async function createBackupBase64(
   };
 
   for (const record of records) {
-    const extension = record.format === "txt" ? "txt" : "epub";
+    const extension =
+      record.format === "txt" ? "txt" : record.format === "pdf" ? "pdf" : "epub";
     zip.file(`books/${record.id}.${extension}`, record.data, {
       binary: true,
       compression: "STORE",
@@ -192,7 +193,8 @@ export async function readBackupFile(file: File): Promise<RestoredBackup> {
     if (!raw || typeof raw.id !== "string" || !safeId(raw.id)) {
       throw new Error("备份中包含无效的书籍编号");
     }
-    const format = raw.format === "txt" ? "txt" : raw.format === "epub" ? "epub" : null;
+    const format =
+      raw.format === "txt" ? "txt" : raw.format === "pdf" ? "pdf" : raw.format === "epub" ? "epub" : null;
     if (!format) throw new Error(`《${raw.title ?? "未知书籍"}》格式无效`);
     const entry = zip.file(`books/${raw.id}.${format}`);
     if (!entry) throw new Error(`备份中缺少《${raw.title ?? "未知书籍"}》的文件`);

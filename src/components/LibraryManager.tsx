@@ -143,7 +143,7 @@ export function LibraryManager({
             ref={importRef}
             type="file"
             multiple
-            accept=".epub,.txt"
+            accept=".epub,.txt,.pdf"
             className="hidden-file-input"
             onChange={(event) => {
               if (event.target.files) onImport(event.target.files);

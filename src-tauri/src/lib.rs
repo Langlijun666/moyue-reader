@@ -677,7 +677,7 @@ fn collect_book_files(folder: &Path, files: &mut Vec<String>, depth: u8) {
                 .and_then(|value| value.to_str())
                 .unwrap_or("")
                 .to_lowercase();
-            if extension == "epub" || extension == "txt" {
+            if extension == "epub" || extension == "txt" || extension == "pdf" {
                 files.push(path.to_string_lossy().into_owned());
             }
         }
@@ -695,8 +695,11 @@ fn read_dropped_file(path: String) -> Result<DroppedFile, String> {
         .and_then(|name| name.to_str())
         .ok_or_else(|| "无法读取文件名".to_string())?
         .to_string();
-    if !name.to_lowercase().ends_with(".epub") && !name.to_lowercase().ends_with(".txt") {
-        return Err("只支持 EPUB 和 TXT".to_string());
+    if !name.to_lowercase().ends_with(".epub")
+        && !name.to_lowercase().ends_with(".txt")
+        && !name.to_lowercase().ends_with(".pdf")
+    {
+        return Err("只支持 EPUB、TXT 和 PDF".to_string());
     }
     let metadata = fs::metadata(&file_path).map_err(|error| format!("无法读取文件：{error}"))?;
     if metadata.len() > 250 * 1024 * 1024 {
