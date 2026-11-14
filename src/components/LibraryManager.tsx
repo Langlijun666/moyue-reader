@@ -18,7 +18,7 @@ interface LibraryManagerProps {
   onImport: (files: FileList) => void;
   onPickFolder: () => void;
   onStopWatch: () => void;
-  onAssignCategories: (ids: string[], categoryIds: string[]) => void;
+  onAssignCategories: (ids: string[], categoryIds: string[], mode: "add" | "remove") => void;
   onSetSeries: (ids: string[], series: string) => void;
   onDelete: (ids: string[]) => void;
   onSetCover: (ids: string[], file: File) => void;
@@ -203,9 +203,16 @@ export function LibraryManager({
           <button
             className="button button--ghost"
             disabled={ids.length === 0 || categoryIds.length === 0}
-            onClick={() => onAssignCategories(ids, categoryIds)}
+            onClick={() => onAssignCategories(ids, categoryIds, "add")}
           >
-            应用分类
+            添加分类
+          </button>
+          <button
+            className="button button--ghost"
+            disabled={ids.length === 0 || categoryIds.length === 0}
+            onClick={() => onAssignCategories(ids, categoryIds, "remove")}
+          >
+            移除分类
           </button>
           <input
             value={series}

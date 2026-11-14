@@ -51,7 +51,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.22.4";
+const APP_VERSION = "0.22.5";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -586,15 +586,26 @@ export default function App() {
     setToast("回收站已清空");
   };
 
-  const batchAssignCategories = (ids: string[], categoryIds: string[]) => {
+  const batchAssignCategories = (
+    ids: string[],
+    categoryIds: string[],
+    mode: "add" | "remove",
+  ) => {
     setCategoryData((current) => {
       const assignments = { ...current.assignments };
       for (const id of ids) {
-        assignments[id] = [...new Set([...(assignments[id] ?? []), ...categoryIds])];
+        assignments[id] =
+          mode === "add"
+            ? [...new Set([...(assignments[id] ?? []), ...categoryIds])]
+            : (assignments[id] ?? []).filter((categoryId) => !categoryIds.includes(categoryId));
       }
       return { ...current, assignments };
     });
-    setToast(`已为 ${ids.length} 本书添加分类`);
+    setToast(
+      mode === "add"
+        ? `已为 ${ids.length} 本书添加分类`
+        : `已从 ${ids.length} 本书移除分类`,
+    );
   };
 
   const batchSetSeries = async (ids: string[], series: string) => {

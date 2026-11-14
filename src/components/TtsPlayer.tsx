@@ -132,9 +132,9 @@ export function TtsPlayer({
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const neuralStatusRef = useRef<NeuralStatus | null>(null);
   const neuralAudioRef = useRef<HTMLAudioElement>(null);
-  const neuralCacheRef = useRef<Map<number, string>>(new Map());
-  const neuralPromisesRef = useRef<Map<number, Promise<string>>>(new Map());
+  const neuralCacheRef = useRef<Map<number, string>>(new Map());  const neuralPromisesRef = useRef<Map<number, Promise<string>>>(new Map());
   const neuralIndexRef = useRef(0);
+  const chunkIndexRef = useRef(0);
   const neuralRunRef = useRef(0);
   const loadCurrentRef = useRef(loadCurrentChapter);
   const loadNextRef = useRef(loadNextChapter);
@@ -142,6 +142,10 @@ export function TtsPlayer({
   const onStopRef = useRef(onStop);
   const statusRef = useRef(status);
   const stopRef = useRef<() => void>(() => {});
+  const toggleRef = useRef<() => void>(() => {});
+  const nextChunkRef = useRef<() => void>(() => {});
+  const previousChunkRef = useRef<() => void>(() => {});
+  const fadeVolumeRef = useRef(1);
 
   useEffect(() => {
     rateRef.current = rate;
@@ -257,6 +261,8 @@ export function TtsPlayer({
 
   useEffect(() => {
     if (!sleepAt) {
+      fadeVolumeRef.current = 1;
+      if (neuralAudioRef.current) neuralAudioRef.current.volume = 1;
       setSleepLeft(0);
       return;
     }
@@ -264,13 +270,20 @@ export function TtsPlayer({
       const left = Math.max(0, sleepAt - Date.now());
       setSleepLeft(left);
       if (left <= 0) {
+        fadeVolumeRef.current = 1;
         setSleepAt(0);
         setSleepMinutes(0);
         stopRef.current();
+        return;
+      }
+      if (engineRef.current === "neural" && statusRef.current === "playing") {
+        const fade = Math.min(1, Math.max(0, left / 15_000));
+        fadeVolumeRef.current = fade;
+        if (neuralAudioRef.current) neuralAudioRef.current.volume = fade;
       }
     };
     tick();
-    const timer = window.setInterval(tick, 1000);
+    const timer = window.setInterval(tick, 250);
     return () => window.clearInterval(timer);
   }, [sleepAt]);
 
@@ -285,16 +298,21 @@ export function TtsPlayer({
 
   const stop = () => {
     runIdRef.current += 1;
+    fadeVolumeRef.current = 1;
     if (pauseTimerRef.current !== null) {
       window.clearTimeout(pauseTimerRef.current);
       pauseTimerRef.current = null;
     }
     if (synth) synth.cancel();
+    if (neuralAudioRef.current) {
+      neuralAudioRef.current.volume = 1;
+    }
     clearNeuralCache();
     chunksRef.current = [];
     chapterRef.current = null;
     setChunkCount(0);
     setChunkIndex(0);
+    chunkIndexRef.current = 0;
     setStatus("idle");
     setSleepAt(0);
     setSleepMinutes(0);
@@ -356,6 +374,7 @@ export function TtsPlayer({
     neuralIndexRef.current = index;
     neuralRunRef.current = runId;
     setChunkIndex(index);
+    chunkIndexRef.current = index;
     setError(null);
     onSentenceRef.current(chapter, chunk.start, chunk.text.length);
     try {
@@ -363,7 +382,7 @@ export function TtsPlayer({
       const path = await ensureNeuralChunk(index);
       if (runId !== runIdRef.current) return;
       audio.src = convertFileSrc(path);
-      audio.volume = 1;
+      audio.volume = fadeVolumeRef.current;
       setStatus("playing");
       await audio.play();
       if (runId === runIdRef.current) {
@@ -404,6 +423,7 @@ export function TtsPlayer({
     const chapter = chapterRef.current;
     if (!chapter) return;
     setChunkIndex(index);
+    chunkIndexRef.current = index;
     onSentenceRef.current(chapter, chunk.start, chunk.text.length);
     const utterance = new SpeechSynthesisUtterance(chunk.text);
     const voice = voiceRef.current;
@@ -475,6 +495,7 @@ export function TtsPlayer({
     chunksRef.current = chunks;
     setChunkCount(chunks.length);
     setChunkIndex(0);
+    chunkIndexRef.current = 0;
     setError(null);
     setStatus("playing");
     speakChunk(0, runId);
@@ -562,8 +583,75 @@ export function TtsPlayer({
     void begin();
   };
 
+  const skipChunk = (delta: number) => {
+    if (statusRef.current === "loading" || chunksRef.current.length === 0) return;
+    const next = Math.max(
+      0,
+      Math.min(chunksRef.current.length - 1, chunkIndexRef.current + delta),
+    );
+    if (next === chunkIndexRef.current) return;
+    const runId = runIdRef.current;
+    if (engineRef.current === "neural") {
+      void playNeuralChunk(next, runId);
+    } else if (synth) {
+      synth.cancel();
+      if (pauseTimerRef.current !== null) {
+        window.clearTimeout(pauseTimerRef.current);
+        pauseTimerRef.current = null;
+      }
+      setStatus("playing");
+      speakChunk(next, runId);
+    }
+  };
+  toggleRef.current = toggle;
+  nextChunkRef.current = () => skipChunk(1);
+  previousChunkRef.current = () => skipChunk(-1);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    const session = navigator.mediaSession;
+    if (status === "idle" || status === "ended") {
+      session.playbackState = "none";
+      return;
+    }
+    try {
+      session.metadata = new MediaMetadata({
+        title: chapterLabel || "墨阅听书",
+        artist: "墨阅",
+        album: "把世界读慢一点",
+      });
+      session.playbackState =
+        status === "playing" ? "playing" : status === "paused" ? "paused" : "none";
+      const handlers: [MediaSessionAction, (() => void) | null][] = [
+        ["play", () => toggleRef.current()],
+        ["pause", () => toggleRef.current()],
+        ["stop", () => stopRef.current()],
+        ["nexttrack", () => nextChunkRef.current()],
+        ["previoustrack", () => previousChunkRef.current()],
+        ["seekforward", () => nextChunkRef.current()],
+        ["seekbackward", () => previousChunkRef.current()],
+      ];
+      for (const [action, handler] of handlers) {
+        session.setActionHandler(action, handler);
+      }
+      return () => {
+        for (const [action] of handlers) {
+          try {
+            session.setActionHandler(action, null);
+          } catch {
+            // Some WebView versions do not support every action.
+          }
+        }
+      };
+    } catch {
+      // Media Session is optional; playback still works.
+    }
+  }, [chapterLabel, status]);
+
   const setSleep = (minutes: number) => {
     setSleepMinutes(minutes);
+    fadeVolumeRef.current = 1;
+    if (neuralAudioRef.current) neuralAudioRef.current.volume = 1;
     if (minutes <= 0) {
       setSleepAt(0);
       setSleepLeft(0);
@@ -833,6 +921,9 @@ export function TtsPlayer({
                     </button>
                   ))}
                 </div>
+                <p className="tts-hint tts-sleep__hint">
+                  离线自然语音会在最后 15 秒逐渐淡出；系统语音到时停止。
+                </p>
               </div>
 
               <p className="tts-hint">
