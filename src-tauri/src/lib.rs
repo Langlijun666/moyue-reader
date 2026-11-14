@@ -204,13 +204,15 @@ async fn download_app_update(
             .ok_or_else(|| "没有可下载的更新".to_string())?
     };
     let app_for_progress = app.clone();
+    let mut received = 0u64;
     let bytes = update
         .download(
-            move |downloaded, total| {
+            move |chunk_length, total| {
+                received += chunk_length as u64;
                 let _ = app_for_progress.emit(
                     "moyue-update-progress",
                     UpdateProgress {
-                        downloaded: downloaded as u64,
+                        downloaded: received,
                         total: total.unwrap_or(0),
                     },
                 );

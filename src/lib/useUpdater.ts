@@ -110,6 +110,10 @@ export function useUpdater() {
         }
       });
       await invoke("download_app_update");
+      if (expected > 0) {
+        setDownloaded(expected);
+        setTotal(expected);
+      }
       setProgress(100);
       setPhase("ready");
     } catch (downloadError) {

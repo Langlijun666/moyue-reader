@@ -87,7 +87,7 @@ export function AppSettingsPanel({
   onInstallUpdate,
   onOpenChangelog,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.22.3");
+  const [version, setVersion] = useState("0.22.4");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
