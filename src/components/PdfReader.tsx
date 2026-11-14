@@ -22,6 +22,18 @@ interface PdfTocItem {
   level: number;
 }
 
+interface PdfSearchResult {
+  page: number;
+  snippet: string;
+}
+
+interface HighlightBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 const SPREAD_KEY = "moyue.pdf.spread.v1";
 
 function pageFromProgress(progress?: Progress): number {
@@ -77,6 +89,13 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
   const [error, setError] = useState<string | null>(null);
   const [toc, setToc] = useState<PdfTocItem[]>([]);
   const [tocOpen, setTocOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchProgress, setSearchProgress] = useState(0);
+  const [searchResults, setSearchResults] = useState<PdfSearchResult[]>([]);
+  const [highlights, setHighlights] = useState<Record<number, HighlightBox[]>>({});
+  const [highlightQuery, setHighlightQuery] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -139,6 +158,27 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
         const task = rendered.render({ canvasContext: context, canvas, viewport });
         renderTasksRef.current.push(task);
         await task.promise;
+        const boxes: HighlightBox[] = [];
+        const query = highlightQuery.trim().toLowerCase();
+        if (query) {
+          const content = await rendered.getTextContent();
+          for (const raw of content.items) {
+            const item = raw as { str?: string; transform?: number[]; width?: number; height?: number };
+            if (!item.str || !item.str.toLowerCase().includes(query)) continue;
+            const transform = pdfjs.Util.transform(
+              viewport.transform,
+              (item.transform ?? [1, 0, 0, 1, 0, 0]) as [number, number, number, number, number, number],
+            );
+            const height = Math.max(8, Math.hypot(transform[2], transform[3]) || 12);
+            boxes.push({
+              left: transform[4],
+              top: transform[5] - height,
+              width: Math.max(8, (item.width ?? 0) * scale),
+              height,
+            });
+          }
+        }
+        setHighlights((current) => ({ ...current, [visible[index]]: boxes }));
       }
       const lastPage = Math.min(pageCount, page + (spread ? 1 : 0));
       onProgress({
@@ -152,7 +192,7 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
         setError("这一页渲染失败");
       }
     }
-  }, [loading, onProgress, page, pageCount, scale, spread]);
+  }, [highlightQuery, loading, onProgress, page, pageCount, scale, spread]);
 
   useEffect(() => {
     void renderPages();
@@ -194,6 +234,50 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
     setPage((value) => Math.min(pageCount || 1, Math.max(1, value + delta * step)));
   };
 
+  const searchPdf = async () => {
+    const doc = docRef.current;
+    const query = searchQuery.trim();
+    if (!doc || !query || searching) return;
+    setSearching(true);
+    setSearchProgress(0);
+    setSearchResults([]);
+    setHighlightQuery(query);
+    const results: PdfSearchResult[] = [];
+    try {
+      for (let current = 1; current <= pageCount; current += 1) {
+        const pdfPage = await doc.getPage(current);
+        const content = await pdfPage.getTextContent();
+        const text = content.items
+          .map((item) => ("str" in item ? item.str : ""))
+          .join(" ")
+          .replace(/\s+/g, " ");
+        const lower = text.toLowerCase();
+        let from = 0;
+        const needle = query.toLowerCase();
+        while (results.length < 200) {
+          const index = lower.indexOf(needle, from);
+          if (index < 0) break;
+          results.push({
+            page: current,
+            snippet: text.slice(Math.max(0, index - 28), index + query.length + 48).trim(),
+          });
+          from = index + Math.max(1, query.length);
+        }
+        setSearchProgress(current / Math.max(1, pageCount));
+        if (results.length >= 200) break;
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+      }
+      setSearchResults(results);
+      if (results.length > 0) {
+        setPage(results[0].page);
+      }
+    } catch {
+      setError("PDF 搜索失败");
+    } finally {
+      setSearching(false);
+    }
+  };
+
   return (
     <section className="pdf-reader">
       <header className="pdf-reader__head">
@@ -216,6 +300,14 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
           </button>
           <button
             className="icon-button"
+            onClick={() => setSearchOpen((value) => !value)}
+            aria-label="搜索 PDF"
+            title="全文搜索"
+          >
+            <Icon name="search" size={17} />
+          </button>
+          <button
+            className="icon-button"
             onClick={() => setTocOpen((value) => !value)}
             disabled={toc.length === 0}
             aria-label="PDF 目录"
@@ -232,6 +324,52 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
           </button>
         </div>
       </header>
+
+      {searchOpen ? (
+        <aside className="pdf-reader__toc pdf-reader__search">
+          <div className="pdf-reader__toc-head">
+            <strong>全文搜索</strong>
+            <button className="icon-button" onClick={() => setSearchOpen(false)} aria-label="关闭搜索">
+              <Icon name="x" size={15} />
+            </button>
+          </div>
+          <div className="pdf-reader__search-row">
+            <input
+              autoFocus
+              value={searchQuery}
+              placeholder="输入关键词"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void searchPdf();
+              }}
+            />
+            <button className="text-button" onClick={() => void searchPdf()} disabled={searching}>
+              {searching ? "搜索中" : "搜索"}
+            </button>
+          </div>
+          {searching ? (
+            <div className="tts-progress pdf-reader__search-progress" aria-hidden="true">
+              <span style={{ width: `${Math.round(searchProgress * 100)}%` }} />
+            </div>
+          ) : null}
+          {searchResults.map((item, index) => (
+            <button
+              key={`${item.page}-${index}`}
+              className="pdf-reader__search-result"
+              onClick={() => {
+                setPage(item.page);
+                setSearchOpen(false);
+              }}
+            >
+              <small>第 {item.page} 页</small>
+              <span>{item.snippet}</span>
+            </button>
+          ))}
+          {!searching && searchResults.length === 0 && searchQuery ? (
+            <p className="pdf-reader__search-empty">没有找到匹配内容</p>
+          ) : null}
+        </aside>
+      ) : null}
 
       {tocOpen ? (
         <aside className="pdf-reader__toc">
@@ -261,8 +399,38 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
         {loading ? <div className="pdf-reader__hint">正在打开 PDF…</div> : null}
         {error ? <div className="pdf-reader__hint pdf-reader__hint--error">{error}</div> : null}
         <div className="pdf-reader__pages">
-          <canvas ref={canvasRefs[0]} className="pdf-reader__canvas" />
-          {spread ? <canvas ref={canvasRefs[1]} className="pdf-reader__canvas" /> : null}
+          <div className="pdf-reader__page">
+            <canvas ref={canvasRefs[0]} className="pdf-reader__canvas" />
+            {(highlights[page] ?? []).map((box, index) => (
+              <span
+                key={index}
+                className="pdf-reader__highlight"
+                style={{
+                  left: box.left,
+                  top: box.top,
+                  width: box.width,
+                  height: box.height,
+                }}
+              />
+            ))}
+          </div>
+          {spread ? (
+            <div className="pdf-reader__page">
+              <canvas ref={canvasRefs[1]} className="pdf-reader__canvas" />
+              {(highlights[page + 1] ?? []).map((box, index) => (
+                <span
+                  key={index}
+                  className="pdf-reader__highlight"
+                  style={{
+                    left: box.left,
+                    top: box.top,
+                    width: box.width,
+                    height: box.height,
+                  }}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 
