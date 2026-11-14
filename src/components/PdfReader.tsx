@@ -96,6 +96,8 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
   const [searchResults, setSearchResults] = useState<PdfSearchResult[]>([]);
   const [highlights, setHighlights] = useState<Record<number, HighlightBox[]>>({});
   const [highlightQuery, setHighlightQuery] = useState("");
+  const searchRunRef = useRef(0);
+  const searchCacheRef = useRef<Map<string, PdfSearchResult[]>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -238,6 +240,14 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
     const doc = docRef.current;
     const query = searchQuery.trim();
     if (!doc || !query || searching) return;
+    const cached = searchCacheRef.current.get(query.toLowerCase());
+    if (cached) {
+      setSearchResults(cached);
+      setHighlightQuery(query);
+      if (cached.length > 0) setPage(cached[0].page);
+      return;
+    }
+    const run = ++searchRunRef.current;
     setSearching(true);
     setSearchProgress(0);
     setSearchResults([]);
@@ -245,6 +255,7 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
     const results: PdfSearchResult[] = [];
     try {
       for (let current = 1; current <= pageCount; current += 1) {
+        if (run !== searchRunRef.current) return;
         const pdfPage = await doc.getPage(current);
         const content = await pdfPage.getTextContent();
         const text = content.items
@@ -263,19 +274,27 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
           });
           from = index + Math.max(1, query.length);
         }
+        if (run !== searchRunRef.current) return;
         setSearchProgress(current / Math.max(1, pageCount));
         if (results.length >= 200) break;
         await new Promise((resolve) => window.setTimeout(resolve, 0));
       }
+      if (run !== searchRunRef.current) return;
+      searchCacheRef.current.set(query.toLowerCase(), results);
       setSearchResults(results);
       if (results.length > 0) {
         setPage(results[0].page);
       }
     } catch {
-      setError("PDF 搜索失败");
+      if (run === searchRunRef.current) setError("PDF 搜索失败");
     } finally {
-      setSearching(false);
+      if (run === searchRunRef.current) setSearching(false);
     }
+  };
+
+  const cancelSearch = () => {
+    searchRunRef.current += 1;
+    setSearching(false);
   };
 
   return (
@@ -343,8 +362,11 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
                 if (event.key === "Enter") void searchPdf();
               }}
             />
-            <button className="text-button" onClick={() => void searchPdf()} disabled={searching}>
-              {searching ? "搜索中" : "搜索"}
+            <button
+              className="text-button"
+              onClick={searching ? cancelSearch : () => void searchPdf()}
+            >
+              {searching ? "停止" : "搜索"}
             </button>
           </div>
           {searching ? (
@@ -367,6 +389,9 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
           ))}
           {!searching && searchResults.length === 0 && searchQuery ? (
             <p className="pdf-reader__search-empty">没有找到匹配内容</p>
+          ) : null}
+          {!searching && searchResults.length > 0 ? (
+            <p className="pdf-reader__search-empty">共 {searchResults.length} 条结果</p>
           ) : null}
         </aside>
       ) : null}

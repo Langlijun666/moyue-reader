@@ -432,6 +432,12 @@ fn download_with_fallback(
     Err(last_error)
 }
 
+fn part_path(path: &Path) -> PathBuf {
+    let mut value = path.as_os_str().to_os_string();
+    value.push(".part");
+    PathBuf::from(value)
+}
+
 fn download_file(
     app: &tauri::AppHandle,
     url: &str,
@@ -447,22 +453,57 @@ fn download_file(
         let _ = fs::remove_file(destination);
     }
 
+    let partial = part_path(destination);
+    let existing = fs::metadata(&partial).map(|meta| meta.len()).unwrap_or(0);
     let client = reqwest::blocking::Client::builder()
         .user_agent("Moyue/0.11 neural-tts")
         .timeout(std::time::Duration::from_secs(1800))
         .build()
         .map_err(|error| format!("无法创建下载连接：{error}"))?;
-    let mut response = client
-        .get(url)
+    let mut request = client.get(url);
+    if existing > 0 {
+        request = request.header(
+            reqwest::header::RANGE,
+            format!("bytes={existing}-"),
+        );
+    }
+    let mut response = request
         .send()
         .map_err(|error| format!("下载失败：{error}"))?;
-    if !response.status().is_success() {
+    let resumed = response.status() == reqwest::StatusCode::PARTIAL_CONTENT;
+    if !response.status().is_success() && !resumed {
         return Err(format!("下载失败：HTTP {}", response.status()));
     }
-    let total = response.content_length().unwrap_or(0);
-    let mut file = fs::File::create(destination).map_err(|error| error.to_string())?;
+    let content_length = response.content_length().unwrap_or(0);
+    let start = if resumed { existing } else { 0 };
+    let total = if resumed {
+        existing.saturating_add(content_length)
+    } else {
+        content_length
+    };
+    let mut file = if resumed {
+        fs::OpenOptions::new()
+            .append(true)
+            .open(&partial)
+            .map_err(|error| error.to_string())?
+    } else {
+        fs::File::create(&partial).map_err(|error| error.to_string())?
+    };
     let mut hasher = Sha256::new();
-    let mut downloaded = 0u64;
+    if resumed && existing > 0 {
+        let mut previous = fs::File::open(&partial).map_err(|error| error.to_string())?;
+        let mut buffer = [0u8; 256 * 1024];
+        loop {
+            let read = previous
+                .read(&mut buffer)
+                .map_err(|error| error.to_string())?;
+            if read == 0 {
+                break;
+            }
+            hasher.update(&buffer[..read]);
+        }
+    }
+    let mut downloaded = start;
     let mut buffer = [0u8; 256 * 1024];
     let started = std::time::Instant::now();
     let mut last_emit = started;
@@ -478,7 +519,7 @@ fn download_file(
             .map_err(|error| format!("写入失败：{error}"))?;
         hasher.update(&buffer[..read]);
         downloaded += read as u64;
-        if last_emit.elapsed().as_millis() >= 180 || downloaded == total {
+        if last_emit.elapsed().as_millis() >= 180 || (total > 0 && downloaded == total) {
             last_emit = std::time::Instant::now();
             let percent = if total > 0 {
                 downloaded as f64 / total as f64 * 100.0
@@ -492,9 +533,10 @@ fn download_file(
 
     let actual = format!("{:x}", hasher.finalize());
     if actual != expected_hash {
-        let _ = fs::remove_file(destination);
+        let _ = fs::remove_file(&partial);
         return Err("下载文件校验失败，已取消".to_string());
     }
+    fs::rename(&partial, destination).map_err(|error| format!("保存文件失败：{error}"))?;
     Ok(())
 }
 
