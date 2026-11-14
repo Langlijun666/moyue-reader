@@ -51,7 +51,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.22.1";
+const APP_VERSION = "0.22.2";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -1215,8 +1215,10 @@ export default function App() {
         updateError={updater.error}
         autoCheck={updater.autoCheck}
         autoDownload={updater.autoDownload}
+        updateSource={updater.updateSource}
         onAutoCheckChange={updater.setAutoCheck}
         onAutoDownloadChange={updater.setAutoDownload}
+        onUpdateSourceChange={updater.setUpdateSource}
         onCheckUpdate={() => void updater.checkForUpdates(true)}
         onInstallUpdate={() => void updater.install()}
         onOpenChangelog={() => {

@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  check,
-  type DownloadEvent,
-  type Update,
-} from "@tauri-apps/plugin-updater";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 export type UpdatePhase =
   | "idle"
@@ -14,9 +11,23 @@ export type UpdatePhase =
   | "installing"
   | "error";
 
+export type UpdateSource = "auto" | "mirror" | "github";
+
 const SKIP_KEY = "moyue.update.skipped.v1";
 const AUTO_CHECK_KEY = "moyue.update.autoCheck.v1";
 const AUTO_DOWNLOAD_KEY = "moyue.update.autoDownload.v1";
+const SOURCE_KEY = "moyue.update.source.v1";
+
+interface UpdateInfo {
+  version: string;
+  currentVersion: string;
+  body: string;
+}
+
+interface UpdateProgress {
+  downloaded: number;
+  total: number;
+}
 
 function readBoolean(key: string, fallback: boolean): boolean {
   try {
@@ -35,6 +46,15 @@ function writeBoolean(key: string, value: boolean): void {
   }
 }
 
+function readSource(): UpdateSource {
+  try {
+    const value = localStorage.getItem(SOURCE_KEY);
+    return value === "mirror" || value === "github" ? value : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
 export function useUpdater() {
   const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
   const [phase, setPhase] = useState<UpdatePhase>("idle");
@@ -50,7 +70,7 @@ export function useUpdater() {
   const [autoDownload, setAutoDownloadState] = useState(() =>
     readBoolean(AUTO_DOWNLOAD_KEY, true),
   );
-  const updateRef = useRef<Update | null>(null);
+  const [updateSource, setUpdateSourceState] = useState<UpdateSource>(readSource);
   const busyRef = useRef(false);
 
   const setAutoCheck = useCallback((value: boolean) => {
@@ -63,36 +83,44 @@ export function useUpdater() {
     writeBoolean(AUTO_DOWNLOAD_KEY, value);
   }, []);
 
+  const setUpdateSource = useCallback((value: UpdateSource) => {
+    setUpdateSourceState(value);
+    try {
+      localStorage.setItem(SOURCE_KEY, value);
+    } catch {
+      // Preference persistence is optional.
+    }
+  }, []);
+
   const download = useCallback(async () => {
-    const update = updateRef.current;
-    if (!update) return;
+    if (!isTauri) return;
     setPhase("downloading");
     setError(null);
     let received = 0;
     let expected = 0;
+    let unlisten: (() => void) | null = null;
     try {
-      await update.download((event: DownloadEvent) => {
-        if (event.event === "Started") {
-          expected = event.data.contentLength ?? 0;
+      unlisten = await listen<UpdateProgress>("moyue-update-progress", (event) => {
+        received = event.payload.downloaded;
+        expected = event.payload.total;
+        setDownloaded(received);
+        if (expected > 0) {
           setTotal(expected);
-        } else if (event.event === "Progress") {
-          received += event.data.chunkLength;
-          setDownloaded(received);
-          if (expected > 0) {
-            setProgress(Math.min(99, Math.round((received / expected) * 100)));
-          }
-        } else if (event.event === "Finished") {
-          setProgress(100);
+          setProgress(Math.min(99, Math.round((received / expected) * 100)));
         }
       });
+      await invoke("download_app_update");
+      setProgress(100);
       setPhase("ready");
     } catch (downloadError) {
       setError(
-        downloadError instanceof Error ? downloadError.message : "更新下载失败",
+        downloadError instanceof Error ? downloadError.message : String(downloadError),
       );
       setPhase("error");
+    } finally {
+      unlisten?.();
     }
-  }, []);
+  }, [isTauri]);
 
   const checkForUpdates = useCallback(
     async (manual = false) => {
@@ -101,8 +129,10 @@ export function useUpdater() {
       setError(null);
       setPhase("checking");
       try {
-        const update = await check();
-        if (!update) {
+        const info = await invoke<UpdateInfo | null>("check_app_update", {
+          source: updateSource,
+        });
+        if (!info) {
           setPhase("idle");
           if (manual) setError("已经是最新版本");
           return;
@@ -113,14 +143,12 @@ export function useUpdater() {
         } catch {
           // Ignore storage errors.
         }
-        if (!manual && skipped === update.version) {
-          await update.close();
+        if (!manual && skipped === info.version) {
           setPhase("idle");
           return;
         }
-        updateRef.current = update;
-        setVersion(update.version);
-        setBody(update.body ?? "");
+        setVersion(info.version);
+        setBody(info.body);
         setProgress(0);
         setDownloaded(0);
         setTotal(0);
@@ -132,44 +160,39 @@ export function useUpdater() {
         setPhase(manual ? "error" : "idle");
         if (manual) {
           setError(
-            checkError instanceof Error ? checkError.message : "检查更新失败",
+            checkError instanceof Error ? checkError.message : String(checkError),
           );
         }
       } finally {
         busyRef.current = false;
       }
     },
-    [autoDownload, download, isTauri],
+    [autoDownload, download, isTauri, updateSource],
   );
 
   const install = useCallback(async () => {
-    const update = updateRef.current;
-    if (!update) return;
+    if (!isTauri) return;
     setPhase("installing");
     setError(null);
     try {
-      await update.install({ restartAfterInstall: true });
+      await invoke("install_app_update");
     } catch (installError) {
       setError(
-        installError instanceof Error ? installError.message : "安装更新失败",
+        installError instanceof Error ? installError.message : String(installError),
       );
       setPhase("error");
     }
-  }, []);
+  }, [isTauri]);
 
   const skip = useCallback(async () => {
-    const update = updateRef.current;
-    if (!update) return;
     try {
-      localStorage.setItem(SKIP_KEY, update.version);
+      localStorage.setItem(SKIP_KEY, version);
     } catch {
       // Skipping is best-effort.
     }
-    await update.close().catch(() => undefined);
-    updateRef.current = null;
     setPhase("idle");
     setError(null);
-  }, []);
+  }, [version]);
 
   const dismiss = useCallback(() => {
     setPhase("idle");
@@ -177,9 +200,7 @@ export function useUpdater() {
   }, []);
 
   useEffect(() => {
-    return () => {
-      void updateRef.current?.close().catch(() => undefined);
-    };
+    return () => undefined;
   }, []);
 
   return {
@@ -193,8 +214,10 @@ export function useUpdater() {
     error,
     autoCheck,
     autoDownload,
+    updateSource,
     setAutoCheck,
     setAutoDownload,
+    setUpdateSource,
     checkForUpdates,
     download,
     install,

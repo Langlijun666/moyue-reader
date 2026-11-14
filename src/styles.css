@@ -5240,6 +5240,51 @@ input:focus-visible,
   color: var(--muted);
 }
 
+.update-source {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 10px;
+  align-items: center;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+
+.update-source__label {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.update-source__options {
+  display: flex;
+  gap: 3px;
+  padding: 2px;
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+
+.update-source__options button {
+  flex: 1;
+  padding: 5px 8px;
+  color: var(--muted);
+  border-radius: 4px;
+  font-size: 8px;
+}
+
+.update-source__options button:hover {
+  color: var(--ink);
+}
+
+.update-source__options button.is-active {
+  color: var(--paper);
+  background: var(--accent);
+}
+
+.update-source small {
+  grid-column: 2;
+  color: var(--faint);
+  font-size: 8px;
+}
+
 .library-manager-backdrop {
   position: fixed;
   inset: 0;

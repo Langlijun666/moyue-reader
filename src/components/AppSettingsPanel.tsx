@@ -36,8 +36,10 @@ interface AppSettingsPanelProps {
   updateError: string | null;
   autoCheck: boolean;
   autoDownload: boolean;
+  updateSource: "auto" | "mirror" | "github";
   onAutoCheckChange: (value: boolean) => void;
   onAutoDownloadChange: (value: boolean) => void;
+  onUpdateSourceChange: (value: "auto" | "mirror" | "github") => void;
   onCheckUpdate: () => void;
   onInstallUpdate: () => void;
   onOpenChangelog: () => void;
@@ -77,13 +79,15 @@ export function AppSettingsPanel({
   updateError,
   autoCheck,
   autoDownload,
+  updateSource,
   onAutoCheckChange,
   onAutoDownloadChange,
+  onUpdateSourceChange,
   onCheckUpdate,
   onInstallUpdate,
   onOpenChangelog,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.22.1");
+  const [version, setVersion] = useState("0.22.2");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -449,6 +453,34 @@ export function AppSettingsPanel({
                 />
                 <span>自动下载更新</span>
               </label>
+              <div className="update-source">
+                <span className="update-source__label">更新线路</span>
+                <div className="update-source__options">
+                  {[
+                    ["auto", "自动"],
+                    ["mirror", "国内镜像"],
+                    ["github", "GitHub"],
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={updateSource === value ? "is-active" : ""}
+                      onClick={() =>
+                        onUpdateSourceChange(value as "auto" | "mirror" | "github")
+                      }
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <small>
+                  {updateSource === "auto"
+                    ? "国内镜像优先，失败后自动尝试 GitHub"
+                    : updateSource === "mirror"
+                      ? "只从阿里云 OSS 检查更新"
+                      : "只从 GitHub 检查更新"}
+                </small>
+              </div>
             </div>
             <div className="update-settings-actions">
               <button

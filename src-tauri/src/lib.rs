@@ -6,7 +6,9 @@ use std::path::{Path, PathBuf};
 use std::panic;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::Mutex;
 use tauri::{Emitter, Manager};
+use tauri_plugin_updater::{Update, UpdaterExt};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 
 #[cfg(target_os = "windows")]
@@ -118,6 +120,129 @@ fn open_backup_folder(app: tauri::AppHandle) -> Result<(), String> {
 
 const SPONSOR_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/issues/new?template=sponsorship.yml&title=%5B%E8%B5%9E%E5%8A%A9%E7%99%BB%E8%AE%B0%5D%20";
 const BUG_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/issues/new?template=bug_report.yml&title=%5B%E9%97%AE%E9%A2%98%5D%20";
+
+const OSS_UPDATE_ENDPOINT: &str =
+    "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/latest.json";
+const GITHUB_UPDATE_ENDPOINT: &str =
+    "https://github.com/Langlijun666/moyue-reader/releases/latest/download/latest.json";
+
+#[derive(Default)]
+struct UpdateStore(Mutex<Option<PendingUpdate>>);
+
+struct PendingUpdate {
+    update: Update,
+    bytes: Option<Vec<u8>>,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateInfo {
+    version: String,
+    current_version: String,
+    body: String,
+}
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateProgress {
+    downloaded: u64,
+    total: u64,
+}
+
+#[tauri::command]
+async fn check_app_update(
+    app: tauri::AppHandle,
+    source: String,
+    store: tauri::State<'_, UpdateStore>,
+) -> Result<Option<UpdateInfo>, String> {
+    let endpoint = match source.as_str() {
+        "mirror" => vec![OSS_UPDATE_ENDPOINT],
+        "github" => vec![GITHUB_UPDATE_ENDPOINT],
+        _ => vec![OSS_UPDATE_ENDPOINT, GITHUB_UPDATE_ENDPOINT],
+    };
+    let urls = endpoint
+        .into_iter()
+        .filter_map(|value| value.parse::<tauri::Url>().ok())
+        .collect();
+    let updater = app
+        .updater_builder()
+        .endpoints(urls)
+        .map_err(|error| error.to_string())?
+        .build()
+        .map_err(|error| error.to_string())?;
+    let update = updater.check().await.map_err(|error| error.to_string())?;
+    match update {
+        Some(update) => {
+            let info = UpdateInfo {
+                version: update.version.clone(),
+                current_version: update.current_version.clone(),
+                body: update.body.clone().unwrap_or_default(),
+            };
+            *store.0.lock().map_err(|error| error.to_string())? = Some(PendingUpdate {
+                update,
+                bytes: None,
+            });
+            Ok(Some(info))
+        }
+        None => {
+            *store.0.lock().map_err(|error| error.to_string())? = None;
+            Ok(None)
+        }
+    }
+}
+
+#[tauri::command]
+async fn download_app_update(
+    app: tauri::AppHandle,
+    store: tauri::State<'_, UpdateStore>,
+) -> Result<(), String> {
+    let update = {
+        let guard = store.0.lock().map_err(|error| error.to_string())?;
+        guard
+            .as_ref()
+            .map(|pending| pending.update.clone())
+            .ok_or_else(|| "没有可下载的更新".to_string())?
+    };
+    let app_for_progress = app.clone();
+    let bytes = update
+        .download(
+            move |downloaded, total| {
+                let _ = app_for_progress.emit(
+                    "moyue-update-progress",
+                    UpdateProgress {
+                        downloaded: downloaded as u64,
+                        total: total.unwrap_or(0),
+                    },
+                );
+            },
+            || {},
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+    let mut guard = store.0.lock().map_err(|error| error.to_string())?;
+    let pending = guard
+        .as_mut()
+        .ok_or_else(|| "更新状态已失效".to_string())?;
+    pending.bytes = Some(bytes);
+    Ok(())
+}
+
+#[tauri::command]
+fn install_app_update(app: tauri::AppHandle, store: tauri::State<'_, UpdateStore>) -> Result<(), String> {
+    let (update, bytes) = {
+        let mut guard = store.0.lock().map_err(|error| error.to_string())?;
+        let pending = guard
+            .take()
+            .ok_or_else(|| "没有可安装的更新".to_string())?;
+        let bytes = pending
+            .bytes
+            .ok_or_else(|| "更新尚未下载完成".to_string())?;
+        (pending.update, bytes)
+    };
+    update.install(bytes).map_err(|error| error.to_string())?;
+    app.restart();
+}
+
 const FEATURE_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/issues/new?template=feature_request.yml&title=%5B%E5%BB%BA%E8%AE%AE%5D%20";
 const FEEDBACK_EMAIL: &str = "xuxinyang121@gmail.com";
 
@@ -883,6 +1008,7 @@ fn is_audio_file(path: &Path) -> bool {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(UpdateStore::default())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
@@ -913,6 +1039,9 @@ pub fn run() {
             open_feedback,
             read_dropped_file,
             scan_book_folder,
+            check_app_update,
+            download_app_update,
+            install_app_update,
             append_diagnostic,
             write_diagnostic_report,
             open_diagnostics_folder,
