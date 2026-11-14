@@ -16,11 +16,19 @@ import {
 import { inspectEpub } from "./lib/epub";
 import { inspectPdf } from "./lib/pdf";
 import { mobiToEpubFile } from "./lib/mobi";
+import { createBackupBase64, readBackupFile } from "./lib/backup";
 import { inspectTxt } from "./lib/txt";
 import { imageFileToCover } from "./lib/cover";
 import { formatFromFileName } from "./lib/format";
 import { invoke } from "@tauri-apps/api/core";
-import { createBackupBase64, readBackupFile } from "./lib/backup";
+import {
+  BOOK_ACCEPT,
+  BOOK_MAX_BYTES,
+  fileMimeType,
+  isBookFileName,
+  UPDATE_CHECK_DELAY_MS,
+  WATCH_INTERVAL_MS,
+} from "./lib/constants";
 import { loadBookmarksMap, saveBookmarksMap } from "./lib/bookmarks";
 import { loadHighlightsMap, saveHighlightsMap } from "./lib/highlights";
 import { loadStats, mergeStats, saveStats } from "./lib/stats";
@@ -54,7 +62,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.28.0";
+const APP_VERSION = "0.28.1";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -204,7 +212,7 @@ export default function App() {
     updateCheckedRef.current = true;
     const timer = window.setTimeout(() => {
       void updater.checkForUpdates();
-    }, 6000);
+    }, UPDATE_CHECK_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [updater.autoCheck, updater.isTauri]);
 
@@ -305,11 +313,11 @@ export default function App() {
     ): Promise<"added" | "updated" | "skipped" | "failed"> => {
       const openAfter = options.open ?? true;
       const silent = options.silent ?? false;
-      if (!/\.(epub|txt|pdf|mobi|azw3)$/i.test(file.name)) {
+      if (!isBookFileName(file.name)) {
         if (!silent) setToast("请选择 .epub、.txt、.pdf、.mobi 或 .azw3 格式的书籍");
         return "failed";
       }
-      if (file.size > 250 * 1024 * 1024) {
+      if (file.size > BOOK_MAX_BYTES) {
         if (!silent) setToast("这本书超过 250 MB，暂时无法导入");
         return "failed";
       }
@@ -366,6 +374,19 @@ export default function App() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const readDroppedFile = async (path: string): Promise<File> => {
+    const dropped = await invoke<{ name: string; dataBase64: string }>(
+      "read_dropped_file",
+      { path },
+    );
+    const binary = atob(dropped.dataBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return new File([bytes], dropped.name, { type: fileMimeType(dropped.name) });
+  };
+
   const importFileRef = useRef(importFile);
   useEffect(() => {
     importFileRef.current = importFile;
@@ -376,28 +397,13 @@ export default function App() {
     let unlisten: (() => void) | null = null;
     let cancelled = false;
     const handleDrop = async (paths: string[]) => {
-      const path = paths.find((item) => /\.(epub|txt|pdf|mobi|azw3)$/i.test(item));
+      const path = paths.find((item) => isBookFileName(item));
       if (!path) {
         setToast("只支持拖入 EPUB、TXT、PDF、MOBI 或 AZW3 文件");
         return;
       }
       try {
-        const dropped = await invoke<{ name: string; dataBase64: string }>(
-          "read_dropped_file",
-          { path },
-        );
-        const binary = atob(dropped.dataBase64);
-        const bytes = new Uint8Array(binary.length);
-        for (let index = 0; index < binary.length; index += 1) {
-          bytes[index] = binary.charCodeAt(index);
-        }
-        const file = new File([bytes], dropped.name, {
-          type: dropped.name.toLowerCase().endsWith(".epub")
-            ? "application/epub+zip"
-            : dropped.name.toLowerCase().endsWith(".pdf")
-              ? "application/pdf"
-              : "text/plain",
-        });
+        const file = await readDroppedFile(path);
         await importFileRef.current(file);
       } catch (error) {
         setToast(error instanceof Error ? error.message : "拖入文件导入失败");
@@ -445,22 +451,7 @@ export default function App() {
   };
 
   const importDroppedPath = async (path: string, silent = false) => {
-    const dropped = await invoke<{ name: string; dataBase64: string }>(
-      "read_dropped_file",
-      { path },
-    );
-    const binary = atob(dropped.dataBase64);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
-    }
-    const file = new File([bytes], dropped.name, {
-      type: dropped.name.toLowerCase().endsWith(".epub")
-        ? "application/epub+zip"
-        : dropped.name.toLowerCase().endsWith(".pdf")
-          ? "application/pdf"
-          : "text/plain",
-    });
+    const file = await readDroppedFile(path);
     return importFile(file, { open: false, skipExisting: true, silent });
   };
 
@@ -558,7 +549,7 @@ export default function App() {
     void scanFolderRef.current(watchedFolder);
     const timer = window.setInterval(() => {
       void scanFolderRef.current(watchedFolder);
-    }, 60_000);
+    }, WATCH_INTERVAL_MS);
     return () => {
       window.clearInterval(timer);
     };
@@ -1143,7 +1134,7 @@ export default function App() {
         ref={fileInputRef}
         className="visually-hidden"
         type="file"
-        accept=".epub,.txt,.pdf,.mobi,.azw3,application/epub+zip,text/plain,application/pdf"
+        accept={BOOK_ACCEPT}
         onChange={(event) => onPickFile(event.target.files)}
       />
 

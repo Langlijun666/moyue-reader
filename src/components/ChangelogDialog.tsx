@@ -1,5 +1,6 @@
 import { changelog } from "../lib/changelog";
 import { Icon } from "./Icons";
+import { Modal } from "./Modal";
 
 interface ChangelogDialogProps {
   open: boolean;
@@ -11,13 +12,13 @@ export function ChangelogDialog({ open, onClose }: ChangelogDialogProps) {
   const [latest, ...older] = changelog;
 
   return (
-    <div className="changelog-backdrop" onClick={onClose}>
-      <section
-        className="changelog-dialog"
-        role="dialog"
-        aria-label="更新日志"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal
+      open={open}
+      onClose={onClose}
+      ariaLabel="更新日志"
+      layerClassName="changelog-backdrop"
+      className="changelog-dialog"
+    >
         <header className="changelog-dialog__header">
           <div>
             <span className="eyebrow">WHAT'S NEW</span>
@@ -56,7 +57,6 @@ export function ChangelogDialog({ open, onClose }: ChangelogDialogProps) {
             </article>
           ))}
         </div>
-      </section>
-    </div>
+    </Modal>
   );
 }

@@ -1,7 +1,6 @@
 import JSZip from "jszip";
 import { initKf8File, initMobiFile } from "@lingo-reader/mobi-parser";
 import type { Kf8, Mobi } from "@lingo-reader/mobi-parser";
-import { sha256Hex } from "./epub";
 
 interface Resource {
   href: string;

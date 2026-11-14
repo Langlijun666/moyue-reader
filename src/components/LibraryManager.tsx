@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { BookMeta, LibrarySort } from "../types";
 import type { Category } from "../lib/categories";
 import { formatBytes } from "../lib/format";
+import { BOOK_ACCEPT } from "../lib/constants";
+import { Modal } from "./Modal";
 import { Icon } from "./Icons";
 
 interface LibraryManagerProps {
@@ -94,13 +96,13 @@ export function LibraryManager({
   const allSelected = books.length > 0 && selected.size === books.length;
 
   return (
-    <div className="library-manager-backdrop" onClick={onClose}>
-      <section
-        className="library-manager"
-        role="dialog"
-        aria-label="书库管理"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal
+      open={open}
+      onClose={onClose}
+      ariaLabel="书库管理"
+      layerClassName="library-manager-backdrop"
+      className="library-manager"
+    >
         <header className="library-manager__header">
           <div>
             <span className="eyebrow">LIBRARY</span>
@@ -143,7 +145,7 @@ export function LibraryManager({
             ref={importRef}
             type="file"
             multiple
-            accept=".epub,.txt,.pdf,.mobi,.azw3"
+            accept={BOOK_ACCEPT}
             className="hidden-file-input"
             onChange={(event) => {
               if (event.target.files) onImport(event.target.files);
@@ -311,7 +313,6 @@ export function LibraryManager({
             )}
           </div>
         )}
-      </section>
-    </div>
+    </Modal>
   );
 }
