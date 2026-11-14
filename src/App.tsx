@@ -15,6 +15,7 @@ import {
 } from "./lib/db";
 import { inspectEpub } from "./lib/epub";
 import { inspectPdf } from "./lib/pdf";
+import { mobiToEpubFile } from "./lib/mobi";
 import { inspectTxt } from "./lib/txt";
 import { imageFileToCover } from "./lib/cover";
 import { formatFromFileName } from "./lib/format";
@@ -53,7 +54,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.26.0";
+const APP_VERSION = "0.27.0";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -304,8 +305,8 @@ export default function App() {
     ): Promise<"added" | "updated" | "skipped" | "failed"> => {
       const openAfter = options.open ?? true;
       const silent = options.silent ?? false;
-      if (!/\.(epub|txt|pdf)$/i.test(file.name)) {
-        if (!silent) setToast("请选择 .epub、.txt 或 .pdf 格式的书籍");
+      if (!/\.(epub|txt|pdf|mobi|azw3)$/i.test(file.name)) {
+        if (!silent) setToast("请选择 .epub、.txt、.pdf、.mobi 或 .azw3 格式的书籍");
         return "failed";
       }
       if (file.size > 250 * 1024 * 1024) {
@@ -315,14 +316,17 @@ export default function App() {
 
       setBusy(true);
       try {
-        const data = await file.arrayBuffer();
-        const format = formatFromFileName(file.name);
+        const sourceFile = /\.(mobi|azw3)$/i.test(file.name)
+          ? await mobiToEpubFile(await file.arrayBuffer(), file.name)
+          : file;
+        const data = await sourceFile.arrayBuffer();
+        const format = formatFromFileName(sourceFile.name);
         const info =
           format === "txt"
-            ? await inspectTxt(data, file.name)
+            ? await inspectTxt(data, sourceFile.name)
             : format === "pdf"
-              ? await inspectPdf(data, file.name)
-              : await inspectEpub(data, file.name);
+              ? await inspectPdf(data, sourceFile.name)
+              : await inspectEpub(data, sourceFile.name);
         const existing = library.find((book) => book.id === info.id);
         if (existing && options.skipExisting) {
           return "skipped";
@@ -330,8 +334,8 @@ export default function App() {
         const now = Date.now();
         const record: BookRecord = {
           ...info,
-          fileName: file.name,
-          size: file.size,
+          fileName: sourceFile.name,
+          size: sourceFile.size,
           addedAt: existing?.addedAt ?? now,
           lastOpenedAt: now,
           data,
@@ -372,9 +376,9 @@ export default function App() {
     let unlisten: (() => void) | null = null;
     let cancelled = false;
     const handleDrop = async (paths: string[]) => {
-      const path = paths.find((item) => /\.(epub|txt|pdf)$/i.test(item));
+      const path = paths.find((item) => /\.(epub|txt|pdf|mobi|azw3)$/i.test(item));
       if (!path) {
-        setToast("只支持拖入 EPUB、TXT 或 PDF 文件");
+        setToast("只支持拖入 EPUB、TXT、PDF、MOBI 或 AZW3 文件");
         return;
       }
       try {
@@ -1139,7 +1143,7 @@ export default function App() {
         ref={fileInputRef}
         className="visually-hidden"
         type="file"
-        accept=".epub,.txt,.pdf,application/epub+zip,text/plain,application/pdf"
+        accept=".epub,.txt,.pdf,.mobi,.azw3,application/epub+zip,text/plain,application/pdf"
         onChange={(event) => onPickFile(event.target.files)}
       />
 

@@ -1,7 +1,7 @@
 {
   "name": "moyue-reader",
   "private": true,
-  "version": "0.26.0",
+  "version": "0.27.0",
   "type": "module",
   "description": "墨阅 · 一个安静的桌面 EPUB / TXT 阅读器",
   "scripts": {
@@ -13,6 +13,7 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@lingo-reader/mobi-parser": "^0.4.6",
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-dialog": "^2.8.4",
     "@tauri-apps/plugin-process": "^2.4.0",
