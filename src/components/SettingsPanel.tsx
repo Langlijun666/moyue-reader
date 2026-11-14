@@ -474,14 +474,41 @@ export function SettingsPanel({
                 </button>
                 <button
                   className={`segmented__item ${settings.columns === 2 ? "segmented__item--active" : ""}`}
-                  onClick={() => onChange({ columns: 2 })}
+                  onClick={() => onChange({ columns: 2, vertical: false })}
                 >
                   双栏
                 </button>
               </div>
             </div>
+            <div className="layout-option">
+              <span>方向</span>
+              <div className="segmented segmented--compact">
+                <button
+                  className={`segmented__item ${!settings.vertical ? "segmented__item--active" : ""}`}
+                  onClick={() =>
+                    onChange({ vertical: false, readingMode: "paginated" })
+                  }
+                >
+                  横排
+                </button>
+                <button
+                  className={`segmented__item ${settings.vertical ? "segmented__item--active" : ""}`}
+                  onClick={() =>
+                    onChange({
+                      vertical: true,
+                      columns: 1,
+                      readingMode: "paginated",
+                    })
+                  }
+                >
+                  竖排
+                </button>
+              </div>
+            </div>
           </div>
-          <p className="settings-field-hint">双栏在左右翻页时按两页显示；竖排暂未开放。</p>
+          <p className="settings-field-hint">
+            竖排仅支持单栏左右翻页；双栏和上下滚动会自动切回横排。
+          </p>
         </section>
 
         <p className="settings-note">
