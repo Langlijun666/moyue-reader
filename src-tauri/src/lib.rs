@@ -513,8 +513,14 @@ struct DroppedFile {
     data_base64: String,
 }
 
+#[derive(Serialize)]
+struct FolderScan {
+    files: Vec<String>,
+    truncated: bool,
+}
+
 #[tauri::command]
-fn scan_book_folder(path: String) -> Result<Vec<String>, String> {
+fn scan_book_folder(path: String) -> Result<FolderScan, String> {
     let folder = PathBuf::from(&path);
     if !folder.is_dir() {
         return Err("文件夹不存在".to_string());
@@ -522,12 +528,13 @@ fn scan_book_folder(path: String) -> Result<Vec<String>, String> {
     let mut files = Vec::new();
     collect_book_files(&folder, &mut files, 0);
     files.sort();
+    let truncated = files.len() > 1000;
     files.truncate(1000);
-    Ok(files)
+    Ok(FolderScan { files, truncated })
 }
 
 fn collect_book_files(folder: &Path, files: &mut Vec<String>, depth: u8) {
-    if depth > 4 || files.len() >= 1000 {
+    if depth > 4 || files.len() >= 1001 {
         return;
     }
     let Ok(entries) = fs::read_dir(folder) else {

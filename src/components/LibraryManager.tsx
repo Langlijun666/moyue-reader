@@ -12,6 +12,7 @@ interface LibraryManagerProps {
   assignments: Record<string, string[]>;
   sortBy: LibrarySort;
   watchedFolder: string;
+  watchStatus: string;
   onSortChange: (sort: LibrarySort) => void;
   onClose: () => void;
   onImport: (files: FileList) => void;
@@ -43,6 +44,7 @@ export function LibraryManager({
   assignments,
   sortBy,
   watchedFolder,
+  watchStatus,
   onSortChange,
   onClose,
   onImport,
@@ -164,7 +166,10 @@ export function LibraryManager({
         {watchedFolder ? (
           <div className="library-watch">
             <Icon name="refresh" size={13} />
-            <span title={watchedFolder}>监视中：{watchedFolder}</span>
+            <span title={watchedFolder}>
+              监视中：{watchedFolder}
+              {watchStatus ? ` · ${watchStatus}` : ""}
+            </span>
             <button className="text-button" onClick={onStopWatch}>停止</button>
           </div>
         ) : null}

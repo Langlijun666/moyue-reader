@@ -51,7 +51,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.22.0";
+const APP_VERSION = "0.22.1";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -98,6 +98,7 @@ export default function App() {
       return "";
     }
   });
+  const [watchStatus, setWatchStatus] = useState("");
   const [uninstallOpen, setUninstallOpen] = useState(false);
   const [sponsorOpen, setSponsorOpen] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
@@ -116,6 +117,9 @@ export default function App() {
   const backupInputRef = useRef<HTMLInputElement>(null);
   const autoBackupStarted = useRef(false);
   const dragDepth = useRef(0);
+  const scanningFolder = useRef(false);
+  const libraryRef = useRef<BookMeta[]>([]);
+  const scanFolderRef = useRef<(folder: string) => Promise<void>>(async () => undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -292,15 +296,19 @@ export default function App() {
   }, [categoryData, library]);
 
   const importFile = useCallback(
-    async (file: File, options: { open?: boolean; skipExisting?: boolean } = {}) => {
+    async (
+      file: File,
+      options: { open?: boolean; skipExisting?: boolean; silent?: boolean } = {},
+    ): Promise<"added" | "updated" | "skipped" | "failed"> => {
       const openAfter = options.open ?? true;
+      const silent = options.silent ?? false;
       if (!/\.(epub|txt)$/i.test(file.name)) {
-        setToast("请选择 .epub 或 .txt 格式的书籍");
-        return;
+        if (!silent) setToast("请选择 .epub 或 .txt 格式的书籍");
+        return "failed";
       }
       if (file.size > 250 * 1024 * 1024) {
-        setToast("这本书超过 250 MB，暂时无法导入");
-        return;
+        if (!silent) setToast("这本书超过 250 MB，暂时无法导入");
+        return "failed";
       }
 
       setBusy(true);
@@ -313,8 +321,7 @@ export default function App() {
             : await inspectEpub(data, file.name);
         const existing = library.find((book) => book.id === info.id);
         if (existing && options.skipExisting) {
-          setToast(`《${existing.title}》已在书架中`);
-          return;
+          return "skipped";
         }
         const now = Date.now();
         const record: BookRecord = {
@@ -328,10 +335,16 @@ export default function App() {
         await putBook(record);
         setLibrary((books) => [stripData(record), ...books.filter((book) => book.id !== record.id)]);
         if (openAfter) setActive(record);
-        setToast(existing ? "已更新书架中的这本书" : `《${record.title}》已放上书架`);
+        if (!silent) {
+          setToast(existing ? "已更新书架中的这本书" : `《${record.title}》已放上书架`);
+        }
+        return existing ? "updated" : "added";
       } catch (error) {
         console.error(error);
-        setToast("导入失败：文件可能损坏，或不是有效的 EPUB / TXT");
+        if (!silent) {
+          setToast("导入失败：文件可能损坏，或不是有效的 EPUB / TXT");
+        }
+        return "failed";
       } finally {
         setBusy(false);
       }
@@ -407,13 +420,21 @@ export default function App() {
   }, []);
 
   const batchImportFiles = async (files: FileList) => {
+    let added = 0;
+    let skipped = 0;
     for (const file of Array.from(files)) {
-      await importFile(file, { open: false, skipExisting: true });
+      const result = await importFile(file, { open: false, skipExisting: true, silent: true });
+      if (result === "added" || result === "updated") added += 1;
+      else if (result === "skipped") skipped += 1;
     }
-    setToast(`已批量导入 ${files.length} 个文件`);
+    setToast(
+      skipped > 0
+        ? `批量导入完成：新增 ${added} 本，跳过 ${skipped} 本已在书架中的书`
+        : `批量导入完成：新增 ${added} 本`,
+    );
   };
 
-  const importDroppedPath = async (path: string) => {
+  const importDroppedPath = async (path: string, silent = false) => {
     const dropped = await invoke<{ name: string; dataBase64: string }>(
       "read_dropped_file",
       { path },
@@ -428,17 +449,66 @@ export default function App() {
         ? "application/epub+zip"
         : "text/plain",
     });
-    return importFile(file, { open: false, skipExisting: true });
+    return importFile(file, { open: false, skipExisting: true, silent });
   };
 
   const scanFolder = async (folder: string) => {
+    if (scanningFolder.current) return;
+    scanningFolder.current = true;
+    setWatchStatus("正在扫描文件夹…");
     try {
-      const paths = await invoke<string[]>("scan_book_folder", { path: folder });
-      for (const path of paths) {
-        await importDroppedPath(path);
+      const scan = await invoke<{ files: string[]; truncated: boolean }>(
+        "scan_book_folder",
+        { path: folder },
+      );
+      const paths = scan.files;
+      let added = 0;
+      let failed = 0;
+      let skipped = 0;
+      const knownNames = new Set(
+        libraryRef.current.map((book) => book.fileName.toLowerCase()),
+      );
+      for (let index = 0; index < paths.length; index += 1) {
+        const path = paths[index];
+        setWatchStatus(`正在检查 ${index + 1}/${paths.length}：${path.split(/[\\/]/).pop() ?? ""}`);
+        const name = (path.split(/[\\/]/).pop() ?? "").toLowerCase();
+        if (knownNames.has(name)) {
+          skipped += 1;
+          continue;
+        }
+        try {
+          const result = await importDroppedPath(path, true);
+          if (result === "added" || result === "updated") {
+            added += 1;
+            knownNames.add(name);
+          } else if (result === "skipped") {
+            skipped += 1;
+            knownNames.add(name);
+          } else {
+            failed += 1;
+          }
+        } catch {
+          failed += 1;
+        }
       }
+      if (scan.truncated) {
+        setToast("文件夹超过 1000 本书，本次只检查了前 1000 本");
+      }
+      if (added > 0) {
+        setToast(`文件夹扫描完成，新增 ${added} 本书${failed > 0 ? `，${failed} 本失败` : ""}`);
+      } else if (failed > 0) {
+        setToast(`文件夹扫描完成，${failed} 本书导入失败`);
+      }
+      setWatchStatus(
+        `上次检查 ${new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}` +
+          (added > 0 ? ` · 新增 ${added} 本` : skipped > 0 ? ` · 已是最新` : ""),
+      );
     } catch (error) {
-      setToast(error instanceof Error ? error.message : "扫描文件夹失败");
+      const message = error instanceof Error ? error.message : String(error);
+      setWatchStatus("扫描失败");
+      setToast(`扫描文件夹失败：${message}`);
+    } finally {
+      scanningFolder.current = false;
     }
   };
 
@@ -459,20 +529,28 @@ export default function App() {
   const stopWatchFolder = () => {
     localStorage.removeItem("moyue.watchFolder.v1");
     setWatchedFolder("");
+    setWatchStatus("");
     setToast("已停止监视文件夹");
   };
 
   useEffect(() => {
+    libraryRef.current = library;
+  }, [library]);
+
+  useEffect(() => {
+    scanFolderRef.current = scanFolder;
+  }, [scanFolder]);
+
+  useEffect(() => {
     if (!watchedFolder) return;
-    let cancelled = false;
+    void scanFolderRef.current(watchedFolder);
     const timer = window.setInterval(() => {
-      if (!cancelled) void scanFolder(watchedFolder);
+      void scanFolderRef.current(watchedFolder);
     }, 60_000);
     return () => {
-      cancelled = true;
       window.clearInterval(timer);
     };
-  }, [watchedFolder, scanFolder]);
+  }, [watchedFolder]);
 
   const batchDelete = async (ids: string[]) => {
     if (!window.confirm(`将选中的 ${ids.length} 本书移入回收站？30 天内可以恢复。`)) return;
@@ -1159,6 +1237,7 @@ export default function App() {
         assignments={categoryData.assignments}
         sortBy={sortBy}
         watchedFolder={watchedFolder}
+        watchStatus={watchStatus}
         onSortChange={setSortBy}
         onClose={() => setLibraryManagerOpen(false)}
         onImport={(files) => void batchImportFiles(files)}
