@@ -5264,6 +5264,35 @@ input:focus-visible,
   padding: 24px;
 }
 
+.pdf-reader__pages {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.pdf-reader__viewport--spread .pdf-reader__pages {
+  justify-content: center;
+}
+
+.pdf-reader__viewport--spread .pdf-reader__canvas {
+  width: auto !important;
+  max-width: calc(50% - 7px);
+  height: auto !important;
+}
+
+.pdf-reader__spread-button {
+  padding: 5px 8px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 8px;
+}
+
+.pdf-reader__spread-button:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
 .pdf-reader__canvas {
   max-width: 100%;
   background: #fff;

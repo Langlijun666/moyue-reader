@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { BookMeta, Progress } from "../types";
 import { Icon } from "./Icons";
 import { formatBytes } from "../lib/format";
@@ -16,15 +16,17 @@ interface PdfReaderProps {
   onProgress: (progress: Progress) => void;
 }
 
-function pageFromProgress(progress?: Progress): number {
-  const match = progress?.cfi.match(/^pdf:(\d+)$/);
-  return Math.max(1, Number(match?.[1] ?? 1));
-}
-
 interface PdfTocItem {
   title: string;
   page: number;
   level: number;
+}
+
+const SPREAD_KEY = "moyue.pdf.spread.v1";
+
+function pageFromProgress(progress?: Progress): number {
+  const match = progress?.cfi.match(/^pdf:(\d+)$/);
+  return Math.max(1, Number(match?.[1] ?? 1));
 }
 
 async function resolveOutline(
@@ -38,9 +40,7 @@ async function resolveOutline(
     let page: number | null = null;
     try {
       let destination = item.dest;
-      if (typeof destination === "string") {
-        destination = await doc.getDestination(destination);
-      }
+      if (typeof destination === "string") destination = await doc.getDestination(destination);
       if (Array.isArray(destination) && destination[0]) {
         page = (await doc.getPageIndex(destination[0] as Parameters<PDFDocumentProxy["getPageIndex"]>[0])) + 1;
       }
@@ -60,13 +60,19 @@ async function resolveOutline(
 }
 
 export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: PdfReaderProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRefs = [useRef<HTMLCanvasElement>(null), useRef<HTMLCanvasElement>(null)];
+  const renderTasksRef = useRef<{ cancel: () => void }[]>([]);
   const docRef = useRef<PDFDocumentProxy | null>(null);
-  const pageRef = useRef<PDFPageProxy | null>(null);
-  const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
   const [page, setPage] = useState(() => pageFromProgress(initialProgress));
   const [pageCount, setPageCount] = useState(0);
   const [scale, setScale] = useState(1.2);
+  const [spread, setSpread] = useState(() => {
+    try {
+      return localStorage.getItem(SPREAD_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toc, setToc] = useState<PdfTocItem[]>([]);
@@ -77,9 +83,7 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
     const task = pdfjs.getDocument({ data: data.slice(0) });
     void task.promise
       .then((doc) => {
-        if (cancelled) {
-          return;
-        }
+        if (cancelled) return;
         docRef.current = doc;
         setPageCount(doc.numPages);
         setPage((value) => Math.min(Math.max(1, value), doc.numPages));
@@ -87,7 +91,10 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
         void doc
           .getOutline()
           .then((outline) =>
-             resolveOutline(doc, outline as Array<{ title: string; dest?: unknown; items?: unknown[] }> | null),
+            resolveOutline(
+              doc,
+              outline as Array<{ title: string; dest?: unknown; items?: unknown[] }> | null,
+            ),
           )
           .then((items) => {
             if (!cancelled) setToc(items);
@@ -102,38 +109,42 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
       });
     return () => {
       cancelled = true;
-      renderTaskRef.current?.cancel();
+      renderTasksRef.current.forEach((renderTask) => renderTask.cancel());
       void docRef.current?.cleanup();
       void task.destroy();
       docRef.current = null;
     };
   }, [data]);
 
-  const renderPage = useCallback(async () => {
+  const renderPages = useCallback(async () => {
     const doc = docRef.current;
-    const canvas = canvasRef.current;
-    if (!doc || !canvas || loading) return;
-    renderTaskRef.current?.cancel();
+    if (!doc || loading) return;
+    renderTasksRef.current.forEach((renderTask) => renderTask.cancel());
+    renderTasksRef.current = [];
+    const visible = spread ? [page, page + 1].filter((value) => value <= pageCount) : [page];
     try {
-      const rendered = await doc.getPage(page);
-      if (!canvasRef.current) return;
-      pageRef.current = rendered;
-      const viewport = rendered.getViewport({ scale });
-      const ratio = window.devicePixelRatio || 1;
-      canvas.width = Math.floor(viewport.width * ratio);
-      canvas.height = Math.floor(viewport.height * ratio);
-      canvas.style.width = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      context.setTransform(ratio, 0, 0, ratio, 0, 0);
-      const task = rendered.render({ canvasContext: context, canvas, viewport });
-      renderTaskRef.current = task;
-      await task.promise;
+      for (let index = 0; index < visible.length; index += 1) {
+        const canvas = canvasRefs[index].current;
+        if (!canvas) continue;
+        const rendered = await doc.getPage(visible[index]);
+        const viewport = rendered.getViewport({ scale });
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(viewport.width * ratio);
+        canvas.height = Math.floor(viewport.height * ratio);
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
+        const context = canvas.getContext("2d");
+        if (!context) continue;
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+        const task = rendered.render({ canvasContext: context, canvas, viewport });
+        renderTasksRef.current.push(task);
+        await task.promise;
+      }
+      const lastPage = Math.min(pageCount, page + (spread ? 1 : 0));
       onProgress({
         cfi: `pdf:${page}`,
         percent: pageCount > 0 ? page / pageCount : 0,
-        chapter: `第 ${page} 页`,
+        chapter: spread && lastPage > page ? `第 ${page}–${lastPage} 页` : `第 ${page} 页`,
         updatedAt: Date.now(),
       });
     } catch (renderError) {
@@ -141,22 +152,31 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
         setError("这一页渲染失败");
       }
     }
-  }, [loading, onProgress, page, pageCount, scale]);
+  }, [loading, onProgress, page, pageCount, scale, spread]);
 
   useEffect(() => {
-    void renderPage();
-  }, [renderPage]);
+    void renderPages();
+  }, [renderPages]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SPREAD_KEY, spread ? "1" : "0");
+    } catch {
+      // Preference persistence is optional.
+    }
+  }, [spread]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
+      const step = spread ? 2 : 1;
       if (event.key === "ArrowLeft" || event.key === "PageUp") {
         event.preventDefault();
-        setPage((value) => Math.max(1, value - 1));
+        setPage((value) => Math.max(1, value - step));
       } else if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
         event.preventDefault();
-        setPage((value) => Math.min(pageCount || 1, value + 1));
+        setPage((value) => Math.min(pageCount || 1, value + step));
       } else if (event.key === "Home") {
         event.preventDefault();
         setPage(1);
@@ -167,10 +187,11 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pageCount]);
+  }, [pageCount, spread]);
 
   const go = (delta: number) => {
-    setPage((value) => Math.min(pageCount || 1, Math.max(1, value + delta)));
+    const step = spread ? 2 : 1;
+    setPage((value) => Math.min(pageCount || 1, Math.max(1, value + delta * step)));
   };
 
   return (
@@ -186,6 +207,13 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
           </small>
         </div>
         <div className="pdf-reader__tools">
+          <button
+            className="pdf-reader__spread-button"
+            onClick={() => setSpread((value) => !value)}
+            title="切换单页 / 双页"
+          >
+            {spread ? "双页" : "单页"}
+          </button>
           <button
             className="icon-button"
             onClick={() => setTocOpen((value) => !value)}
@@ -229,10 +257,13 @@ export function PdfReader({ meta, data, initialProgress, onBack, onProgress }: P
         </aside>
       ) : null}
 
-      <div className="pdf-reader__viewport">
+      <div className={`pdf-reader__viewport ${spread ? "pdf-reader__viewport--spread" : ""}`}>
         {loading ? <div className="pdf-reader__hint">正在打开 PDF…</div> : null}
         {error ? <div className="pdf-reader__hint pdf-reader__hint--error">{error}</div> : null}
-        <canvas ref={canvasRef} className="pdf-reader__canvas" />
+        <div className="pdf-reader__pages">
+          <canvas ref={canvasRefs[0]} className="pdf-reader__canvas" />
+          {spread ? <canvas ref={canvasRefs[1]} className="pdf-reader__canvas" /> : null}
+        </div>
       </div>
 
       <footer className="pdf-reader__footer">
