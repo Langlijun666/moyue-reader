@@ -72,7 +72,7 @@ export default function App() {
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
   const updater = useUpdater();
   const updateCheckedRef = useRef(false);
-  const fullShelf = settings.shelfView === "full";
+  const fullShelf = false;
   const [progressMap, setProgressMap] = useState<Record<string, Progress>>(loadProgressMap);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1191,11 +1191,6 @@ export default function App() {
         onThemeChange={(theme) => updateSettings({ theme })}
         settings={settings}
         onSettingsChange={updateSettings}
-        shelfView={settings.shelfView}
-        onShelfViewChange={(shelfView) => {
-          updateSettings({ shelfView });
-          if (shelfView === "sidebar") setSidebarHidden(false);
-        }}
         onBackupNow={() => void backupNow()}
         onRestoreBackup={() => backupInputRef.current?.click()}
         onOpenBackupFolder={() => void openBackupFolder()}

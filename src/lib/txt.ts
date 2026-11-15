@@ -181,12 +181,29 @@ export function decodeTxt(data: ArrayBuffer): string {
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
-    // Chinese TXT files are often GBK/GB18030 rather than UTF-8.
-    try {
-      return new TextDecoder("gb18030").decode(bytes);
-    } catch {
-      return new TextDecoder("utf-8").decode(bytes);
+    // Some files mix an ANSI/GBK header with UTF-8 chapter text.
+    // Decode line by line so each line can use its own encoding.
+    const utf8 = new TextDecoder("utf-8", { fatal: true });
+    const gbk = new TextDecoder("gb18030");
+    const decodeLine = (line: Uint8Array) => {
+      if (line.length === 0) return "";
+      try {
+        return utf8.decode(line);
+      } catch {
+        return gbk.decode(line);
+      }
+    };
+
+    let text = "";
+    let start = 0;
+    for (let index = 0; index < bytes.length; index += 1) {
+      if (bytes[index] === 0x0a) {
+        text += `${decodeLine(bytes.subarray(start, index))}\n`;
+        start = index + 1;
+      }
     }
+    if (start < bytes.length) text += decodeLine(bytes.subarray(start));
+    return text;
   }
 }
 
