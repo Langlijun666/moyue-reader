@@ -43,4 +43,10 @@ fs.writeFileSync(
     .readFileSync(path.join(root, "src", "App.tsx"), "utf8")
     .replace(/const APP_VERSION = "[^"]+";/, `const APP_VERSION = "${version}";`),
 );
+fs.writeFileSync(
+  path.join(root, "src", "components", "AppSettingsPanel.tsx"),
+  fs
+    .readFileSync(path.join(root, "src", "components", "AppSettingsPanel.tsx"), "utf8")
+    .replace(/useState\("[^"]+"\)/, `useState("${version}")`),
+);
 console.log(`${edition} version synced to ${version}`);

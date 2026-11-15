@@ -3,8 +3,17 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "local-v*"
+      - "online-v*"
   workflow_dispatch:
+    inputs:
+      edition:
+        description: "local or online"
+        required: true
+        default: "local"
+      version:
+        description: "version, e.g. 0.32.0"
+        required: true
 
 permissions:
   contents: write
@@ -15,118 +24,99 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Resolve edition and version
+        id: edition
+        shell: pwsh
+        run: |
+          $edition = "${{ github.event.inputs.edition }}"
+          $version = "${{ github.event.inputs.version }}"
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $tag = $env:GITHUB_REF_NAME
+            if ($tag.StartsWith("local-v")) { $edition = "local"; $version = $tag.Substring(7) }
+            elseif ($tag.StartsWith("online-v")) { $edition = "online"; $version = $tag.Substring(8) }
+          }
+          if ($edition -notin @("local", "online")) { throw "invalid edition" }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "invalid version" }
+          "EDITOR=$edition" | Out-File $env:GITHUB_ENV -Append
+          "VERSION=$version" | Out-File $env:GITHUB_ENV -Append
+          "TAG=$edition-v$version" | Out-File $env:GITHUB_ENV -Append
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
-      - name: Build and publish
-        uses: tauri-apps/tauri-action@v1
+      - name: Sync edition version
+        shell: pwsh
+        run: |
+          node scripts/sync-edition-version.mjs $env:EDITOR
+
+      - name: Build Local
+        if: env.EDITOR == 'local'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          tagName: v__VERSION__
-          releaseName: "Moyue __VERSION__"
-          releaseBody: "桌面安装包与自动更新文件。"
-          releaseDraft: false
-          prerelease: false
-          args: --bundles nsis
-          uploadUpdaterJson: true
-          updaterJsonPreferNsis: true
+        run: npx tauri build --bundles nsis
 
-      - name: Build Online edition
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Build Online
+        if: env.EDITOR == 'online'
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npx tauri build --config src-tauri/tauri.online.conf.json --bundles nsis
 
-      - name: Upload Online installer to release
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Prepare release assets
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $online = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "Moyue Online_*-setup.exe" | Select-Object -First 1
-          if (-not $online) { throw "Online installer not found" }
-          gh release upload $env:GITHUB_REF_NAME $online.FullName "$($online.FullName).sig" --clobber
-
-      - name: Prepare Online OSS mirror
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $version = (Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json).version
-          $online = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "Moyue Online_${version}_x64-setup.exe" | Select-Object -First 1
-          if (-not $online) { throw "Online installer not found" }
-          $signature = (Get-Content "$($online.FullName).sig" -Raw).Trim()
-          $manifest = [ordered]@{
-            version = $version
-            notes = "墨阅 Online ${version}。公版书城版。"
-            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-            platforms = [ordered]@{
-              "windows-x86_64" = [ordered]@{
-                signature = $signature
-                url = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/online/Moyue%20Online_${version}_x64-setup.exe"
-              }
-            }
+          $version = $env:VERSION
+          $dir = "src-tauri/target/release/bundle/nsis"
+          if ($env:EDITOR -eq "local") {
+            $setup = Join-Path $dir "Moyue_${version}_x64-setup.exe"
+            $asset = "Moyue_${version}_x64-setup.exe"
+            $manifestAsset = "latest.json"
+            $ossUrl = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/Moyue_${version}_x64-setup.exe"
+            $ossPrefix = "updates"
+          } else {
+            $setup = Join-Path $dir "Moyue Online_${version}_x64-setup.exe"
+            $asset = "Moyue.Online_${version}_x64-setup.exe"
+            $manifestAsset = "latest-online.json"
+            $ossUrl = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/online/Moyue%20Online_${version}_x64-setup.exe"
+            $ossPrefix = "updates/online"
           }
-          New-Item -ItemType Directory -Force -Path "oss-online-upload" | Out-Null
-          Set-Content -Path "oss-online-upload/version.txt" -Value $version -NoNewline -Encoding ascii
-          Copy-Item $online.FullName "oss-online-upload/Moyue Online_${version}_x64-setup.exe"
-          Copy-Item "$($online.FullName).sig" "oss-online-upload/Moyue Online_${version}_x64-setup.exe.sig"
-          [System.IO.File]::WriteAllText(
-            "oss-online-upload/latest.json",
-            ($manifest | ConvertTo-Json -Depth 6 -Compress),
-            (New-Object System.Text.UTF8Encoding($false))
-          )
-          Copy-Item "oss-online-upload/latest.json" "oss-online-upload/latest-online.json"
-          gh release upload $env:GITHUB_REF_NAME "oss-online-upload/latest-online.json" --clobber
-
-
-      - name: Prepare OSS mirror
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: pwsh
-        run: |
-          $version = (Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json).version
-          $setup = "src-tauri/target/release/bundle/nsis/Moyue_${version}_x64-setup.exe"
-          if (-not (Test-Path $setup)) {
-            throw "Installer not found: $setup"
-          }
+          if (-not (Test-Path $setup)) { throw "installer not found: $setup" }
           $signature = (Get-Content "$setup.sig" -Raw).Trim()
           $manifest = [ordered]@{
             version = $version
-            notes = "墨阅 ${version}。完整更新内容见 GitHub Release。"
+            notes = "墨阅 $($env:EDITOR) $version"
             pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
             platforms = [ordered]@{
-              "windows-x86_64" = [ordered]@{
-                signature = $signature
-                url = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/Moyue_${version}_x64-setup.exe"
-              }
+              "windows-x86_64" = [ordered]@{ signature = $signature; url = $ossUrl }
             }
           }
-          New-Item -ItemType Directory -Force -Path "oss-upload" | Out-Null
-          Set-Content -Path "oss-upload/version.txt" -Value $version -NoNewline -Encoding ascii
-          Copy-Item $setup "oss-upload/Moyue_${version}_x64-setup.exe"
-          Copy-Item "$setup.sig" "oss-upload/Moyue_${version}_x64-setup.exe.sig"
+          New-Item -ItemType Directory -Force -Path "release-assets" | Out-Null
+          Copy-Item $setup "release-assets/$asset"
+          Copy-Item "$setup.sig" "release-assets/$asset.sig"
           [System.IO.File]::WriteAllText(
-            "oss-upload/latest.json",
+            "release-assets/$manifestAsset",
             ($manifest | ConvertTo-Json -Depth 6 -Compress),
             (New-Object System.Text.UTF8Encoding($false))
           )
+          "OSS_PREFIX=$ossPrefix" | Out-File $env:GITHUB_ENV -Append
+          "INSTALLER=$asset" | Out-File $env:GITHUB_ENV -Append
+          "MANIFEST=$manifestAsset" | Out-File $env:GITHUB_ENV -Append
 
-      - name: Upload OSS mirror
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Create release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create $env:TAG "release-assets/$env:INSTALLER" "release-assets/$env:INSTALLER.sig" "release-assets/$env:MANIFEST" --title "Moyue $env:EDITOR $env:VERSION" --notes "Moyue $env:EDITOR $env:VERSION" --latest
+
+      - name: Upload OSS
         shell: pwsh
         env:
           OSS_ACCESS_KEY_ID: ${{ secrets.ALIYUN_OSS_ACCESS_KEY_ID }}
@@ -134,23 +124,14 @@ jobs:
         run: |
           python -m pip install --quiet oss2
           @'
-          import os
-          import oss2
-
+          import os, oss2
           auth = oss2.Auth(os.environ["OSS_ACCESS_KEY_ID"], os.environ["OSS_ACCESS_KEY_SECRET"])
           bucket = oss2.Bucket(auth, "https://oss-cn-hangzhou.aliyuncs.com", "moyue-release-files")
-          with open("oss-upload/version.txt", encoding="ascii") as version_file:
-              version = version_file.read().strip()
-          files = {
-              "oss-upload/latest.json": "updates/latest.json",
-              f"oss-upload/Moyue_{version}_x64-setup.exe": f"updates/Moyue_{version}_x64-setup.exe",
-              f"oss-upload/Moyue_{version}_x64-setup.exe.sig": f"updates/Moyue_{version}_x64-setup.exe.sig",
-              "oss-online-upload/latest.json": "updates/online/latest.json",
-              f"oss-online-upload/Moyue Online_{version}_x64-setup.exe": f"updates/online/Moyue Online_{version}_x64-setup.exe",
-              f"oss-online-upload/Moyue Online_{version}_x64-setup.exe.sig": f"updates/online/Moyue Online_{version}_x64-setup.exe.sig",
-          }
-          for local, remote in files.items():
-              bucket.put_object_from_file(remote, local)
-              print("uploaded", remote)
+          prefix = os.environ["OSS_PREFIX"]
+          installer = os.environ["INSTALLER"]
+          manifest = os.environ["MANIFEST"]
+          bucket.put_object_from_file(f"{prefix}/{installer}", f"release-assets/{installer}")
+          bucket.put_object_from_file(f"{prefix}/{installer}.sig", f"release-assets/{installer}.sig")
+          bucket.put_object_from_file(f"{prefix}/latest.json", f"release-assets/{manifest}")
+          print("uploaded", prefix)
           '@ | python -
-
