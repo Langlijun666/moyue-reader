@@ -173,7 +173,9 @@ async fn check_app_update(
     let endpoint = match source.as_str() {
         "mirror" => vec![oss_endpoint],
         "github" => vec![github_endpoint],
-        _ => vec![oss_endpoint, github_endpoint],
+        // The default path must not mix the independent GitHub releases:
+        // the newest GitHub release may belong to the other edition.
+        _ => vec![oss_endpoint],
     };
     let urls = endpoint
         .into_iter()
