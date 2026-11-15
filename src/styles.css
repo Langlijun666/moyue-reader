@@ -831,9 +831,66 @@ input:focus-visible,
   margin: 0 auto 26px;
 }
 
-.full-shelf__brand {
-  display: none;
+.app-rail {
+  display: flex;
+  width: 84px;
+  flex: 0 0 84px;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 8px;
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  border-right: 1px solid var(--line);
 }
+.app-rail__brand span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  color: var(--paper);
+  background: var(--accent);
+  border-radius: 10px;
+  font-family: var(--serif-font);
+  font-size: 21px;
+}
+.app-rail__nav {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 24px;
+}
+.app-rail__nav button {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 4px;
+  color: var(--muted);
+  border-radius: 8px;
+  font-size: 8px;
+}
+.app-rail__nav button:hover,
+.app-rail__nav button.is-active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+.app-rail__bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+}
+.app-rail__bottom button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  color: var(--muted);
+  border-radius: 7px;
+}
+.app-rail__bottom button:hover { color: var(--accent); background: var(--surface-2); }
+
+
 
 .full-shelf__brand .brand__seal {
   width: 50px;

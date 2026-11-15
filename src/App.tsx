@@ -40,10 +40,9 @@ import {
   type CategoryData,
 } from "./lib/categories";
 import { loadProgressMap, loadSettings, saveProgress, saveSettings } from "./lib/storage";
-import { Sidebar } from "./components/Sidebar";
+import { AppRail } from "./components/AppRail";
 import { LibraryManager } from "./components/LibraryManager";
 import type { LibrarySort } from "./types";
-import { EmptyState } from "./components/EmptyState";
 import { Reader } from "./components/Reader";
 import { PdfReader } from "./components/PdfReader";
 import { OnlineLibrary } from "./components/OnlineLibrary";
@@ -64,7 +63,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.31.3";
+const APP_VERSION = "0.31.4";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -1024,40 +1023,20 @@ export default function App() {
         void onPickFile(event.dataTransfer.files);
       }}
     >
-      <Sidebar
-          books={shelf}
-          activeId={active?.id}
-          query={query}
-          settings={settings}
-          busy={busy}
-          hidden={Boolean(active && sidebarHidden)}
-          onQueryChange={setQuery}
-          onImport={() => fileInputRef.current?.click()}
-          onOpen={(book) => void openBook(book)}
-          onDelete={(book) => void removeBook(book)}
-          onChangeCover={requestCoverChange}
-          onSample={() => void loadSample()}
+      {!active ? (
+        <AppRail
+          online={IS_ONLINE_EDITION}
+          storeActive={onlineLibraryOpen}
+          theme={settings.theme}
+          onLibrary={() => setOnlineLibraryOpen(false)}
+          onStore={() => setOnlineLibraryOpen(true)}
+          onStats={() => setStatsOpen(true)}
+          onSettings={() => setAppSettingsOpen(true)}
+          onManager={() => setLibraryManagerOpen(true)}
+          onMusic={() => setMusicOpen(true)}
           onToggleTheme={toggleTheme}
-          onOpenMusic={() => setMusicOpen(true)}
-          onOpenStats={() => setStatsOpen(true)}
-          onOpenLibraryManager={() => setLibraryManagerOpen(true)}
-          onOpenSettings={() => setAppSettingsOpen(true)}
-          onlineEdition={IS_ONLINE_EDITION}
-          onlineStoreOpen={onlineLibraryOpen}
-          onOpenOnlineStore={() => setOnlineLibraryOpen(true)}
-          categories={categoryData.categories}
-          assignments={categoryData.assignments}
-          categoryCounts={categoryCounts}
-          viewMode={viewMode}
-          selectedCategoryId={selectedCategoryId}
-          onViewModeChange={(mode) => {
-            setViewMode(mode);
-            if (mode === "all") setSelectedCategoryId("all");
-          }}
-          onCategorySelect={setSelectedCategoryId}
-          onManageCategories={() => setCategoryManagerOpen(true)}
-          onAssignCategories={(book) => setAssignBook(book)}
         />
+      ) : null}
 
       <main className="workspace">
         {onlineLibraryOpen && IS_ONLINE_EDITION && !active ? (
@@ -1096,7 +1075,7 @@ export default function App() {
             onToggleTheme={toggleTheme}
           />
           )
-        ) : fullShelf ? (
+        ) : (
           <FullShelf
             books={shelf}
             query={query}
@@ -1120,19 +1099,6 @@ export default function App() {
             onSample={() => void loadSample()}
             busy={busy}
             onOpenMusic={() => setMusicOpen(true)}
-          />
-        ) : (
-          <EmptyState
-            recent={shelf[0]}
-            onContinue={() => {
-              if (shelf[0]) void openBook(shelf[0]);
-            }}
-            busy={busy}
-            onImport={() => fileInputRef.current?.click()}
-            onSample={() => void loadSample()}
-            onChangeCover={
-              shelf[0] ? () => requestCoverChange(shelf[0]) : undefined
-            }
           />
         )}
       </main>
