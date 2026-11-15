@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Category } from "../lib/categories";
 import { Icon } from "./Icons";
+import { Modal } from "./Modal";
 
 interface CategoryManagerProps {
   open: boolean;
@@ -61,13 +62,7 @@ export function CategoryManager({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <section
-        className="category-dialog"
-        role="dialog"
-        aria-label="管理分类"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal open onClose={onClose} ariaLabel="管理分类" className="category-dialog">
         <header className="category-dialog__header">
           <div>
             <span className="eyebrow">LIBRARY</span>
@@ -130,7 +125,6 @@ export function CategoryManager({
             ))
           )}
         </div>
-      </section>
-    </div>
+    </Modal>
   );
 }

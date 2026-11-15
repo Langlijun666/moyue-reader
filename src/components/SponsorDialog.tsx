@@ -3,6 +3,7 @@ import alipayQr from "../assets/sponsorship/alipay.png";
 import wechatQr from "../assets/sponsorship/wechat.png";
 import { sponsors } from "../data/sponsors";
 import { Icon } from "./Icons";
+import { Modal } from "./Modal";
 
 interface SponsorDialogProps {
   open: boolean;
@@ -42,13 +43,13 @@ export function SponsorDialog({ open, onClose, onRegister }: SponsorDialogProps)
   if (!open) return null;
 
   return (
-    <div className="modal-backdrop sponsor-backdrop" onClick={onClose}>
-      <section
-        className="sponsor-dialog"
-        role="dialog"
-        aria-label="支持墨阅"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal
+      open
+      onClose={onClose}
+      ariaLabel="支持墨阅"
+      layerClassName="modal-backdrop sponsor-backdrop"
+      className="sponsor-dialog"
+    >
         <header className="sponsor-dialog__header">
           <div>
             <span className="eyebrow">SUPPORT</span>
@@ -135,7 +136,6 @@ export function SponsorDialog({ open, onClose, onRegister }: SponsorDialogProps)
             赞助主要用于代码签名证书、域名和后续开发。谢谢你把墨阅留在这里。
           </p>
         </div>
-      </section>
-    </div>
+    </Modal>
   );
 }

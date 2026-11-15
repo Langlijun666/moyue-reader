@@ -13,6 +13,7 @@ import {
   type ReadingStats,
 } from "../lib/stats";
 import { Icon } from "./Icons";
+import { Modal } from "./Modal";
 
 interface StatsDialogProps {
   open: boolean;
@@ -47,13 +48,13 @@ export function StatsDialog({ open, onClose }: StatsDialogProps) {
   if (!open) return null;
 
   return (
-    <div className="stats-backdrop" onClick={onClose}>
-      <section
-        className="stats-dialog"
-        role="dialog"
-        aria-label="阅读统计"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal
+      open
+      onClose={onClose}
+      ariaLabel="阅读统计"
+      layerClassName="stats-backdrop"
+      className="stats-dialog"
+    >
         <header className="stats-dialog__header">
           <div>
             <span className="eyebrow">READING STATS</span>
@@ -196,7 +197,6 @@ export function StatsDialog({ open, onClose }: StatsDialogProps) {
             ) : null}
           </div>
         )}
-      </section>
-    </div>
+    </Modal>
   );
 }

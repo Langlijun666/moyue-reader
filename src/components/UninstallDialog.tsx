@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "./Icons";
+import { Modal } from "./Modal";
 
 interface UninstallDialogProps {
   open: boolean;
@@ -70,13 +71,15 @@ export function UninstallDialog({ open, onClose, onConfirm }: UninstallDialogPro
   };
 
   return (
-    <div className="modal-backdrop uninstall-backdrop" onClick={() => !busy && onClose()}>
-      <section
-        className="category-dialog uninstall-dialog"
-        role="dialog"
-        aria-label="卸载墨阅"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal
+      open
+      onClose={() => {
+        if (!busy) onClose();
+      }}
+      ariaLabel="卸载墨阅"
+      layerClassName="modal-backdrop uninstall-backdrop"
+      className="category-dialog uninstall-dialog"
+    >
         <header className="category-dialog__header">
           <div>
             <span className="eyebrow">UNINSTALL</span>
@@ -176,7 +179,6 @@ export function UninstallDialog({ open, onClose, onConfirm }: UninstallDialogPro
             </footer>
           </>
         )}
-      </section>
-    </div>
+    </Modal>
   );
 }

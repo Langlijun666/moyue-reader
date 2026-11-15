@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { Category } from "../lib/categories";
 import type { BookMeta } from "../types";
 import { Icon } from "./Icons";
+import { Modal } from "./Modal";
 
 interface AssignCategoriesProps {
   open: boolean;
@@ -40,13 +41,12 @@ export function AssignCategories({
   if (!open || !book) return null;
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <section
-        className="category-dialog category-dialog--assign"
-        role="dialog"
-        aria-label="把书加入分类"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal
+      open
+      onClose={onClose}
+      ariaLabel="把书加入分类"
+      className="category-dialog category-dialog--assign"
+    >
         <header className="category-dialog__header">
           <div>
             <span className="eyebrow">SHELF</span>
@@ -109,7 +109,6 @@ export function AssignCategories({
             完成
           </button>
         </footer>
-      </section>
-    </div>
+    </Modal>
   );
 }

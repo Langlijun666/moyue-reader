@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ReaderSettings, ShelfView, ThemeName } from "../types";
 import { Icon } from "./Icons";
+import { Modal } from "./Modal";
 import { THEME_PRESETS, themePreset } from "../lib/themes";
 import type { UpdatePhase } from "../lib/useUpdater";
 import {
@@ -87,7 +88,7 @@ export function AppSettingsPanel({
   onInstallUpdate,
   onOpenChangelog,
 }: AppSettingsPanelProps) {
-  const [version, setVersion] = useState("0.28.1");
+  const [version, setVersion] = useState("0.28.2");
   const [dataDir, setDataDir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -165,9 +166,13 @@ export function AppSettingsPanel({
   };
 
   return (
-    <>
-      <div className="app-settings-backdrop" onClick={onClose} />
-      <aside className="app-settings" role="dialog" aria-label="软件设置">
+    <Modal
+      open
+      onClose={onClose}
+      ariaLabel="软件设置"
+      layerClassName="app-settings-backdrop"
+      className="app-settings"
+    >
         <header className="app-settings__header">
           <div>
             <span className="eyebrow">SETTINGS</span>
@@ -555,7 +560,6 @@ export function AppSettingsPanel({
 
           {error ? <p className="settings-error">{error}</p> : null}
         </div>
-      </aside>
-    </>
+    </Modal>
   );
 }
