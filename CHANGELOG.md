@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.29.0
+
+- 新增独立的墨阅 Online 版
+  - 公版书城（Project Gutenberg）
+  - 搜索、封面、下载 EPUB
+  - 独立应用 ID、数据目录和更新线路
+  - Local 版保持纯本地，不显示书城
+- 网站增加 Online 下载入口
+
 ## 0.28.2
 
 - 继续统一弹窗实现

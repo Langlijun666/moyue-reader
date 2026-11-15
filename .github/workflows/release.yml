@@ -43,6 +43,53 @@ jobs:
           uploadUpdaterJson: true
           updaterJsonPreferNsis: true
 
+      - name: Build Online edition
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build --config src-tauri/tauri.online.conf.json --bundles nsis
+
+      - name: Upload Online installer to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $online = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "Moyue Online_*-setup.exe" | Select-Object -First 1
+          if (-not $online) { throw "Online installer not found" }
+          gh release upload $env:GITHUB_REF_NAME $online.FullName "$($online.FullName).sig" --clobber
+
+      - name: Prepare Online OSS mirror
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $version = (Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json).version
+          $online = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "Moyue Online_${version}_x64-setup.exe" | Select-Object -First 1
+          if (-not $online) { throw "Online installer not found" }
+          $signature = (Get-Content "$($online.FullName).sig" -Raw).Trim()
+          $manifest = [ordered]@{
+            version = $version
+            notes = "墨阅 Online ${version}。公版书城版。"
+            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = [ordered]@{
+              "windows-x86_64" = [ordered]@{
+                signature = $signature
+                url = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/online/Moyue%20Online_${version}_x64-setup.exe"
+              }
+            }
+          }
+          New-Item -ItemType Directory -Force -Path "oss-online-upload" | Out-Null
+          Set-Content -Path "oss-online-upload/version.txt" -Value $version -NoNewline -Encoding ascii
+          Copy-Item $online.FullName "oss-online-upload/Moyue Online_${version}_x64-setup.exe"
+          Copy-Item "$($online.FullName).sig" "oss-online-upload/Moyue Online_${version}_x64-setup.exe.sig"
+          [System.IO.File]::WriteAllText(
+            "oss-online-upload/latest.json",
+            ($manifest | ConvertTo-Json -Depth 6 -Compress),
+            (New-Object System.Text.UTF8Encoding($false))
+          )
+
+
       - name: Prepare OSS mirror
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
@@ -94,6 +141,9 @@ jobs:
               "oss-upload/latest.json": "updates/latest.json",
               f"oss-upload/Moyue_{version}_x64-setup.exe": f"updates/Moyue_{version}_x64-setup.exe",
               f"oss-upload/Moyue_{version}_x64-setup.exe.sig": f"updates/Moyue_{version}_x64-setup.exe.sig",
+              "oss-online-upload/latest.json": "updates/online/latest.json",
+              f"oss-online-upload/Moyue Online_{version}_x64-setup.exe": f"updates/online/Moyue Online_{version}_x64-setup.exe",
+              f"oss-online-upload/Moyue Online_{version}_x64-setup.exe.sig": f"updates/online/Moyue Online_{version}_x64-setup.exe.sig",
           }
           for local, remote in files.items():
               bucket.put_object_from_file(remote, local)
