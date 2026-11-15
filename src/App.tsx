@@ -64,7 +64,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.30.2";
+const APP_VERSION = "0.31.0";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -1044,6 +1044,7 @@ export default function App() {
           onOpenLibraryManager={() => setLibraryManagerOpen(true)}
           onOpenSettings={() => setAppSettingsOpen(true)}
           onlineEdition={IS_ONLINE_EDITION}
+          onlineStoreOpen={onlineLibraryOpen}
           onOpenOnlineStore={() => setOnlineLibraryOpen(true)}
           categories={categoryData.categories}
           assignments={categoryData.assignments}
@@ -1061,7 +1062,15 @@ export default function App() {
       ) : null}
 
       <main className="workspace">
-        {active ? (
+        {onlineLibraryOpen && IS_ONLINE_EDITION && !active ? (
+          <OnlineLibrary
+            open
+            onClose={() => setOnlineLibraryOpen(false)}
+            onImport={async (file) => {
+              await importFile(file);
+            }}
+          />
+        ) : active ? (
           active.format === "pdf" ? (
             <PdfReader
               key={active.id}
@@ -1285,15 +1294,6 @@ export default function App() {
         onEmptyTrash={() => void emptyTrash()}
       />
 
-      {IS_ONLINE_EDITION ? (
-        <OnlineLibrary
-          open={onlineLibraryOpen}
-          onClose={() => setOnlineLibraryOpen(false)}
-          onImport={async (file) => {
-            await importFile(file);
-          }}
-        />
-      ) : null}
 
       <SponsorDialog
         open={sponsorOpen}

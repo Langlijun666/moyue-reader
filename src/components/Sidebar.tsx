@@ -37,6 +37,7 @@ interface SidebarProps {
   onOpenLibraryManager: () => void;
   onOpenSettings: () => void;
   onlineEdition?: boolean;
+  onlineStoreOpen?: boolean;
   onOpenOnlineStore?: () => void;
 }
 
@@ -68,6 +69,7 @@ export function Sidebar({
   onOpenLibraryManager,
   onOpenSettings,
   onlineEdition = false,
+  onlineStoreOpen = false,
   onOpenOnlineStore,
 }: SidebarProps) {
   const normalized = query.trim().toLowerCase();
@@ -132,7 +134,11 @@ export function Sidebar({
           <button className="is-active" type="button">
             书架
           </button>
-          <button type="button" onClick={onOpenOnlineStore}>
+          <button
+            className={onlineStoreOpen ? "is-active" : ""}
+            type="button"
+            onClick={onOpenOnlineStore}
+          >
             公版书城
           </button>
         </div>

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "./Icons";
 
@@ -117,7 +116,7 @@ export function OnlineLibrary({ open, onClose, onImport }: OnlineLibraryProps) {
 
   if (!open) return null;
 
-  return createPortal(
+  return (
     <section className="online-store" role="dialog" aria-label="公版书城">
       <header className="online-store__head">
         <div className="online-store__tabs">
@@ -173,7 +172,6 @@ export function OnlineLibrary({ open, onClose, onImport }: OnlineLibraryProps) {
       {!busy && books.length === 0 && !error ? (
         <p className="online-store__empty">搜索一本公版书开始阅读。</p>
       ) : null}
-    </section>,
-    document.querySelector(".app") ?? document.body,
+    </section>
   );
 }
