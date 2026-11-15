@@ -689,6 +689,36 @@ struct FolderScan {
 }
 
 #[tauri::command]
+fn fetch_remote_book(url: String) -> Result<DroppedFile, String> {
+    let response = reqwest::blocking::Client::builder()
+        .user_agent("Moyue/0.29 public-domain")
+        .timeout(std::time::Duration::from_secs(120))
+        .build()
+        .map_err(|error| format!("无法创建下载连接：{error}"))?
+        .get(&url)
+        .send()
+        .map_err(|error| format!("下载失败：{error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("下载失败：HTTP {}", response.status()));
+    }
+    let name = url
+        .split('?')
+        .next()
+        .and_then(|value| value.rsplit('/').next())
+        .filter(|value| value.to_lowercase().ends_with(".epub"))
+        .unwrap_or("public-domain.epub")
+        .to_string();
+    let bytes = response.bytes().map_err(|error| format!("下载失败：{error}"))?;
+    if bytes.len() > 250 * 1024 * 1024 {
+        return Err("这本书超过 250 MB".to_string());
+    }
+    Ok(DroppedFile {
+        name,
+        data_base64: STANDARD.encode(bytes),
+    })
+}
+
+#[tauri::command]
 fn scan_book_folder(path: String) -> Result<FolderScan, String> {
     let folder = PathBuf::from(&path);
     if !folder.is_dir() {
@@ -1092,6 +1122,7 @@ pub fn run() {
             open_sponsor_issue,
             open_feedback,
             read_dropped_file,
+            fetch_remote_book,
             scan_book_folder,
             check_app_update,
             download_app_update,

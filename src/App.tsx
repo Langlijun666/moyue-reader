@@ -46,6 +46,8 @@ import type { LibrarySort } from "./types";
 import { EmptyState } from "./components/EmptyState";
 import { Reader } from "./components/Reader";
 import { PdfReader } from "./components/PdfReader";
+import { OnlineLibrary } from "./components/OnlineLibrary";
+import { IS_ONLINE_EDITION } from "./edition";
 import { FullShelf } from "./components/FullShelf";
 import { MusicPlayer } from "./components/MusicPlayer";
 import { CategoryManager } from "./components/CategoryManager";
@@ -93,6 +95,7 @@ export default function App() {
   const [statsOpen, setStatsOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [libraryManagerOpen, setLibraryManagerOpen] = useState(false);
+  const [onlineLibraryOpen, setOnlineLibraryOpen] = useState(false);
   const [deletedBooks, setDeletedBooks] = useState<BookMeta[]>([]);
   const [sortBy, setSortBy] = useState<LibrarySort>(() => {
     try {
@@ -1257,8 +1260,7 @@ export default function App() {
       <ChangelogDialog open={changelogOpen} onClose={() => setChangelogOpen(false)} />
 
       <LibraryManager
-        open={libraryManagerOpen}
-        books={shelf}
+        open={libraryManagerOpen}        books={shelf}
         deletedBooks={deletedBooks}
         categories={categoryData.categories}
         assignments={categoryData.assignments}
@@ -1278,6 +1280,22 @@ export default function App() {
         onPurge={(ids) => void purgeTrash(ids)}
         onEmptyTrash={() => void emptyTrash()}
       />
+
+      {IS_ONLINE_EDITION ? (
+        <>
+          <button className="online-library-entry" onClick={() => setOnlineLibraryOpen(true)}>
+            <Icon name="book" size={16} />
+            公版书城
+          </button>
+          <OnlineLibrary
+            open={onlineLibraryOpen}
+            onClose={() => setOnlineLibraryOpen(false)}
+            onImport={async (file) => {
+              await importFile(file);
+            }}
+          />
+        </>
+      ) : null}
 
       <SponsorDialog
         open={sponsorOpen}
