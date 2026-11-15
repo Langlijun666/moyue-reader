@@ -105,6 +105,15 @@ export function FullShelf({
           <button className="icon-button" onClick={onOpenMusic} title="音乐" aria-label="打开音乐">
             <Icon name="music" size={18} />
           </button>
+          {onlineEdition ? (
+            <button
+              className="workspace-tab is-active"
+              type="button"
+            >
+              <Icon name="book" size={16} />
+              书架
+            </button>
+          ) : null}
           <button
             className="icon-button"
             onClick={onOpenStats}
@@ -115,12 +124,12 @@ export function FullShelf({
           </button>
           {onlineEdition ? (
             <button
-              className="icon-button"
+              className="workspace-tab"
+              type="button"
               onClick={onOpenOnlineStore}
-              title="公版书城"
-              aria-label="打开公版书城"
             >
-              <Icon name="book" size={18} />
+              <Icon name="folder" size={16} />
+              公版书城
             </button>
           ) : null}
           <button

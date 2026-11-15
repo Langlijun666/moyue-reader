@@ -134,7 +134,6 @@ export function OnlineLibrary({ open, onClose, onImport }: OnlineLibraryProps) {
           <Icon name="x" size={18} />
         </button>
       </header>
-
       <div className="online-store__hero">
         <span className="eyebrow">PUBLIC DOMAIN</span>
         <h2>从公版书里，<br />挑一本开始。</h2>

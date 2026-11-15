@@ -5777,6 +5777,24 @@ input:focus-visible,
   background: var(--accent);
 }
 
+.workspace-tab {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 9px;
+}
+.workspace-tab:hover { color: var(--ink); }
+.workspace-tab.is-active {
+  color: var(--paper);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 .online-store {
   --paper: var(--bg);
   --faint: var(--muted);
