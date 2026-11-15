@@ -1,7 +1,7 @@
 const OSS_BASE = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com";
 const GITHUB_REPO = "Langlijun666/moyue-reader";
 const GITHUB_RELEASE = `https://github.com/${GITHUB_REPO}/releases/latest`;
-const FALLBACK_VERSION = "0.32.2";
+const FALLBACK_VERSION = "0.32.3";
 
 const editions = {
   local: {
