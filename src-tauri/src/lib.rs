@@ -123,8 +123,12 @@ const BUG_ISSUE_URL: &str = "https://github.com/Langlijun666/moyue-reader/issues
 
 const OSS_UPDATE_ENDPOINT: &str =
     "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/latest.json";
+const OSS_ONLINE_UPDATE_ENDPOINT: &str =
+    "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/online/latest.json";
 const GITHUB_UPDATE_ENDPOINT: &str =
     "https://github.com/Langlijun666/moyue-reader/releases/latest/download/latest.json";
+const GITHUB_ONLINE_UPDATE_ENDPOINT: &str =
+    "https://github.com/Langlijun666/moyue-reader/releases/latest/download/latest-online.json";
 
 #[derive(Default)]
 struct UpdateStore(Mutex<Option<PendingUpdate>>);
@@ -155,10 +159,21 @@ async fn check_app_update(
     source: String,
     store: tauri::State<'_, UpdateStore>,
 ) -> Result<Option<UpdateInfo>, String> {
+    let online = app.config().identifier.ends_with(".online");
+    let oss_endpoint = if online {
+        OSS_ONLINE_UPDATE_ENDPOINT
+    } else {
+        OSS_UPDATE_ENDPOINT
+    };
+    let github_endpoint = if online {
+        GITHUB_ONLINE_UPDATE_ENDPOINT
+    } else {
+        GITHUB_UPDATE_ENDPOINT
+    };
     let endpoint = match source.as_str() {
-        "mirror" => vec![OSS_UPDATE_ENDPOINT],
-        "github" => vec![GITHUB_UPDATE_ENDPOINT],
-        _ => vec![OSS_UPDATE_ENDPOINT, GITHUB_UPDATE_ENDPOINT],
+        "mirror" => vec![oss_endpoint],
+        "github" => vec![github_endpoint],
+        _ => vec![oss_endpoint, github_endpoint],
     };
     let urls = endpoint
         .into_iter()

@@ -63,6 +63,8 @@ jobs:
       - name: Prepare Online OSS mirror
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $version = (Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json).version
           $online = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "Moyue Online_${version}_x64-setup.exe" | Select-Object -First 1
@@ -88,6 +90,8 @@ jobs:
             ($manifest | ConvertTo-Json -Depth 6 -Compress),
             (New-Object System.Text.UTF8Encoding($false))
           )
+          Copy-Item "oss-online-upload/latest.json" "oss-online-upload/latest-online.json"
+          gh release upload $env:GITHUB_REF_NAME "oss-online-upload/latest-online.json" --clobber
 
 
       - name: Prepare OSS mirror
