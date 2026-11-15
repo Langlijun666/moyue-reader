@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "./Icons";
-import { Modal } from "./Modal";
 
 interface OnlineLibraryProps {
   open: boolean;
@@ -35,7 +35,7 @@ function parseFeed(xml: string): OnlineBook[] {
 }
 
 async function loadBooks(feedXml: string): Promise<OnlineBook[]> {
-  const candidates = parseFeed(feedXml).slice(0, 12);
+  const candidates = parseFeed(feedXml).slice(0, 20);
   const books = await Promise.all(
     candidates.map(async (candidate): Promise<OnlineBook | null> => {
       if (!candidate.epub) return null;
@@ -61,7 +61,8 @@ async function loadBooks(feedXml: string): Promise<OnlineBook[]> {
       }
     }),
   );
-  return books.filter((book): book is OnlineBook => book !== null);}
+  return books.filter((book): book is OnlineBook => book !== null);
+}
 
 export function OnlineLibrary({ open, onClose, onImport }: OnlineLibraryProps) {
   const [query, setQuery] = useState("");
@@ -69,13 +70,14 @@ export function OnlineLibrary({ open, onClose, onImport }: OnlineLibraryProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const search = async () => {
-    const value = query.trim();
-    if (!value || busy) return;
+  const search = async (value = query) => {
+    const term = value.trim() || "adventure";
+    if (busy) return;
+    setQuery(term);
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`${SEARCH_URL}${encodeURIComponent(value)}`);
+      const response = await fetch(`${SEARCH_URL}${encodeURIComponent(term)}`);
       if (!response.ok) throw new Error(`搜索失败：HTTP ${response.status}`);
       setBooks(await loadBooks(await response.text()));
     } catch (searchError) {
@@ -84,6 +86,12 @@ export function OnlineLibrary({ open, onClose, onImport }: OnlineLibraryProps) {
       setBusy(false);
     }
   };
+
+  useEffect(() => {
+    if (open && books.length === 0) void search("adventure");
+    // Only load the default shelf once per opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const download = async (book: OnlineBook) => {
     if (busy) return;
@@ -107,57 +115,66 @@ export function OnlineLibrary({ open, onClose, onImport }: OnlineLibraryProps) {
     }
   };
 
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      ariaLabel="公版书城"
-      layerClassName="library-manager-backdrop"
-      className="library-manager online-library"
-    >
-      <header className="library-manager__header">
-        <div>
-          <span className="eyebrow">PUBLIC DOMAIN</span>
-          <h3>公版书城</h3>
+  if (!open) return null;
+
+  return createPortal(
+    <section className="online-store" role="dialog" aria-label="公版书城">
+      <header className="online-store__head">
+        <div className="online-store__tabs">
+          <button onClick={onClose}>
+            <Icon name="book" size={15} />
+            书架
+          </button>
+          <button className="is-active">
+            <Icon name="folder" size={15} />
+            公版书城
+          </button>
         </div>
-        <button className="icon-button" onClick={onClose} aria-label="关闭公版书城">
+        <button className="icon-button" onClick={onClose} aria-label="返回书架">
           <Icon name="x" size={18} />
         </button>
       </header>
-      <div className="online-library__search">
-        <input
-          value={query}
-          placeholder="搜索 Project Gutenberg，例如 Alice、Shakespeare"
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") void search();
-          }}
-        />
-        <button className="button button--primary" onClick={() => void search()} disabled={busy}>
-          {busy ? "请稍候…" : "搜索"}
-        </button>
+
+      <div className="online-store__hero">
+        <span className="eyebrow">PUBLIC DOMAIN</span>
+        <h2>从公版书里，<br />挑一本开始。</h2>
+        <div className="online-store__search">
+          <input
+            value={query}
+            placeholder="搜索作者、书名，例如 Alice、Shakespeare"
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void search();
+            }}
+          />
+          <button className="button button--primary" onClick={() => void search()} disabled={busy}>
+            {busy ? "正在找书…" : "搜索"}
+          </button>
+        </div>
+        <p>来源：Project Gutenberg · 公版书免费阅读，请保留来源信息。</p>
       </div>
-      <p className="online-library__note">
-        来源：Project Gutenberg。公版书可免费阅读，请保留来源信息。
-      </p>
-      {error ? <p className="online-library__error">{error}</p> : null}
-      <div className="online-library__list">
+
+      {error ? <p className="online-store__error">{error}</p> : null}
+      <div className="online-store__grid">
         {books.map((book) => (
-          <article className="online-book" key={book.id}>
-            {book.cover ? <img src={book.cover} alt="" loading="lazy" /> : <div className="online-book__cover" />}
-            <div>
+          <article className="online-book-card" key={book.id}>
+            <div className="online-book-card__cover">
+              {book.cover ? <img src={book.cover} alt="" loading="lazy" /> : <span>墨阅</span>}
+            </div>
+            <div className="online-book-card__body">
               <strong>{book.title}</strong>
               <small>{book.author}</small>
+              <button className="text-button" onClick={() => void download(book)} disabled={busy}>
+                下载 EPUB →
+              </button>
             </div>
-            <button className="text-button" onClick={() => void download(book)} disabled={busy}>
-              下载
-            </button>
           </article>
         ))}
-        {!busy && books.length === 0 && !error ? (
-          <p className="online-library__empty">搜索一本公版书开始阅读。</p>
-        ) : null}
       </div>
-    </Modal>
+      {!busy && books.length === 0 && !error ? (
+        <p className="online-store__empty">搜索一本公版书开始阅读。</p>
+      ) : null}
+    </section>,
+    document.querySelector(".app") ?? document.body,
   );
 }

@@ -64,7 +64,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.29.0";
+const APP_VERSION = "0.30.0";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -1043,6 +1043,8 @@ export default function App() {
           onOpenStats={() => setStatsOpen(true)}
           onOpenLibraryManager={() => setLibraryManagerOpen(true)}
           onOpenSettings={() => setAppSettingsOpen(true)}
+          onlineEdition={IS_ONLINE_EDITION}
+          onOpenOnlineStore={() => setOnlineLibraryOpen(true)}
           categories={categoryData.categories}
           assignments={categoryData.assignments}
           categoryCounts={categoryCounts}
@@ -1116,6 +1118,8 @@ export default function App() {
             onOpenStats={() => setStatsOpen(true)}
             onOpenLibraryManager={() => setLibraryManagerOpen(true)}
             onOpenSettings={() => setAppSettingsOpen(true)}
+            onlineEdition={IS_ONLINE_EDITION}
+            onOpenOnlineStore={() => setOnlineLibraryOpen(true)}
           />
         ) : (
           <EmptyState
@@ -1282,19 +1286,13 @@ export default function App() {
       />
 
       {IS_ONLINE_EDITION ? (
-        <>
-          <button className="online-library-entry" onClick={() => setOnlineLibraryOpen(true)}>
-            <Icon name="book" size={16} />
-            公版书城
-          </button>
-          <OnlineLibrary
-            open={onlineLibraryOpen}
-            onClose={() => setOnlineLibraryOpen(false)}
-            onImport={async (file) => {
-              await importFile(file);
-            }}
-          />
-        </>
+        <OnlineLibrary
+          open={onlineLibraryOpen}
+          onClose={() => setOnlineLibraryOpen(false)}
+          onImport={async (file) => {
+            await importFile(file);
+          }}
+        />
       ) : null}
 
       <SponsorDialog

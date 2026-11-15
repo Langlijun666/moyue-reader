@@ -36,6 +36,8 @@ interface SidebarProps {
   onOpenStats: () => void;
   onOpenLibraryManager: () => void;
   onOpenSettings: () => void;
+  onlineEdition?: boolean;
+  onOpenOnlineStore?: () => void;
 }
 
 export function Sidebar({
@@ -65,6 +67,8 @@ export function Sidebar({
   onOpenStats,
   onOpenLibraryManager,
   onOpenSettings,
+  onlineEdition = false,
+  onOpenOnlineStore,
 }: SidebarProps) {
   const normalized = query.trim().toLowerCase();
   const uncategorizedCount = books.filter((book) => !(assignments[book.id]?.length)).length;
@@ -122,6 +126,17 @@ export function Sidebar({
           <Icon name={themeIcon} size={18} />
         </button>
       </div>
+
+      {onlineEdition ? (
+        <div className="sidebar-edition-tabs">
+          <button className="is-active" type="button">
+            书架
+          </button>
+          <button type="button" onClick={onOpenOnlineStore}>
+            公版书城
+          </button>
+        </div>
+      ) : null}
 
       <label className="search-field">
         <Icon name="search" size={16} />

@@ -30,6 +30,8 @@ interface FullShelfProps {
   onOpenStats: () => void;
   onOpenLibraryManager: () => void;
   onOpenSettings: () => void;
+  onlineEdition?: boolean;
+  onOpenOnlineStore?: () => void;
 }
 
 export function FullShelf({
@@ -57,6 +59,8 @@ export function FullShelf({
   onOpenStats,
   onOpenLibraryManager,
   onOpenSettings,
+  onlineEdition = false,
+  onOpenOnlineStore,
 }: FullShelfProps) {
   const normalized = query.trim().toLowerCase();
   const uncategorizedCount = books.filter((book) => !(assignments[book.id]?.length)).length;
@@ -109,6 +113,16 @@ export function FullShelf({
           >
             <Icon name="chart" size={18} />
           </button>
+          {onlineEdition ? (
+            <button
+              className="icon-button"
+              onClick={onOpenOnlineStore}
+              title="公版书城"
+              aria-label="打开公版书城"
+            >
+              <Icon name="book" size={18} />
+            </button>
+          ) : null}
           <button
             className="icon-button"
             onClick={onOpenLibraryManager}
