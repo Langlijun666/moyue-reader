@@ -1,9 +1,8 @@
-import type { BookMeta, Progress, ThemeName } from "../types";
+import type { BookMeta, Progress } from "../types";
 import type { Category } from "../lib/categories";
 import { formatBytes, percentLabel } from "../lib/format";
 import { BookCover } from "./BookCover";
 import { Icon } from "./Icons";
-import { themeLabel as getThemeLabel, themePreset } from "../lib/themes";
 
 interface FullShelfProps {
   books: (BookMeta & { progress?: Progress })[];
@@ -24,14 +23,7 @@ interface FullShelfProps {
   onImport: () => void;
   onSample: () => void;
   busy: boolean;
-  theme: ThemeName;
-  onToggleTheme: () => void;
   onOpenMusic: () => void;
-  onOpenStats: () => void;
-  onOpenLibraryManager: () => void;
-  onOpenSettings: () => void;
-  onlineEdition?: boolean;
-  onOpenOnlineStore?: () => void;
 }
 
 export function FullShelf({
@@ -53,14 +45,7 @@ export function FullShelf({
   onImport,
   onSample,
   busy,
-  theme,
-  onToggleTheme,
   onOpenMusic,
-  onOpenStats,
-  onOpenLibraryManager,
-  onOpenSettings,
-  onlineEdition = false,
-  onOpenOnlineStore,
 }: FullShelfProps) {
   const normalized = query.trim().toLowerCase();
   const uncategorizedCount = books.filter((book) => !(assignments[book.id]?.length)).length;
@@ -80,23 +65,9 @@ export function FullShelf({
       )
     : baseBooks;
 
-  const themeLabel = getThemeLabel(theme);
-  const themeIcon =
-    theme === "custom" ? "spark" : themePreset(theme).dark ? "moon" : "sun";
-
   return (
     <section className="full-shelf">
       <header className="full-shelf__header">
-        <div className="full-shelf__brand">
-          <div className="brand__seal" aria-hidden="true">
-            墨
-          </div>
-          <div>
-            <span className="eyebrow">LIBRARY</span>
-            <h1>我的书架</h1>
-            <p>{books.length} 本书 · 把世界读慢一点</p>
-          </div>
-        </div>
         <div className="full-shelf__actions">
           <button className="button button--primary" onClick={onImport} disabled={busy}>
             <Icon name="plus" size={17} />
@@ -104,57 +75,6 @@ export function FullShelf({
           </button>
           <button className="icon-button" onClick={onOpenMusic} title="音乐" aria-label="打开音乐">
             <Icon name="music" size={18} />
-          </button>
-          {onlineEdition ? (
-            <button
-              className="workspace-tab is-active"
-              type="button"
-            >
-              <Icon name="book" size={16} />
-              书架
-            </button>
-          ) : null}
-          <button
-            className="icon-button"
-            onClick={onOpenStats}
-            title="阅读统计"
-            aria-label="打开阅读统计"
-          >
-            <Icon name="chart" size={18} />
-          </button>
-          {onlineEdition ? (
-            <button
-              className="workspace-tab"
-              type="button"
-              onClick={onOpenOnlineStore}
-            >
-              <Icon name="folder" size={16} />
-              公版书城
-            </button>
-          ) : null}
-          <button
-            className="icon-button"
-            onClick={onOpenLibraryManager}
-            title="书库管理"
-            aria-label="打开书库管理"
-          >
-            <Icon name="folder" size={18} />
-          </button>
-          <button
-            className="icon-button"
-            onClick={onToggleTheme}
-            title={`切换主题（当前：${themeLabel}）`}
-            aria-label={`切换主题，当前${themeLabel}`}
-          >
-            <Icon name={themeIcon} size={18} />
-          </button>
-          <button
-            className="icon-button"
-            onClick={onOpenSettings}
-            title="软件设置"
-            aria-label="软件设置"
-          >
-            <Icon name="settings" size={18} />
           </button>
         </div>
       </header>

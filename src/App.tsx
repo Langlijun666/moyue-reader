@@ -64,7 +64,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.31.1";
+const APP_VERSION = "0.31.2";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -1119,14 +1119,7 @@ export default function App() {
             onImport={() => fileInputRef.current?.click()}
             onSample={() => void loadSample()}
             busy={busy}
-            theme={settings.theme}
-            onToggleTheme={toggleTheme}
             onOpenMusic={() => setMusicOpen(true)}
-            onOpenStats={() => setStatsOpen(true)}
-            onOpenLibraryManager={() => setLibraryManagerOpen(true)}
-            onOpenSettings={() => setAppSettingsOpen(true)}
-            onlineEdition={IS_ONLINE_EDITION}
-            onOpenOnlineStore={() => setOnlineLibraryOpen(true)}
           />
         ) : (
           <EmptyState
