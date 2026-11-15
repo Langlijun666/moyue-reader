@@ -108,7 +108,7 @@ html[data-edition="online"] .edition-switch button.is-active {
 
 .online-banner {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 220px auto;
   align-items: center;
   gap: 30px;
   width: calc(100% - clamp(44px, 12vw, 160px));
@@ -133,11 +133,21 @@ html[data-edition="online"] .edition-switch button.is-active {
   font-size: 10px;
   line-height: 1.8;
 }
+.online-banner__shot {
+  width: 220px;
+  max-height: 150px;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 12px 28px -22px var(--shadow);
+}
 
 @media (max-width: 880px) {
   .edition-switch { margin-left: auto; }
   .edition-switch button { padding: 4px 7px; font-size: 8px; }
   .online-banner { display: flex; flex-direction: column; align-items: flex-start; padding: 26px 22px; width: calc(100% - 44px); margin: 24px auto; }
+  .online-banner__shot { width: 100%; max-height: 180px; }
   .online-banner .download-button { width: 100%; }
   .download-choices { width: 100%; flex-direction: column; }
   .download-choices .download-button { width: 100%; }
