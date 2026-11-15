@@ -832,6 +832,9 @@ input:focus-visible,
 }
 
 .full-shelf__brand {
+  display: none;
+}
+
   display: flex;
   align-items: center;
   gap: 14px;

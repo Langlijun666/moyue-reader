@@ -64,7 +64,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.31.0";
+const APP_VERSION = "0.31.1";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -1024,8 +1024,7 @@ export default function App() {
         void onPickFile(event.dataTransfer.files);
       }}
     >
-      {!fullShelf ? (
-        <Sidebar
+      <Sidebar
           books={shelf}
           activeId={active?.id}
           query={query}
@@ -1059,7 +1058,6 @@ export default function App() {
           onManageCategories={() => setCategoryManagerOpen(true)}
           onAssignCategories={(book) => setAssignBook(book)}
         />
-      ) : null}
 
       <main className="workspace">
         {onlineLibraryOpen && IS_ONLINE_EDITION && !active ? (
