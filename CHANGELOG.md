@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.30.1
+
+- 修复 Online 版更新后启动 Local 版的问题
+  - Online 更新器只读取 Online 更新清单
+  - Local 更新器继续只读取 Local 清单
+  - GitHub 增加 `latest-online.json`
+
+## 0.30.0
+
+- 公版书城改为完整页面
+  - 顶部「书架 / 公版书城」切换
+  - 默认加载公版书封面网格
+  - 移除右下角悬浮入口
+  - 保留 Gutenberg 搜索
+
 ## 0.29.0
 
 - 新增独立的墨阅 Online 版
