@@ -1,11 +1,69 @@
 const OSS_BASE = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com";
 const GITHUB_REPO = "Langlijun666/moyue-reader";
 const GITHUB_RELEASE = `https://github.com/${GITHUB_REPO}/releases/latest`;
-const FALLBACK_VERSION = "0.21.1";
+const FALLBACK_VERSION = "0.29.0";
 
-function ossInstaller(version) {
-  return `${OSS_BASE}/updates/Moyue_${version}_x64-setup.exe`;
+const editions = {
+  local: {
+    title: "把世界<br /><em>读慢一点。</em>",
+    lead: "墨阅是一款本地优先的桌面阅读器。没有账号，没有广告，没有云同步。书、进度、笔记和听书，都安静地留在你的电脑里。",
+    eyebrow: "一间只属于你的书房",
+    cta: "下载 Local",
+    ctaMeta: "本地版 · Windows 10 / 11",
+    installer: (version) => `${OSS_BASE}/updates/Moyue_${version}_x64-setup.exe`,
+  },
+  online: {
+    title: "把书架，<br /><em>连到更大的世界。</em>",
+    lead: "墨阅 Online 在本地阅读器之外，接入 Project Gutenberg 公版书城。搜索、下载、导入书架，仍然不需要账号。",
+    eyebrow: "本地阅读 · 公版书城",
+    cta: "下载 Online",
+    ctaMeta: "公版书城版 · Windows 10 / 11",
+    installer: (version) => `${OSS_BASE}/updates/online/Moyue%20Online_${version}_x64-setup.exe`,
+  },
+};
+
+let currentEdition = localStorage.getItem("moyue.site.edition") || "local";
+let downloadUrls = { local: "", online: "" };
+
+function setEdition(edition, persist = true) {
+  currentEdition = editions[edition] ? edition : "local";
+  const config = editions[currentEdition];
+  document.documentElement.dataset.edition = currentEdition;
+  document.querySelectorAll(".edition-switch button").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.edition === currentEdition);
+  });
+  const title = document.getElementById("heroTitle");
+  const lead = document.getElementById("heroLead");
+  const eyebrow = document.getElementById("heroEyebrow");
+  const cta = document.getElementById("downloadTitle");
+  const meta = document.getElementById("downloadMeta");
+  if (title) title.innerHTML = config.title;
+  if (lead) lead.textContent = config.lead;
+  if (eyebrow) eyebrow.innerHTML = `<i></i> ${config.eyebrow}`;
+  if (cta) cta.textContent = config.cta;
+  if (meta) meta.textContent = downloadUrls[currentEdition]
+    ? config.ctaMeta
+    : config.ctaMeta;
+  const button = document.getElementById("downloadButton");
+  if (button && downloadUrls[currentEdition]) {
+    button.href = downloadUrls[currentEdition];
+    button.removeAttribute("target");
+    button.removeAttribute("rel");
+  }
+  if (persist) localStorage.setItem("moyue.site.edition", currentEdition);
 }
+
+document.querySelectorAll(".edition-switch button").forEach((button) => {
+  button.addEventListener("click", () => {
+    setEdition(button.dataset.edition);
+    history.replaceState(null, "", button.dataset.edition === "online" ? "#online" : "#top");
+  });
+});
+
+setEdition(
+  location.hash === "#online" ? "online" : currentEdition,
+  false,
+);
 
 const shots = {
   reader: { src: "assets/reader.png", caption: "左右翻页，纸页扫光，也可以上下滚动。" },
@@ -59,68 +117,58 @@ async function fetchJson(url, timeout = 6000) {
   }
 }
 
-function applyDownload(version, url) {
-  const label = `v${version} · Windows 10 / 11 · x64`;
-  for (const id of ["downloadMeta", "downloadMetaBottom"]) {
-    const element = document.getElementById(id);
-    if (element) element.textContent = label;
-  }
-  for (const id of ["downloadButton", "downloadButtonBottom"]) {
-    const element = document.getElementById(id);
-    if (element) {
-      element.href = url;
-      element.removeAttribute("target");
-      element.removeAttribute("rel");
+function applyDownload(edition, version, url) {
+  downloadUrls[edition] = url;
+  if (edition === "local") {
+    const local = document.getElementById("downloadLocalBottom");
+    if (local) {
+      local.href = url;
+      local.removeAttribute("target");
+      local.removeAttribute("rel");
     }
+  } else {
+    const online = document.getElementById("downloadOnlineBottom");
+    if (online) {
+      online.href = url;
+      online.removeAttribute("target");
+      online.removeAttribute("rel");
+    }
+    const banner = document.getElementById("onlineBannerButton");
+    if (banner) {
+      banner.href = url;
+      banner.removeAttribute("target");
+      banner.removeAttribute("rel");
+    }
+  }
+  if (edition === currentEdition) {
+    setEdition(currentEdition, false);
+    const meta = document.getElementById("downloadMeta");
+    if (meta) meta.textContent = `v${version} · ${editions[edition].ctaMeta}`;
   }
 }
 
-async function resolveDownload() {
-  const candidates = [
-    "updates/latest.json",
-    `${OSS_BASE}/updates/latest.json`,
-  ];
-
-  for (const candidate of candidates) {
+async function resolveEditionDownloads() {
+  for (const [edition, config] of Object.entries(editions)) {
+    const manifestUrl =
+      edition === "local"
+        ? `${OSS_BASE}/updates/latest.json`
+        : `${OSS_BASE}/updates/online/latest.json`;
     try {
-      const manifest = await fetchJson(candidate);
+      const manifest = await fetchJson(manifestUrl, 8000);
       const platform =
         manifest?.platforms?.["windows-x86_64-nsis"] ||
         manifest?.platforms?.["windows-x86_64"];
       if (manifest?.version && platform?.url) {
-        applyDownload(manifest.version, platform.url);
-        return;
+        applyDownload(edition, manifest.version, platform.url);
+        continue;
       }
     } catch {
-      // Try the next mirror.
+      // Fall through to the current release.
     }
-  }
-
-  try {
-    const release = await fetchJson(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
-    const version = release?.tag_name?.replace(/^v/, "") || FALLBACK_VERSION;
-    const asset = release?.assets?.find((item) => /x64-setup\.exe$/i.test(item.name));
-    if (version) {
-      applyDownload(version, ossInstaller(version));
-      return;
-    }
-    if (asset?.browser_download_url) {
-      applyDownload(version, asset.browser_download_url);
-      return;
-    }
-  } catch {
-    // Fall through to the releases page.
-  }
-
-  applyDownload(FALLBACK_VERSION, ossInstaller(FALLBACK_VERSION));
-  for (const id of ["downloadButton", "downloadButtonBottom"]) {
-    const element = document.getElementById(id);
-    if (element) {
-      element.target = "_blank";
-      element.rel = "noreferrer";
-    }
+    applyDownload(edition, FALLBACK_VERSION, config.installer(FALLBACK_VERSION));
   }
 }
 
-resolveDownload();
+resolveEditionDownloads();
+
 
