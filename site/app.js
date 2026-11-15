@@ -60,10 +60,15 @@ document.querySelectorAll(".edition-switch button").forEach((button) => {
   });
 });
 
-setEdition(
-  location.hash === "#online" ? "online" : currentEdition,
-  false,
-);
+const initialEdition =
+  new URLSearchParams(location.search).get("edition") === "online" ||
+  location.hash === "#online"
+    ? "online"
+    : currentEdition;
+setEdition(initialEdition, false);
+window.addEventListener("hashchange", () => {
+  if (location.hash === "#online") setEdition("online", false);
+});
 
 const shots = {
   reader: { src: "assets/reader.png", caption: "左右翻页，纸页扫光，也可以上下滚动。" },

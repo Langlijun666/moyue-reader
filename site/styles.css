@@ -107,15 +107,17 @@ html[data-edition="online"] .edition-switch button.is-active {
 }
 
 .online-banner {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 30px;
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: 36px clamp(22px, 6vw, 80px);
+  width: calc(100% - clamp(44px, 12vw, 160px));
+  max-width: 1080px;
+  margin: 34px auto;
+  padding: 34px 38px;
   background: color-mix(in srgb, var(--green) 7%, var(--paper));
-  border-bottom: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--green) 18%, var(--line));
+  border-radius: 14px;
 }
 .online-banner h2 {
   margin: 12px 0 8px;
@@ -135,7 +137,8 @@ html[data-edition="online"] .edition-switch button.is-active {
 @media (max-width: 880px) {
   .edition-switch { margin-left: auto; }
   .edition-switch button { padding: 4px 7px; font-size: 8px; }
-  .online-banner { flex-direction: column; align-items: flex-start; padding: 28px 22px; }
+  .online-banner { display: flex; flex-direction: column; align-items: flex-start; padding: 26px 22px; width: calc(100% - 44px); margin: 24px auto; }
+  .online-banner .download-button { width: 100%; }
   .download-choices { width: 100%; flex-direction: column; }
   .download-choices .download-button { width: 100%; }
 }
