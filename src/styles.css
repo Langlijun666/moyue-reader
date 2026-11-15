@@ -835,11 +835,6 @@ input:focus-visible,
   display: none;
 }
 
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
 .full-shelf__brand .brand__seal {
   width: 50px;
   height: 50px;

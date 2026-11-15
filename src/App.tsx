@@ -64,7 +64,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.31.2";
+const APP_VERSION = "0.31.3";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
