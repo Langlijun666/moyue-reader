@@ -244,6 +244,9 @@ html[data-theme="dark"] .theme-toggle .moon { display: block; }
 .download-panel h3 { margin: 15px 0 0; font-family: var(--serif); font-size: 27px; font-weight: 500; line-height: 1.3; }
 .download-button--large { min-width: 208px; padding: 13px 18px; }
 .download-panel__action { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.download-choices { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.download-button--online { background: var(--green); }
+.download-button--online:hover { background: color-mix(in srgb, var(--green) 82%, #000); }
 .download-panel__hint { color: var(--faint); font-size: 8px; }
 
 .faq { padding-top: 60px; }
