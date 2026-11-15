@@ -126,9 +126,9 @@ const OSS_UPDATE_ENDPOINT: &str =
 const OSS_ONLINE_UPDATE_ENDPOINT: &str =
     "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/online/latest.json";
 const GITHUB_UPDATE_ENDPOINT: &str =
-    "https://github.com/Langlijun666/moyue-reader/releases/latest/download/latest.json";
+    "https://github.com/Langlijun666/moyue-reader/releases/download/latest-local/latest.json";
 const GITHUB_ONLINE_UPDATE_ENDPOINT: &str =
-    "https://github.com/Langlijun666/moyue-reader/releases/latest/download/latest-online.json";
+    "https://github.com/Langlijun666/moyue-reader/releases/download/latest-online/latest-online.json";
 
 #[derive(Default)]
 struct UpdateStore(Mutex<Option<PendingUpdate>>);

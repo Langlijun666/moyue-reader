@@ -116,6 +116,18 @@ jobs:
         run: |
           gh release create $env:TAG "release-assets/$env:INSTALLER" "release-assets/$env:INSTALLER.sig" "release-assets/$env:MANIFEST" --title "Moyue $env:EDITOR $env:VERSION" --notes "Moyue $env:EDITOR $env:VERSION" --latest
 
+      - name: Publish rolling update release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $rolling = if ($env:EDITOR -eq "local") { "latest-local" } else { "latest-online" }
+          gh release view $rolling *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $rolling --title "Moyue $env:EDITOR latest" --notes "滚动更新清单，仅供应用检查更新。" --latest=false
+          }
+          gh release upload $rolling "release-assets/$env:MANIFEST" --clobber
+
       - name: Upload OSS
         shell: pwsh
         env:

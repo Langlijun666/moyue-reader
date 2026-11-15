@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.32.4
+
+- 新增 Local / Online 独立 GitHub 滚动更新 Release
+- GitHub 更新线路不再依赖 releases/latest
+- 自动更新默认仍走 OSS，GitHub 作为可选线路
+
 ## 0.32.3
 
 - 修复自动更新误用 GitHub 最新版清单导致的更新失败
