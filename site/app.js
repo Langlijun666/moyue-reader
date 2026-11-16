@@ -13,7 +13,7 @@ const editions = {
     installer: (version) => `${OSS_BASE}/updates/Moyue_${version}_x64-setup.exe`,
   },
   online: {
-    title: "把书架，<br /><em>连到更大的世界。</em>",
+    title: "把书架，<br /><em>连到更大的<br />世界。</em>",
     lead: "墨阅 Online 内置书城：速读谷的分类热榜，加上 Project Gutenberg 公版书。搜书名、看简介，整本下载成 TXT 放进书架，还会自动补上封面，仍然不需要账号。",
     eyebrow: "本地阅读 · 在线书城",
     cta: "下载 Online",
