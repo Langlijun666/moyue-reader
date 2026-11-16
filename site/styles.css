@@ -119,6 +119,9 @@ html[data-edition="online"] .edition-switch button.is-active {
   border: 1px solid color-mix(in srgb, var(--green) 18%, var(--line));
   border-radius: 14px;
 }
+
+/* The store banner belongs to the Online edition only. */
+html:not([data-edition="online"]) .online-banner { display: none; }
 .online-banner h2 {
   margin: 12px 0 8px;
   font-family: var(--serif);
