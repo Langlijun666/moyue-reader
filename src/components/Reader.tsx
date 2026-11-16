@@ -150,7 +150,8 @@ export function Reader({
   const [searchTotalHits, setSearchTotalHits] = useState(0);
   const searchIndexRef = useRef<SearchIndexSection[] | null>(null);
   const searchRunRef = useRef(0);
-  const [chromeHidden, setChromeHidden] = useState(false);
+  const [chromeHidden, setChromeHidden] = useState(IS_ANDROID);
+  const [showTapHint, setShowTapHint] = useState(IS_ANDROID);
   const [flip, setFlip] = useState<"prev" | "next" | null>(null);
   const [flipNonce, setFlipNonce] = useState(0);
   const flipTimerRef = useRef<number | null>(null);
@@ -172,6 +173,12 @@ export function Reader({
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    if (!IS_ANDROID) return;
+    const timer = window.setTimeout(() => setShowTapHint(false), 6000);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -443,6 +450,7 @@ export function Reader({
                 }
               }
               setChromeHidden((visible) => !visible);
+              setShowTapHint(false);
             });
           }
 
@@ -1489,6 +1497,19 @@ export function Reader({
     <section
       className={`reader reader--${settings.readingMode} ${backgroundUrl ? "reader--custom-bg" : ""} ${chromeHidden ? "reader--chrome-hidden" : ""}`}
       style={backgroundUrl ? { backgroundImage: `url("${backgroundUrl}")` } : undefined}
+      onClick={(event) => {
+        if (!IS_ANDROID) return;
+        const target = event.target as HTMLElement;
+        if (
+          target.closest(
+            "button, input, textarea, a, .drawer, .selection-toolbar, .page-flip, .reader__loading, .reader__error",
+          )
+        ) {
+          return;
+        }
+        setChromeHidden((visible) => !visible);
+        setShowTapHint(false);
+      }}
     >
       <header className="reader__topbar">
         <button className="icon-button icon-button--quiet" onClick={onBack} aria-label="回到书架">
@@ -1600,12 +1621,6 @@ export function Reader({
 
       <div
         className={`reader__stage page-effect-${settings.pageEffect} ${flip ? `is-turning is-turning--${flip}` : ""}`}
-        onClick={(event) => {
-          if (!IS_ANDROID) return;
-          const target = event.target as HTMLElement;
-          if (target.closest("button, input, a, .page-flip, .reader__loading, .reader__error")) return;
-          setChromeHidden((visible) => !visible);
-        }}
       >
         <div ref={viewerRef} className="reader__viewport" />
 
@@ -1701,6 +1716,10 @@ export function Reader({
           onHighlight={addHighlight}
           onClose={() => setSelection(null)}
         />
+      ) : null}
+
+      {IS_ANDROID && showTapHint ? (
+        <div className="reader__tap-hint">轻点正文显示菜单</div>
       ) : null}
 
       <footer className="reader__footer">

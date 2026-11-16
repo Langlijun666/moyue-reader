@@ -24,7 +24,7 @@ Android 版已完成第一轮移植：书架、EPUB / TXT / PDF / MOBI / AZW3 �
 - 手机需要允许「安装未知应用」
 - 未上架应用商店，也还没有正式签名流程
 
-从源码构建：
+阅读页默认沉浸显示，轻点正文弹出 / 收起上下工具栏；左右翻页模式下点击屏幕两侧翻页。\r\n\r\n从源码构建：
 
 1. 安装 JDK 17、Android SDK（platform 37 / build-tools 37）和 NDK 27，并执行
    `rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android`

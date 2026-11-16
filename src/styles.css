@@ -7137,7 +7137,7 @@ html[data-platform="android"] .update-card {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    padding: 6px 8px calc(6px + max(env(safe-area-inset-bottom, 0px), 12px));
     background: color-mix(in srgb, var(--surface) 94%, transparent);
     border-top: 1px solid var(--line);
     backdrop-filter: blur(18px);
@@ -7176,7 +7176,7 @@ html[data-platform="android"] .update-card {
   }
 
   .full-shelf {
-    padding: calc(16px + env(safe-area-inset-top)) 14px calc(74px + env(safe-area-inset-bottom));
+    padding: calc(16px + max(env(safe-area-inset-top, 0px), 24px)) 14px calc(74px + max(env(safe-area-inset-bottom, 0px), 12px));
   }
 
   .full-shelf__header {
@@ -7203,9 +7203,9 @@ html[data-platform="android"] .update-card {
 
   .reader__topbar {
     flex: 0 0 auto;
-    height: calc(52px + env(safe-area-inset-top));
+    height: calc(52px + max(env(safe-area-inset-top, 0px), 24px));
     gap: 4px;
-    padding: env(safe-area-inset-top) 8px 0;
+    padding: max(env(safe-area-inset-top, 0px), 24px) 8px 0;
   }
 
   .reader__topbar .icon-button,
@@ -7230,9 +7230,9 @@ html[data-platform="android"] .update-card {
 
   .reader__footer {
     flex: 0 0 auto;
-    height: calc(52px + env(safe-area-inset-bottom));
+    height: calc(52px + max(env(safe-area-inset-bottom, 0px), 12px));
     gap: 4px;
-    padding: 0 6px env(safe-area-inset-bottom);
+    padding: 0 6px max(env(safe-area-inset-bottom, 0px), 12px);
   }
 
   .reader__topbar,
@@ -7268,8 +7268,8 @@ html[data-platform="android"] .update-card {
   .page-button--chapter { padding: 5px 5px; }
 
   .drawer {
-    top: calc(14px + env(safe-area-inset-top));
-    bottom: calc(14px + env(safe-area-inset-bottom));
+    top: calc(14px + max(env(safe-area-inset-top, 0px), 24px));
+    bottom: calc(14px + max(env(safe-area-inset-bottom, 0px), 12px));
     width: 100%;
     max-width: 100%;
   }
@@ -7286,12 +7286,12 @@ html[data-platform="android"] .update-card {
   }
 
   .online-store {
-    padding-bottom: calc(58px + env(safe-area-inset-bottom));
+    padding-bottom: calc(58px + max(env(safe-area-inset-bottom, 0px), 12px));
   }
 
   .online-store__head {
     gap: 8px;
-    padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+    padding: calc(10px + max(env(safe-area-inset-top, 0px), 24px)) 14px 10px;
   }
 
   .online-store__tabs button {
@@ -7318,7 +7318,7 @@ html[data-platform="android"] .update-card {
   .online-store__grid {
     grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
     gap: 14px 12px;
-    padding: 12px 14px calc(40px + env(safe-area-inset-bottom));
+    padding: 12px 14px calc(40px + max(env(safe-area-inset-bottom, 0px), 12px));
   }
 
   .store-sheet__panel {
@@ -7387,4 +7387,24 @@ html[data-platform="android"] .update-card {
   .library-duplicate {
     grid-column: 2;
   }
+}
+.reader__tap-hint {
+  position: fixed;
+  bottom: calc(30px + max(env(safe-area-inset-bottom, 0px), 12px));
+  left: 50%;
+  z-index: 25;
+  padding: 7px 12px;
+  color: var(--surface);
+  background: color-mix(in srgb, var(--ink) 78%, transparent);
+  border-radius: 99px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: reader-hint-in 220ms ease both;
+}
+
+@keyframes reader-hint-in {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
