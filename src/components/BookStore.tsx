@@ -8,9 +8,9 @@ import {
   openStorePage,
   searchStore,
   type StoreBook,
-} from "../lib/sudugu";
+} from "../lib/onlineStore";
 
-interface SuduguStoreProps {
+interface BookStoreProps {
   onImport: (file: File, open?: boolean, coverUrl?: string) => Promise<void>;
 }
 
@@ -22,7 +22,7 @@ function errorMessage(error: unknown, fallback: string): string {
 
 const SKELETON_COUNT = 12;
 
-export function SuduguStore({ onImport }: SuduguStoreProps) {
+export function BookStore({ onImport }: BookStoreProps) {
   const [category, setCategory] = useState<string>(STORE_CATEGORIES[0].id);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -153,9 +153,9 @@ export function SuduguStore({ onImport }: SuduguStoreProps) {
   const title = mode === "search" ? `“${appliedTerm}”的搜索结果` : `${categoryName} · 最新`;
 
   return (
-    <div className="sudugu">
+    <div className="book-store">
       <div className="store-hero">
-        <span className="eyebrow">SUDUGU · 速读谷</span>
+        <span className="eyebrow">ONLINE STORE · 线上书城</span>
         <h2>
           把热榜上的书，
           <br />
@@ -171,7 +171,7 @@ export function SuduguStore({ onImport }: SuduguStoreProps) {
           <input
             value={term}
             placeholder="搜索书名（需完整书名，例如 文豪1978）"
-            aria-label="搜索速读谷书城"
+            aria-label="搜索线上书城"
             onChange={(event) => setTerm(event.target.value)}
           />
           <button className="button button--primary" type="submit" disabled={loading}>
@@ -180,7 +180,7 @@ export function SuduguStore({ onImport }: SuduguStoreProps) {
           </button>
         </form>
         <p className="store-hero__note">
-          内容来自第三方站点 www.sudugu.cc，仅供个人阅读；下载后会自动转成 TXT 保存到本地书架。
+          内容来自第三方站点，仅供个人阅读；下载后会自动转成 TXT 保存到本地书架。
         </p>
       </div>
 
@@ -360,7 +360,7 @@ export function SuduguStore({ onImport }: SuduguStoreProps) {
 
             <div className="store-sheet__body">
               <span className="eyebrow">
-                {detail.category || "速读谷"}
+                {detail.category || "线上书城"}
                 {detail.status ? ` · ${detail.status}` : ""}
               </span>
               <h2>{detail.title}</h2>

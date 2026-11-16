@@ -5942,7 +5942,7 @@ input:focus-visible,
 .online-book-card__body small { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .online-book-card__body .text-button { justify-content: flex-start; padding: 2px 0; font-size: 8px; }
 
-/* ---------- 书城：来源切换与速读谷 ---------- */
+/* ---------- 书城：来源切换与线上书城 ---------- */
 
 .store-source {
   display: flex;
@@ -5969,7 +5969,7 @@ input:focus-visible,
   background: var(--accent);
 }
 
-.sudugu { padding-bottom: 34px; }
+.book-store { padding-bottom: 34px; }
 
 .store-hero {
   max-width: 1200px;

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
-export const SUDUGU_ORIGIN = "https://www.sudugu.cc";
+export const STORE_ORIGIN = "https://www.sudugu.cc";
 
 export const STORE_CATEGORIES = [
   { id: "1", name: "玄幻" },
@@ -49,7 +49,7 @@ interface StoreSegment {
 }
 
 const HEADER_LINE = /^(《.+》.*作者[：:]|章节范围[：:]|来源[：:]|网址[：:])/;
-const FOOTER_LINE = /^(更多精彩小说|请访问[：:]?\s*速读谷|速读谷\s*https?:\/\/)/;
+const FOOTER_LINE = /^更多精彩小说/;
 
 function parseHtml(html: string): Document {
   return new DOMParser().parseFromString(html, "text/html");
@@ -63,7 +63,7 @@ function toAbsolute(href: string | null | undefined): string | undefined {
   const value = href?.trim();
   if (!value || value.startsWith("javascript:")) return undefined;
   try {
-    const url = new URL(value, `${SUDUGU_ORIGIN}/`);
+    const url = new URL(value, `${STORE_ORIGIN}/`);
     if (url.hostname !== "www.sudugu.cc") return undefined;
     // Book links on the detail page point at "/6597/#dir"; the anchor is not
     // part of the book id we need.
@@ -85,7 +85,7 @@ function bookId(url: string | undefined): string | undefined {
 }
 
 function makeKey(id: string): string {
-  return `sudugu-${id}`;
+  return `store-${id}`;
 }
 
 function buildBook(partial: Omit<StoreBook, "key">): StoreBook {
@@ -177,7 +177,7 @@ function parseDetail(doc: Document, fallback?: StoreBook): StoreBook | null {
 /** Books in one category page, e.g. /fenlei/3/2/ (都市 · 第 2 页). */
 export async function loadCategory(categoryId: string, page: number): Promise<StoreShelf> {
   const html = await invoke<string>("fetch_store_page", {
-    url: `${SUDUGU_ORIGIN}/fenlei/${categoryId}/${page}/`,
+    url: `${STORE_ORIGIN}/fenlei/${categoryId}/${page}/`,
   });
   const doc = parseHtml(html);
   const headings = [...doc.querySelectorAll("h1.h2")];
@@ -193,7 +193,7 @@ export async function loadCategory(categoryId: string, page: number): Promise<St
 /** Search by full book name (the site does not support fuzzy matching). */
 export async function searchStore(term: string): Promise<StoreBook[]> {
   const html = await invoke<string>("fetch_store_page", {
-    url: `${SUDUGU_ORIGIN}/modules/article/search.php?searchkey=${encodeURIComponent(term)}`,
+    url: `${STORE_ORIGIN}/modules/article/search.php?searchkey=${encodeURIComponent(term)}`,
   });
   const doc = parseHtml(html);
   // An exact hit can answer with the book detail page instead of a result list.
@@ -208,14 +208,14 @@ export async function searchStore(term: string): Promise<StoreBook[]> {
 
 export async function loadBookDetail(book: StoreBook): Promise<StoreBook> {
   const html = await invoke<string>("fetch_store_page", {
-    url: `${SUDUGU_ORIGIN}/${book.id}/`,
+    url: `${STORE_ORIGIN}/${book.id}/`,
   });
   return parseDetail(parseHtml(html), book) ?? book;
 }
 
 async function loadSegments(id: string): Promise<StoreSegment[]> {
   const html = await invoke<string>("fetch_store_page", {
-    url: `${SUDUGU_ORIGIN}/${id}/txt.html`,
+    url: `${STORE_ORIGIN}/${id}/txt.html`,
   });
   const doc = parseHtml(html);
   const links = [...doc.querySelectorAll('a[href*="packdown.php"]')]

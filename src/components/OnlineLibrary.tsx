@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon } from "./Icons";
 import { GutenbergStore } from "./GutenbergStore";
-import { SuduguStore } from "./SuduguStore";
+import { BookStore } from "./BookStore";
 
 interface OnlineLibraryProps {
   open: boolean;
@@ -9,15 +9,15 @@ interface OnlineLibraryProps {
   onImport: (file: File, open?: boolean, coverUrl?: string) => Promise<void>;
 }
 
-type StoreSource = "sudugu" | "gutenberg";
+type StoreSource = "online" | "gutenberg";
 
 const SOURCES: { id: StoreSource; label: string }[] = [
-  { id: "sudugu", label: "速读谷" },
+  { id: "online", label: "线上书城" },
   { id: "gutenberg", label: "公版书" },
 ];
 
 export function OnlineLibrary({ open, onClose, onImport }: OnlineLibraryProps) {
-  const [source, setSource] = useState<StoreSource>("sudugu");
+  const [source, setSource] = useState<StoreSource>("online");
 
   if (!open) return null;
 
@@ -53,8 +53,8 @@ export function OnlineLibrary({ open, onClose, onImport }: OnlineLibraryProps) {
         </button>
       </header>
 
-      {source === "sudugu" ? (
-        <SuduguStore onImport={onImport} />
+      {source === "online" ? (
+        <BookStore onImport={onImport} />
       ) : (
         <GutenbergStore onImport={onImport} />
       )}
