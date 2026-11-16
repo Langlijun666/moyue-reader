@@ -1,6 +1,5 @@
 const OSS_BASE = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com";
 const GITHUB_REPO = "Langlijun666/moyue-reader";
-const GITHUB_RELEASE = `https://github.com/${GITHUB_REPO}/releases/latest`;
 // Used only when the OSS manifest cannot be read (for example without CORS).
 const FALLBACK_VERSIONS = { local: "0.32.4", online: "0.33.0" };
 
@@ -158,6 +157,25 @@ function applyDownload(edition, version, url) {
   }
 }
 
+async function resolveGithubVersion(edition) {
+  const releases = await fetchJson(
+    `https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=30`,
+    8000,
+  );
+  const prefix = edition === "local" ? "local-v" : "online-v";
+  const versions = (Array.isArray(releases) ? releases : [])
+    .map((release) => release.tag_name || "")
+    .filter((tag) => tag.startsWith(prefix))
+    .map((tag) => tag.slice(prefix.length))
+    .filter((version) => /^\d+\.\d+\.\d+$/.test(version))
+    .sort((left, right) => {
+      const a = left.split(".").map(Number);
+      const b = right.split(".").map(Number);
+      return b[0] - a[0] || b[1] - a[1] || b[2] - a[2];
+    });
+  return versions[0] || null;
+}
+
 async function resolveEditionDownloads() {
   for (const [edition, config] of Object.entries(editions)) {
     const manifestUrl =
@@ -174,7 +192,16 @@ async function resolveEditionDownloads() {
         continue;
       }
     } catch {
-      // Fall through to the current release.
+      // OSS CORS may be closed for github.io; try the release tags next.
+    }
+    try {
+      const version = await resolveGithubVersion(edition);
+      if (version) {
+        applyDownload(edition, version, config.installer(version));
+        continue;
+      }
+    } catch {
+      // Rate limited or offline: fall back to the built-in version.
     }
     const fallbackVersion = FALLBACK_VERSIONS[edition];
     applyDownload(edition, fallbackVersion, config.installer(fallbackVersion));

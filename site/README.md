@@ -82,10 +82,10 @@ updates/online/latest.json   Online
 如果同源读取失败，会依次尝试：
 
 1. OSS 绝对地址 `updates/latest.json` / `updates/online/latest.json`
-2. GitHub Releases API
-3. GitHub Releases 页面
+2. GitHub Releases API：读取 `local-v*` / `online-v*` 标签里最新的版本号
+3. `app.js` 里的 `FALLBACK_VERSIONS` 兜底
 
-`app.js` 里的 `FALLBACK_VERSIONS` 只在前两步都失败时兜底，发版后记得同步成最新版本号。
+GitHub Pages 没有 OSS 跨域时也能自动拿到版本号；如果三步都失败（比如离线），就用内置版本号，所以发版后可以顺手同步 `FALLBACK_VERSIONS`。
 
 ## GitHub Pages
 
