@@ -1910,6 +1910,22 @@ input:focus-visible,
   justify-content: flex-end;
 }
 
+.reader__footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.page-button--chapter {
+  min-width: 0;
+  color: var(--muted);
+}
+
+.page-button--chapter:disabled {
+  opacity: 0.45;
+}
+
 .reader__scroll-hint {
   display: inline-flex;
   min-width: 82px;
@@ -2349,6 +2365,31 @@ input:focus-visible,
   height: 5px;
   background: var(--accent);
   border-radius: 50%;
+}
+
+.toc-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toc-locate {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 9px;
+  white-space: nowrap;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.toc-locate:hover {
+  color: var(--ink);
+  background: var(--surface-2);
 }
 
 .settings-body {

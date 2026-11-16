@@ -118,6 +118,7 @@ export function Reader({
   const [toc, setToc] = useState<TocEntry[]>([]);
   const [currentHref, setCurrentHref] = useState("");
   const [currentLabel, setCurrentLabel] = useState(initialProgress?.chapter || "正文");
+  const [hasNextChapter, setHasNextChapter] = useState(false);
   const [percent, setPercent] = useState(initialProgress?.percent ?? 0);
   const [ready, setReady] = useState(false);
   const [locationsReady, setLocationsReady] = useState(false);
@@ -550,6 +551,22 @@ export function Reader({
         rendition.on("rendered", applyHighlights);
         applyHighlights();
 
+        const markNextChapter = (href: string) => {
+          const chapters = flatTocRef.current;
+          const index = chapters.findIndex(
+            (entry) => (entry.href ?? "").split("#")[0] === href.split("#")[0],
+          );
+          if (index >= 0) {
+            setHasNextChapter(index < chapters.length - 1);
+            return;
+          }
+          const items = book.spine?.spineItems ?? [];
+          const spineIndex = items.findIndex(
+            (item: any) => (item.href ?? "").split("#")[0] === href.split("#")[0],
+          );
+          setHasNextChapter(spineIndex >= 0 && spineIndex < items.length - 1);
+        };
+
         const updateFromLocation = (location: any, allowZero = false) => {
           const href = location?.start?.href ?? "";
           const label = findLabel(tocRef.current, href) || "正文";
@@ -577,6 +594,7 @@ export function Reader({
           }
           setCurrentHref(href);
           setCurrentLabel(label);
+          markNextChapter(href);
           if (location?.start?.cfi) {
             currentCfiRef.current = location.start.cfi;
             onProgressRef.current({
@@ -643,7 +661,10 @@ export function Reader({
           setPercent(ratio);
           setCurrentLabel(label);
           const href = findHrefByLabel(tocRef.current, label);
-          if (href) setCurrentHref(href);
+          if (href) {
+            setCurrentHref(href);
+            markNextChapter(href);
+          }
 
           if (cfi) {
             currentCfiRef.current = cfi;
@@ -1029,6 +1050,36 @@ export function Reader({
     setTocOpen(false);
     void renditionRef.current?.display(href).catch(() => undefined);
   };
+
+  const goToNextChapter = useCallback(async () => {
+    const rendition = renditionRef.current;
+    if (!rendition) return;
+    setSelection(null);
+    const href = (rendition.currentLocation?.()?.start?.href ?? "").split("#")[0];
+    const chapters = flatTocRef.current;
+    const index = chapters.findIndex(
+      (entry) => (entry.href ?? "").split("#")[0] === href,
+    );
+    if (index >= 0 && index < chapters.length - 1) {
+      await rendition.display(chapters[index + 1].href).catch(() => undefined);
+      return;
+    }
+
+    // Books without a usable TOC still have a spine order.
+    const items = bookRef.current?.spine?.spineItems ?? [];
+    const spineIndex = items.findIndex(
+      (item: any) => (item.href ?? "").split("#")[0] === href,
+    );
+    for (let next = spineIndex + 1; next > 0 && next < items.length; next += 1) {
+      if (items[next].linear === false) continue;
+      try {
+        await rendition.display(items[next].href);
+        return;
+      } catch {
+        // Try the following section.
+      }
+    }
+  }, []);
 
   const seek = (value: number) => {
     const book = bookRef.current;
@@ -1613,16 +1664,29 @@ export function Reader({
           <span className="reader__chapter-small">{currentLabel}</span>
         </div>
 
-        {isScrollMode ? (
-          <span className="reader__scroll-hint reader__scroll-hint--right">
-            滚轮 / 触控板
-          </span>
-        ) : (
-          <button className="page-button" onClick={() => void turnPage("next")} aria-label="下一页">
-            <span>下一页</span>
-            <Icon name="right" size={18} />
+        <div className="reader__footer-actions">
+          {isScrollMode ? (
+            <span className="reader__scroll-hint reader__scroll-hint--right">
+              滚轮 / 触控板
+            </span>
+          ) : null}
+          <button
+            className="page-button page-button--chapter"
+            onClick={() => void goToNextChapter()}
+            aria-label="下一章"
+            title="下一章"
+            disabled={!hasNextChapter}
+          >
+            <span>下一章</span>
+            <Icon name="skip-forward" size={16} />
           </button>
-        )}
+          {isScrollMode ? null : (
+            <button className="page-button" onClick={() => void turnPage("next")} aria-label="下一页">
+              <span>下一页</span>
+              <Icon name="right" size={18} />
+            </button>
+          )}
+        </div>
       </footer>
 
       <TtsPlayer
