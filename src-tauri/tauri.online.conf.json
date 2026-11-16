@@ -10,5 +10,6 @@
         "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/online/latest.json"
       ]
     }
-  }
+  },
+  "version": "0.33.0"
 }

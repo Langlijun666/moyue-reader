@@ -139,7 +139,7 @@ export function Sidebar({
             type="button"
             onClick={onOpenOnlineStore}
           >
-            公版书城
+            书城
           </button>
         </div>
       ) : null}

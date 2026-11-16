@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33.0
+
+- Online 版新增「书城」：按分类浏览、搜索书名、查看简介，整本下载为 TXT 并自动补全封面
+- 书城内的公版书改由 Rust 抓取，修复打包版中 Project Gutenberg 因 CORS 无法加载的问题
+- 修复 Online 版自动更新清单的安装包地址（文件名空格与点号不一致导致下载 404）
+
 ## 0.32.4
 
 - 新增 Local / Online 独立 GitHub 滚动更新 Release

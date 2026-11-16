@@ -45,7 +45,7 @@ export function AppRail({
           <button
             className={storeActive ? "is-active" : ""}
             onClick={onStore}
-            title="公版书城"
+            title="书城"
           >
             <Icon name="folder" size={19} />
             <span>书城</span>

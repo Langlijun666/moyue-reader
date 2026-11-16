@@ -63,7 +63,7 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
-const APP_VERSION = "0.32.2";
+const APP_VERSION = "0.33.0";
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -311,7 +311,12 @@ export default function App() {
   const importFile = useCallback(
     async (
       file: File,
-      options: { open?: boolean; skipExisting?: boolean; silent?: boolean } = {},
+      options: {
+        open?: boolean;
+        skipExisting?: boolean;
+        silent?: boolean;
+        coverUrl?: string;
+      } = {},
     ): Promise<"added" | "updated" | "skipped" | "failed"> => {
       const openAfter = options.open ?? true;
       const silent = options.silent ?? false;
@@ -350,6 +355,24 @@ export default function App() {
           lastOpenedAt: now,
           data,
         };
+        if (!record.cover && options.coverUrl) {
+          try {
+            const remote = await invoke<{ mimeType: string; dataBase64: string }>(
+              "fetch_store_cover",
+              { url: options.coverUrl },
+            );
+            const binary = atob(remote.dataBase64);
+            const coverBytes = new Uint8Array(binary.length);
+            for (let index = 0; index < binary.length; index += 1) {
+              coverBytes[index] = binary.charCodeAt(index);
+            }
+            record.cover = await imageFileToCover(
+              new File([coverBytes], "cover.jpg", { type: remote.mimeType }),
+            );
+          } catch {
+            // A missing cover only costs the artwork; the book still imports.
+          }
+        }
         await putBook(record);
         setLibrary((books) => [stripData(record), ...books.filter((book) => book.id !== record.id)]);
         if (openAfter) setActive(record);
@@ -1043,8 +1066,8 @@ export default function App() {
           <OnlineLibrary
             open
             onClose={() => setOnlineLibraryOpen(false)}
-            onImport={async (file) => {
-              await importFile(file);
+            onImport={async (file, open = true, coverUrl) => {
+              await importFile(file, { open, coverUrl });
             }}
           />
         ) : active ? (

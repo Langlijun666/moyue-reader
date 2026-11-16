@@ -735,6 +735,158 @@ fn fetch_remote_book(url: String) -> Result<DroppedFile, String> {
     })
 }
 
+// ---------- online store (online edition) ----------
+
+const STORE_ORIGIN: &str = "https://www.sudugu.cc/";
+const GUTENBERG_ORIGIN: &str = "https://www.gutenberg.org/";
+const STORE_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
+    AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+fn is_sudugu_url(url: &str) -> bool {
+    let trimmed = url.trim();
+    trimmed.starts_with(STORE_ORIGIN) && !trimmed.contains(char::is_whitespace)
+}
+
+/// Both shelves are read through Rust: the sites send no CORS headers, so the
+/// WebView cannot fetch their pages itself.
+fn is_store_page_url(url: &str) -> bool {
+    let trimmed = url.trim();
+    if trimmed.contains(char::is_whitespace) {
+        return false;
+    }
+    trimmed.starts_with(STORE_ORIGIN) || trimmed.starts_with(GUTENBERG_ORIGIN)
+}
+
+fn store_client(timeout_seconds: u64) -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .user_agent(STORE_USER_AGENT)
+        .timeout(std::time::Duration::from_secs(timeout_seconds))
+        .build()
+        .map_err(|error| format!("无法连接书城：{error}"))
+}
+
+/// Fetch a book-store page (search results, category list, book detail or an
+/// OPDS feed). The site sends no CORS headers, so the WebView cannot read it.
+#[tauri::command]
+async fn fetch_store_page(url: String) -> Result<String, String> {
+    if !is_store_page_url(&url) {
+        return Err("不支持的书城地址".to_string());
+    }
+    let referer = if url.contains("gutenberg.org") {
+        GUTENBERG_ORIGIN
+    } else {
+        STORE_ORIGIN
+    };
+    let response = store_client(30)?
+        .get(url.trim())
+        .header("referer", referer)
+        .header("accept-language", "zh-CN,zh;q=0.9")
+        .send()
+        .await
+        .map_err(|error| format!("书城页面加载失败：{error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("书城页面加载失败：HTTP {}", response.status()));
+    }
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|error| format!("书城页面加载失败：{error}"))?;
+    if bytes.len() > 8 * 1024 * 1024 {
+        return Err("书城页面过大，已取消".to_string());
+    }
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+/// Download one TXT segment of a book. The store answers with a GBK notice
+/// page instead of a file when it will not pack the book yet.
+#[tauri::command]
+async fn fetch_store_segment(url: String) -> Result<String, String> {
+    if !is_sudugu_url(&url) || !url.contains("/modules/article/packdown.php") {
+        return Err("不支持的下载地址".to_string());
+    }
+    let response = store_client(180)?
+        .get(url.trim())
+        .header("referer", STORE_ORIGIN)
+        .send()
+        .await
+        .map_err(|error| format!("下载失败：{error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("下载失败：HTTP {}", response.status()));
+    }
+    let is_file = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.starts_with("application/octet-stream"))
+        .unwrap_or(false);
+    if !is_file {
+        return Err("这本书暂时不能整本下载，请稍后再试或到原站阅读".to_string());
+    }
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|error| format!("下载失败：{error}"))?;
+    if bytes.is_empty() {
+        return Err("下载到的内容为空".to_string());
+    }
+    if bytes.len() > 80 * 1024 * 1024 {
+        return Err("单次下载超过 80 MB，已取消".to_string());
+    }
+    Ok(STANDARD.encode(bytes))
+}
+
+#[tauri::command]
+fn open_store_page(url: String) -> Result<(), String> {
+    if !is_sudugu_url(&url) {
+        return Err("不支持的书城地址".to_string());
+    }
+    open_external_url(url.trim())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoteImage {
+    mime_type: String,
+    data_base64: String,
+}
+
+/// Fetch a cover image from the store so an imported TXT keeps its artwork.
+#[tauri::command]
+async fn fetch_store_cover(url: String) -> Result<RemoteImage, String> {
+    if !is_sudugu_url(&url) || !url.contains("/files/") {
+        return Err("不支持的封面地址".to_string());
+    }
+    let response = store_client(30)?
+        .get(url.trim())
+        .header("referer", STORE_ORIGIN)
+        .send()
+        .await
+        .map_err(|error| format!("封面加载失败：{error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("封面加载失败：HTTP {}", response.status()));
+    }
+    let mime_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    if !mime_type.starts_with("image/") {
+        return Err("封面不是图片".to_string());
+    }
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|error| format!("封面加载失败：{error}"))?;
+    if bytes.is_empty() || bytes.len() > 6 * 1024 * 1024 {
+        return Err("封面图片大小不合适".to_string());
+    }
+    Ok(RemoteImage {
+        mime_type,
+        data_base64: STANDARD.encode(bytes),
+    })
+}
+
 #[tauri::command]
 fn scan_book_folder(path: String) -> Result<FolderScan, String> {
     let folder = PathBuf::from(&path);
@@ -1140,6 +1292,10 @@ pub fn run() {
             open_feedback,
             read_dropped_file,
             fetch_remote_book,
+            fetch_store_page,
+            fetch_store_segment,
+            fetch_store_cover,
+            open_store_page,
             scan_book_folder,
             check_app_update,
             download_app_update,

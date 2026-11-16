@@ -84,7 +84,9 @@ jobs:
             $setup = Join-Path $dir "Moyue Online_${version}_x64-setup.exe"
             $asset = "Moyue.Online_${version}_x64-setup.exe"
             $manifestAsset = "latest-online.json"
-            $ossUrl = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/online/Moyue%20Online_${version}_x64-setup.exe"
+            # The OSS object is uploaded under $asset (dot), so the manifest
+            # must use the same name; a space-encoded name returns 404.
+            $ossUrl = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/online/Moyue.Online_${version}_x64-setup.exe"
             $ossPrefix = "updates/online"
           }
           if (-not (Test-Path $setup)) { throw "installer not found: $setup" }
@@ -114,7 +116,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create $env:TAG "release-assets/$env:INSTALLER" "release-assets/$env:INSTALLER.sig" "release-assets/$env:MANIFEST" --title "Moyue $env:EDITOR $env:VERSION" --notes "Moyue $env:EDITOR $env:VERSION" --latest
+          gh release view $env:TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            # Re-running a release (for example to repair an update manifest)
+            # must replace the existing assets instead of creating a duplicate.
+            gh release upload $env:TAG "release-assets/$env:INSTALLER" "release-assets/$env:INSTALLER.sig" "release-assets/$env:MANIFEST" --clobber
+          } else {
+            gh release create $env:TAG "release-assets/$env:INSTALLER" "release-assets/$env:INSTALLER.sig" "release-assets/$env:MANIFEST" --title "Moyue $env:EDITOR $env:VERSION" --notes "Moyue $env:EDITOR $env:VERSION" --latest
+          }
 
       - name: Publish rolling update release
         shell: pwsh
