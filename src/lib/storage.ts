@@ -15,7 +15,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   lineHeight: 1.9,
   fontFamily: "serif",
   fontWeight: 400,
-  readingMode: "paginated",
+  readingMode: "scroll",
   pageEffect: "sweep",
   shelfView: "sidebar",
   margin: 16,

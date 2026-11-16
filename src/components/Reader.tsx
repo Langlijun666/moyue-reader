@@ -119,6 +119,7 @@ export function Reader({
   const [currentHref, setCurrentHref] = useState("");
   const [currentLabel, setCurrentLabel] = useState(initialProgress?.chapter || "正文");
   const [hasNextChapter, setHasNextChapter] = useState(false);
+  const [hasPrevChapter, setHasPrevChapter] = useState(false);
   const [percent, setPercent] = useState(initialProgress?.percent ?? 0);
   const [ready, setReady] = useState(false);
   const [locationsReady, setLocationsReady] = useState(false);
@@ -551,12 +552,13 @@ export function Reader({
         rendition.on("rendered", applyHighlights);
         applyHighlights();
 
-        const markNextChapter = (href: string) => {
+        const markChapterPosition = (href: string) => {
           const chapters = flatTocRef.current;
           const index = chapters.findIndex(
             (entry) => (entry.href ?? "").split("#")[0] === href.split("#")[0],
           );
           if (index >= 0) {
+            setHasPrevChapter(index > 0);
             setHasNextChapter(index < chapters.length - 1);
             return;
           }
@@ -564,6 +566,7 @@ export function Reader({
           const spineIndex = items.findIndex(
             (item: any) => (item.href ?? "").split("#")[0] === href.split("#")[0],
           );
+          setHasPrevChapter(spineIndex > 0);
           setHasNextChapter(spineIndex >= 0 && spineIndex < items.length - 1);
         };
 
@@ -594,7 +597,7 @@ export function Reader({
           }
           setCurrentHref(href);
           setCurrentLabel(label);
-          markNextChapter(href);
+          markChapterPosition(href);
           if (location?.start?.cfi) {
             currentCfiRef.current = location.start.cfi;
             onProgressRef.current({
@@ -663,7 +666,7 @@ export function Reader({
           const href = findHrefByLabel(tocRef.current, label);
           if (href) {
             setCurrentHref(href);
-            markNextChapter(href);
+            markChapterPosition(href);
           }
 
           if (cfi) {
@@ -800,10 +803,13 @@ export function Reader({
     if (flipTimerRef.current !== null) {
       window.clearTimeout(flipTimerRef.current);
     }
+    const effect = settingsRef.current.pageEffect;
+    const flipDuration =
+      effect === "curl" ? 580 : effect === "sweep" ? 480 : effect === "none" ? 240 : 460;
     flipTimerRef.current = window.setTimeout(() => {
       setFlip(null);
       turningRef.current = false;
-    }, settingsRef.current.pageEffect === "curl" ? 730 : 520);
+    }, flipDuration);
 
     try {
       if (direction === "prev") await rendition.prev();
@@ -1077,6 +1083,36 @@ export function Reader({
         return;
       } catch {
         // Try the following section.
+      }
+    }
+  }, []);
+
+  const goToPrevChapter = useCallback(async () => {
+    const rendition = renditionRef.current;
+    if (!rendition) return;
+    setSelection(null);
+    const href = (rendition.currentLocation?.()?.start?.href ?? "").split("#")[0];
+    const chapters = flatTocRef.current;
+    const index = chapters.findIndex(
+      (entry) => (entry.href ?? "").split("#")[0] === href,
+    );
+    if (index > 0) {
+      await rendition.display(chapters[index - 1].href).catch(() => undefined);
+      return;
+    }
+
+    // Books without a usable TOC still have a spine order.
+    const items = bookRef.current?.spine?.spineItems ?? [];
+    const spineIndex = items.findIndex(
+      (item: any) => (item.href ?? "").split("#")[0] === href,
+    );
+    for (let prev = spineIndex - 1; prev >= 0; prev -= 1) {
+      if (items[prev].linear === false) continue;
+      try {
+        await rendition.display(items[prev].href);
+        return;
+      } catch {
+        // Try the previous section.
       }
     }
   }, []);
@@ -1670,6 +1706,16 @@ export function Reader({
               滚轮 / 触控板
             </span>
           ) : null}
+          <button
+            className="page-button page-button--chapter"
+            onClick={() => void goToPrevChapter()}
+            aria-label="上一章"
+            title="上一章"
+            disabled={!hasPrevChapter}
+          >
+            <Icon name="skip-back" size={16} />
+            <span>上一章</span>
+          </button>
           <button
             className="page-button page-button--chapter"
             onClick={() => void goToNextChapter()}

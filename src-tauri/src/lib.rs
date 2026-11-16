@@ -222,15 +222,37 @@ async fn download_app_update(
     };
     let app_for_progress = app.clone();
     let mut received = 0u64;
+    let mut last_emit = std::time::Instant::now();
+    let mut last_percent = 0u64;
+    let mut started = false;
     let bytes = update
         .download(
             move |chunk_length, total| {
                 received += chunk_length as u64;
+                let total = total.unwrap_or(0);
+                let percent = if total > 0 {
+                    received.saturating_mul(100) / total
+                } else {
+                    0
+                };
+                let finished = total > 0 && received >= total;
+                // Throttle progress events so the pill does not flicker:
+                // emit on a new whole percent (at most ~12 times a second)
+                // and always once the download is complete.
+                if started
+                    && !finished
+                    && (percent == last_percent || last_emit.elapsed().as_millis() < 80)
+                {
+                    return;
+                }
+                started = true;
+                last_percent = percent;
+                last_emit = std::time::Instant::now();
                 let _ = app_for_progress.emit(
                     "moyue-update-progress",
                     UpdateProgress {
                         downloaded: received,
-                        total: total.unwrap_or(0),
+                        total,
                     },
                 );
             },

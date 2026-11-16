@@ -106,7 +106,11 @@ export function useUpdater() {
         setDownloaded(received);
         if (expected > 0) {
           setTotal(expected);
-          setProgress(Math.min(99, Math.round((received / expected) * 100)));
+          // Keep the bar monotonic: chunked progress events can arrive out of
+          // order and make the percentage jump backwards.
+          setProgress((current) =>
+            Math.max(current, Math.min(99, Math.round((received / expected) * 100))),
+          );
         }
       });
       await invoke("download_app_update");
