@@ -13,7 +13,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:image" content="assets/reader.png" />
     <link rel="icon" href="assets/icon.png" />
-    <link rel="stylesheet" href="styles.css?v=0.32.3-1" />
+    <link rel="stylesheet" href="styles.css?v=0.33.0-1" />
   </head>
   <body>
     <header class="nav">
@@ -117,12 +117,12 @@
         <div>
           <span class="eyebrow"><i></i> ONLINE EDITION</span>
           <h2>左边导航，<br />右边换书城。</h2>
-          <p>书架和公版书城共用同一条左侧导航。选书城，右侧就是封面书墙；选书架，右侧回到自己的书。搜索、下载、导入，不需要账号。</p>
+          <p>书架和书城共用同一条左侧导航。书城里既有速读谷的分类热榜，也有 Project Gutenberg 公版书；按分类翻一翻、搜个书名，整本下载成 TXT 就进了自己的书架，还会自动补上封面。不需要账号。</p>
         </div>
-        <img class="online-banner__shot" src="assets/online-store.png" alt="公版书城封面网格" />
-        <a class="download-button download-button--online" id="onlineBannerButton" href="https://github.com/Langlijun666/moyue-reader/releases/download/online-v0.32.3/Moyue.Online_0.32.3_x64-setup.exe" target="_blank" rel="noreferrer">
+        <img class="online-banner__shot" src="assets/online-store.png" alt="书城封面网格" />
+        <a class="download-button download-button--online" id="onlineBannerButton" href="https://github.com/Langlijun666/moyue-reader/releases/download/online-v0.33.0/Moyue.Online_0.33.0_x64-setup.exe" target="_blank" rel="noreferrer">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" /></svg>
-          <span><strong>下载 Online</strong><small>公版书城 · Windows</small></span>
+          <span><strong>下载 Online</strong><small>速读谷 + 公版书 · Windows</small></span>
         </a>
       </section>
 
@@ -254,7 +254,7 @@
           <article>
             <span>01</span>
             <h3>下载安装包</h3>
-            <p>Windows 10 / 11 x64，约 2.5MB。当前用户安装，不需要管理员权限。</p>
+            <p>Windows 10 / 11 x64，约 3MB。当前用户安装，不需要管理员权限。</p>
           </article>
           <article>
             <span>02</span>
@@ -264,7 +264,7 @@
           <article>
             <span>03</span>
             <h3>导入第一本书</h3>
-            <p>支持 EPUB / TXT，也可以直接把书从资源管理器拖进窗口。</p>
+            <p>支持 EPUB / TXT / PDF / MOBI / AZW3，也可以直接把书从资源管理器拖进窗口。</p>
           </article>
         </div>
 
@@ -275,18 +275,18 @@
           </div>
           <div class="download-panel__action">
             <div class="download-choices">
-              <a class="download-button download-button--large" id="downloadLocalBottom" href="https://github.com/Langlijun666/moyue-reader/releases/download/local-v0.32.3/Moyue_0.32.3_x64-setup.exe" target="_blank" rel="noreferrer">
+              <a class="download-button download-button--large" id="downloadLocalBottom" href="https://github.com/Langlijun666/moyue-reader/releases/download/local-v0.32.4/Moyue_0.32.4_x64-setup.exe" target="_blank" rel="noreferrer">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" /></svg>
                 <span>
                   <strong>下载 Local</strong>
                   <small id="downloadMetaBottom">本地版 · Windows 10 / 11</small>
                 </span>
               </a>
-              <a class="download-button download-button--large download-button--online" id="downloadOnlineBottom" href="https://github.com/Langlijun666/moyue-reader/releases/download/online-v0.32.3/Moyue.Online_0.32.3_x64-setup.exe" target="_blank" rel="noreferrer">
+              <a class="download-button download-button--large download-button--online" id="downloadOnlineBottom" href="https://github.com/Langlijun666/moyue-reader/releases/download/online-v0.33.0/Moyue.Online_0.33.0_x64-setup.exe" target="_blank" rel="noreferrer">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" /></svg>
                 <span>
                   <strong>下载 Online</strong>
-                  <small>公版书城 · Windows 10 / 11</small>
+                  <small>速读谷 + 公版书 · Windows 10 / 11</small>
                 </span>
               </a>
             </div>
@@ -311,7 +311,15 @@
           </details>
           <details>
             <summary>支持哪些格式？</summary>
-            <p>目前主要支持 EPUB 2 / EPUB 3 和 TXT。PDF、MOBI、AZW3 暂不支持。</p>
+            <p>支持 EPUB 2 / EPUB 3、TXT、PDF，以及无 DRM 的 MOBI / AZW3。PDF 暂不支持划线和朗读。</p>
+          </details>
+          <details>
+            <summary>Local 和 Online 有什么区别？</summary>
+            <p>Local 只读本地书；Online 多一个「书城」，里面是速读谷的分类热榜和 Project Gutenberg 公版书。两个版本独立安装、独立更新，可以同时使用。</p>
+          </details>
+          <details>
+            <summary>Online 的书城需要联网吗？</summary>
+            <p>需要。书城页面和整本 TXT 都要联网获取，下载完成后就是本地书籍，可以离线阅读；导入时会自动保存封面。内容来自第三方站点，仅供个人阅读。</p>
           </details>
           <details>
             <summary>离线听书需要联网吗？</summary>
@@ -341,6 +349,6 @@
       <p class="footer__meta">MIT License · 本地优先 · 离线可读</p>
     </footer>
 
-    <script src="app.js?v=0.32.3-1"></script>
+    <script src="app.js?v=0.33.0-1"></script>
   </body>
 </html>

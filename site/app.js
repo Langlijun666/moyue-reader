@@ -1,7 +1,8 @@
 const OSS_BASE = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com";
 const GITHUB_REPO = "Langlijun666/moyue-reader";
 const GITHUB_RELEASE = `https://github.com/${GITHUB_REPO}/releases/latest`;
-const FALLBACK_VERSION = "0.32.3";
+// Used only when the OSS manifest cannot be read (for example without CORS).
+const FALLBACK_VERSIONS = { local: "0.32.4", online: "0.33.0" };
 
 const editions = {
   local: {
@@ -14,11 +15,11 @@ const editions = {
   },
   online: {
     title: "把书架，<br /><em>连到更大的世界。</em>",
-    lead: "墨阅 Online 在本地阅读器之外，接入 Project Gutenberg 公版书城。搜索、下载、导入书架，仍然不需要账号。",
-    eyebrow: "本地阅读 · 公版书城",
+    lead: "墨阅 Online 内置书城：速读谷的分类热榜，加上 Project Gutenberg 公版书。搜书名、看简介，整本下载成 TXT 放进书架，还会自动补上封面，仍然不需要账号。",
+    eyebrow: "本地阅读 · 在线书城",
     cta: "下载 Online",
-    ctaMeta: "公版书城版 · Windows 10 / 11",
-    installer: (version) => `${OSS_BASE}/updates/online/Moyue%20Online_${version}_x64-setup.exe`,
+    ctaMeta: "速读谷 + 公版书 · Windows 10 / 11",
+    installer: (version) => `${OSS_BASE}/updates/online/Moyue.Online_${version}_x64-setup.exe`,
   },
 };
 
@@ -170,7 +171,8 @@ async function resolveEditionDownloads() {
     } catch {
       // Fall through to the current release.
     }
-    applyDownload(edition, FALLBACK_VERSION, config.installer(FALLBACK_VERSION));
+    const fallbackVersion = FALLBACK_VERSIONS[edition];
+    applyDownload(edition, fallbackVersion, config.installer(fallbackVersion));
   }
 }
 

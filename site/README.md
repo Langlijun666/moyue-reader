@@ -17,6 +17,7 @@ assets/
   tts.png
   library-manager.png
   typography.png
+  online-store.png
 ```
 
 ## 推荐部署方式
@@ -69,19 +70,22 @@ https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/index.html
 
 ## 更新版本
 
-网站会自动读取：
+网站会自动读取两个版本的清单：
 
 ```text
-updates/latest.json
+updates/latest.json          Local
+updates/online/latest.json   Online
 ```
 
 每次发布新版本后，只要 OSS 的 `latest.json` 更新，网页上的版本号和下载按钮会自动变化，不需要重新上传网页。
 
 如果同源读取失败，会依次尝试：
 
-1. OSS 绝对地址 `updates/latest.json`
+1. OSS 绝对地址 `updates/latest.json` / `updates/online/latest.json`
 2. GitHub Releases API
 3. GitHub Releases 页面
+
+`app.js` 里的 `FALLBACK_VERSIONS` 只在前两步都失败时兜底，发版后记得同步成最新版本号。
 
 ## GitHub Pages
 

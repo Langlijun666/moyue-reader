@@ -1,6 +1,6 @@
 # 墨阅 · Moyue
 
-一个安静、本地优先的桌面 EPUB / TXT 阅读器，带书架分类和本地音乐播放。
+一个安静、本地优先的桌面 EPUB / TXT 阅读器，带书架分类、在线书城和本地音乐播放。
 
 没有账号，没有云端同步。书籍、阅读进度、分类和音乐都留在这台电脑上。
 
@@ -21,6 +21,7 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 - **文件名识别**：从 `书名_作者.txt`、`书名 - 作者.txt`、`《书名》作者.txt` 等文件名自动提取书名和作者
 - **本地书库**：使用 IndexedDB 保存书籍文件，重启后仍然可读；支持 EPUB / TXT / PDF / MOBI / AZW3，支持从资源管理器直接拖入
 - **书库管理**：批量导入、文件夹监视、重复检测、系列分组、批量添加 / 移除分类、批量删除 / 换封面、按作者和系列排序；删除进入回收站，30 天内可恢复
+- **在线书城（Online 版）**：左侧「书城」内置速读谷分类热榜与 Project Gutenberg 公版书，支持分类浏览、书名搜索、简介与目录，整本下载为 TXT 并自动补全封面
 - **自动更新**：启动静默检查、后台下载，下载完成后提示重启；支持跳过版本，更新包带签名校验
 - **国内镜像**：更新包和离线语音支持 GitHub 主源、阿里云 OSS 备用源
 - **错误报告**：本地记录崩溃和异常，错误页面可重新加载、导出诊断；设置中可反馈问题或功能建议
@@ -68,6 +69,8 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 | 书架分类 | 本地音乐 |
 | --- | --- |
 | ![书架分类](docs/categories.png) | ![音乐](docs/music.png) |
+
+![在线书城（Online 版）](docs/store.png)
 
 | 全屏书架 | 软件设置 |
 | --- | --- |
@@ -148,8 +151,8 @@ npm run tauri:build
 ```text
 .
 ├─ src/                      # React 前端
-│  ├─ components/            # 书架、阅读器、分类、音乐、设置
-│  ├─ lib/                   # IndexedDB、EPUB/TXT 解析、分类、进度
+│  ├─ components/            # 书架、阅读器、书城、分类、音乐、设置
+│  ├─ lib/                   # IndexedDB、EPUB/TXT 解析、书城抓取、分类、进度
 │  ├─ App.tsx                # 应用状态与页面组合
 │  └─ styles.css             # 主题与全部界面样式
 ├─ src-tauri/                # Tauri 2 / Rust
@@ -193,6 +196,24 @@ npm run tauri:build
 
 这个选择会自动保存，下次打开仍然生效。全屏书架模式下不再显示左下角书架控件，`Ctrl+B` 也不再生效；回到左侧书架模式后恢复。
 
+## 书城（Online 版）
+
+Online 版的左侧导航多一个「书城」，和书架共用同一条导航栏。书城有两个来源，可以在顶部切换：
+
+- **速读谷**：玄幻、仙侠、都市、历史等 16 个分类，按分类翻页浏览；也可以按完整书名搜索（站点不支持模糊搜索）。
+- **公版书**：Project Gutenberg 的 OPDS 目录，直接下载公版 EPUB。
+
+选中一本书可以「下载并阅读」或「只放进书架」：
+
+- 速读谷的整本 TXT 按 500 章分段下载，合并时去掉每段重复的书名、作者、来源等页眉页脚，再转成 UTF-8 保存
+- 导入时按 `书名_作者.txt` 命名，书架能识别书名和作者，并把站点封面存进书库
+- 连载中的书站点不支持整本打包，程序会自动改走分段下载，不需要手动处理
+- 书城页面和下载都走 Rust 端请求：站点没有 CORS 头，WebView 里直接 `fetch` 读不到
+
+页面解析与下载逻辑在 `src/lib/sudugu.ts`，界面在 `src/components/SuduguStore.tsx`，Rust 命令在 `src-tauri/src/lib.rs`。
+
+书城内容来自第三方站点，请在合法范围内使用。
+
 ## 听书
 
 阅读界面右上角的耳机按钮打开听书面板：
@@ -214,7 +235,7 @@ npm run tauri:build
 
 ## 官网
 
-单页下载站源码位于 [`site/`](site/)，可直接上传到阿里云 OSS 静态托管，自动读取 `updates/latest.json` 获取最新版本。部署说明见 [site/README.md](site/README.md)。
+单页下载站源码位于 [`site/`](site/)，可直接上传到阿里云 OSS 静态托管，自动读取 `updates/latest.json` 和 `updates/online/latest.json` 获取两个版本的最新版本号。部署说明见 [site/README.md](site/README.md)。
 
 如果使用 GitHub Pages，地址为：<https://langlijun666.github.io/moyue-reader/>
 
@@ -295,6 +316,7 @@ npm run tauri:build
 - 音乐只读取本地文件夹，不读取音频内嵌标签；歌名 / 歌手按文件名解析
 - 听书使用系统 TTS 或可选离线神经语音，音色取决于所选引擎
 - 竖排为实验性功能，仅支持单栏左右翻页；双栏仅用于左右翻页模式
+- Online 版书城需要联网；速读谷只支持完整书名搜索，目录最多显示 1000 章，整本下载依赖站点打包
 - 音乐「打开文件夹」目前只支持 Windows
 - 安装包暂未使用 Windows 代码签名证书，首次安装可能触发 SmartScreen；自动更新使用独立的 minisign 签名校验
 - 本地数据保存在 WebView2 中；清除应用数据会同时清除书库和进度
