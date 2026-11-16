@@ -375,7 +375,8 @@ fn sherpa_speak(app: tauri::AppHandle, text: String, speed: f64) -> Result<Strin
         .parent()
         .ok_or_else(|| "无法定位离线语音模型".to_string())?;
 
-    let result = Command::new(&engine)
+    let mut command = Command::new(&engine);
+    command
         .current_dir(bin_dir)
         .arg(format!("--vits-model={}", model.to_string_lossy()))
         .arg(format!(
@@ -389,8 +390,10 @@ fn sherpa_speak(app: tauri::AppHandle, text: String, speed: f64) -> Result<Strin
         .arg("--num-threads=4")
         .arg(format!("--speed={}", speed.clamp(0.5, 2.0)))
         .arg(format!("--output-filename={}", output.to_string_lossy()))
-        .arg(trimmed)
-        .creation_flags(CREATE_NO_WINDOW)
+        .arg(trimmed);
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
+    let result = command
         .output()
         .map_err(|error| format!("无法启动离线语音：{error}"))?;
 
@@ -580,13 +583,16 @@ fn download_file(
 }
 
 fn extract_tar(archive: &Path, destination: &Path) -> Result<(), String> {
-    let status = Command::new("tar")
+    let mut command = Command::new("tar");
+    command
         .arg("-xjf")
         .arg(archive)
         .arg("-C")
         .arg(destination)
-        .arg("--strip-components=1")
-        .creation_flags(CREATE_NO_WINDOW)
+        .arg("--strip-components=1");
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
+    let status = command
         .status()
         .map_err(|error| format!("无法解压语音文件：{error}"))?;
     if !status.success() {

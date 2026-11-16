@@ -14,6 +14,26 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 
 ![墨阅首页](docs/home.png)
 
+## Android
+
+Android 版已完成第一轮移植：书架、EPUB / TXT / PDF / MOBI / AZW3 阅读、目录、划线笔记和书城复用桌面端代码；手机端不包含本地音乐、离线听书和自动更新。
+
+目前只提供 **arm64 调试包**（debug 签名），适合真机试用，不适合直接上架：
+
+- 安装包在构建后输出到 `release/android/moyue-android-<版本>-arm64-debug.apk`（构建产物，不入库）
+- 手机需要允许「安装未知应用」
+- 未上架应用商店，也还没有正式签名流程
+
+从源码构建：
+
+1. 安装 JDK 17、Android SDK（platform 37 / build-tools 37）和 NDK 27，并执行
+   `rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android`
+2. `npx tauri android init --ci`
+3. 设置 `JAVA_HOME`、`ANDROID_HOME`、`NDK_HOME`、`GRADLE_USER_HOME`（建议都放到非系统盘）
+4. `node scripts/build-android.mjs --apk --debug -t aarch64`
+
+Windows 非管理员无法创建符号链接，脚本会在失败后改用 Gradle 直接打包已编译的 `.so`；工程路径含中文时，脚本会自动补上 `android.overridePathCheck=true`。
+
 ## 功能
 
 - **EPUB 2 / EPUB 3**：导入、解析元数据、封面、目录与正文
@@ -314,6 +334,7 @@ Online 版的左侧导航多一个「书城」，和书架共用同一条导航�
 - 音乐「打开文件夹」目前只支持 Windows
 - 安装包暂未使用 Windows 代码签名证书，首次安装可能触发 SmartScreen；自动更新使用独立的 minisign 签名校验
 - 本地数据保存在 WebView2 中；清除应用数据会同时清除书库和进度
+- Android 版暂不含音乐、离线听书和自动更新；文件导入和系统分享还在真机验证阶段
 
 ## 贡献
 

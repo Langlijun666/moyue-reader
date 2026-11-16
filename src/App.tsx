@@ -47,6 +47,7 @@ import { Reader } from "./components/Reader";
 import { PdfReader } from "./components/PdfReader";
 import { OnlineLibrary } from "./components/OnlineLibrary";
 import { IS_ONLINE_EDITION } from "./edition";
+import { IS_ANDROID } from "./lib/platform";
 import { FullShelf } from "./components/FullShelf";
 import { MusicPlayer } from "./components/MusicPlayer";
 import { CategoryManager } from "./components/CategoryManager";
@@ -210,7 +211,7 @@ export default function App() {
   }, [categoryData]);
 
   useEffect(() => {
-    if (!updater.isTauri || !updater.autoCheck || updateCheckedRef.current) return;
+    if (IS_ANDROID || !updater.isTauri || !updater.autoCheck || updateCheckedRef.current) return;
     updateCheckedRef.current = true;
     const timer = window.setTimeout(() => {
       void updater.checkForUpdates();

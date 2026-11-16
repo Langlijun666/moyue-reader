@@ -8,8 +8,9 @@ rust-version = "1.77.2"
 
 [lib]
 name = "moyue_lib"
-# Desktop-only build: an rlib avoids the 65k PE export limit that the
-# staticlib/cdylib mobile targets hit with the GNU toolchain.
+# Android needs a cdylib for JNI, but windows-gnu hits the 65k PE export limit
+# with it. `scripts/build-android.mjs` swaps this to ["rlib", "cdylib"] only
+# while the Android build runs.
 crate-type = ["rlib"]
 
 [build-dependencies]

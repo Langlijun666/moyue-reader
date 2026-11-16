@@ -397,7 +397,7 @@ export function BookStore({ onImport }: BookStoreProps) {
                 </button>
                 <button
                   type="button"
-                  className="button button--ghost"
+                  className="button button--ghost desktop-only"
                   onClick={() => void openStorePage(detail.url)}
                 >
                   在原站打开

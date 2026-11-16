@@ -240,7 +240,7 @@ export function AppSettingsPanel({
             </p>
           </section>
 
-          <section className="settings-section">
+          <section className="settings-section desktop-only">
             <div className="settings-section__title">
               <span>本机数据</span>
               <small>不上传云端</small>
@@ -257,7 +257,7 @@ export function AppSettingsPanel({
             </button>
           </section>
 
-          <section className="settings-section">
+          <section className="settings-section desktop-only">
             <div className="settings-section__title">
               <span>书库备份</span>
               <small>每天自动备份</small>
@@ -297,7 +297,7 @@ export function AppSettingsPanel({
             ) : null}
           </section>
 
-          <section className="settings-section">
+          <section className="settings-section desktop-only">
             <div className="settings-section__title">
               <span>帮助与反馈</span>
               <small>{diagnostics.length > 0 ? `${diagnostics.length} 条记录` : "需要帮助时"}</small>
@@ -387,7 +387,7 @@ export function AppSettingsPanel({
             </p>
           </section>
 
-          <section className="settings-section">
+          <section className="settings-section desktop-only">
             <div className="settings-section__title">
               <span>软件更新</span>
               <small>
@@ -490,7 +490,7 @@ export function AppSettingsPanel({
             <p className="app-license">MIT License · 2026 Moyue contributors</p>
           </section>
 
-          <section className="sponsor-support">
+          <section className="sponsor-support desktop-only">
             <div className="sponsor-support__copy">
               <span>
                 <Icon name="spark" size={15} />
@@ -505,7 +505,7 @@ export function AppSettingsPanel({
             </button>
           </section>
 
-          <section className="app-settings__danger">
+          <section className="app-settings__danger desktop-only">
             <div className="settings-section__title">
               <span>危险操作</span>
               <small>DANGER</small>

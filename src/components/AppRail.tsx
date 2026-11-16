@@ -57,7 +57,7 @@ export function AppRail({
         <button onClick={onStats} title="阅读统计" aria-label="阅读统计">
           <Icon name="chart" size={18} />
         </button>
-        <button onClick={onMusic} title="音乐" aria-label="音乐">
+        <button className="desktop-only" onClick={onMusic} title="音乐" aria-label="音乐">
           <Icon name="music" size={18} />
         </button>
         <button onClick={onManager} title="书库管理" aria-label="书库管理">

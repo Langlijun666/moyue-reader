@@ -73,7 +73,12 @@ export function FullShelf({
             <Icon name="plus" size={17} />
             导入书籍
           </button>
-          <button className="icon-button" onClick={onOpenMusic} title="音乐" aria-label="打开音乐">
+          <button
+            className="icon-button desktop-only"
+            onClick={onOpenMusic}
+            title="音乐"
+            aria-label="打开音乐"
+          >
             <Icon name="music" size={18} />
           </button>
         </div>

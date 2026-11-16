@@ -1473,7 +1473,7 @@ export function Reader({
         </button>
         {showSidebarToggle ? (
           <button
-            className={`icon-button icon-button--quiet ${sidebarHidden ? "icon-button--active" : ""}`}
+            className={`icon-button icon-button--quiet desktop-only ${sidebarHidden ? "icon-button--active" : ""}`}
             onClick={onToggleSidebar}
             aria-label={sidebarHidden ? "显示书架" : "隐藏书架"}
             title={sidebarHidden ? "显示书架 (Ctrl+B)" : "隐藏书架 (Ctrl+B)"}
@@ -1512,7 +1512,7 @@ export function Reader({
             <Icon name="pen" size={18} />
           </button>
           <button
-            className="icon-button"
+            className="icon-button desktop-only"
             onClick={onToggleTheme}
             title={`切换主题（当前：${themeLabel}）`}
             aria-label={`切换主题，当前${themeLabel}`}
@@ -1520,7 +1520,7 @@ export function Reader({
             <Icon name={themeIcon} size={19} />
           </button>
           <button
-            className="icon-button"
+            className="icon-button desktop-only"
             onClick={onOpenMusic}
             title="音乐"
             aria-label="打开音乐"
@@ -1528,7 +1528,7 @@ export function Reader({
             <Icon name="music" size={19} />
           </button>
           <button
-            className={`icon-button ${ttsOpen ? "icon-button--active" : ""}`}
+            className={`icon-button desktop-only ${ttsOpen ? "icon-button--active" : ""}`}
             onClick={() => {
               setTocOpen(false);
               setSettingsOpen(false);
@@ -1541,7 +1541,7 @@ export function Reader({
             <Icon name="headphones" size={19} />
           </button>
           <button
-            className="icon-button"
+            className="icon-button desktop-only"
             onClick={onChangeCover}
             title="更换封面"
             aria-label="更换封面"

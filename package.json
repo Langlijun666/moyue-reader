@@ -13,7 +13,9 @@
     "tauri:build": "tauri build",
     "build:online": "tsc --noEmit && vite build --mode online",
     "dev:online": "vite --mode online",
-    "tauri:build:online": "tauri build --config src-tauri/tauri.online.conf.json --bundles nsis"
+    "tauri:build:online": "tauri build --config src-tauri/tauri.online.conf.json --bundles nsis",
+    "android:build": "node scripts/build-android.mjs --apk --debug -t aarch64",
+    "android:build": "node scripts/build-android.mjs --apk --debug -t aarch64"
   },
   "dependencies": {
     "@lingo-reader/mobi-parser": "^0.4.6",
