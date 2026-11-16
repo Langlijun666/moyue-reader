@@ -7172,11 +7172,11 @@ html[data-platform="android"] .update-card {
   }
 
   .workspace {
-    padding-bottom: calc(58px + env(safe-area-inset-bottom));
+    padding-bottom: 0;
   }
 
   .full-shelf {
-    padding: 16px 14px calc(74px + env(safe-area-inset-bottom));
+    padding: calc(16px + env(safe-area-inset-top)) 14px calc(74px + env(safe-area-inset-bottom));
   }
 
   .full-shelf__header {
@@ -7202,9 +7202,10 @@ html[data-platform="android"] .update-card {
   .shelf-tile__info h3 { font-size: 12px; }
 
   .reader__topbar {
-    flex: 0 0 52px;
+    flex: 0 0 auto;
+    height: calc(52px + env(safe-area-inset-top));
     gap: 4px;
-    padding: 0 8px;
+    padding: env(safe-area-inset-top) 8px 0;
   }
 
   .reader__topbar .icon-button,
@@ -7228,9 +7229,27 @@ html[data-platform="android"] .update-card {
   .reader__viewport { max-width: 100%; }
 
   .reader__footer {
-    flex: 0 0 52px;
+    flex: 0 0 auto;
+    height: calc(52px + env(safe-area-inset-bottom));
     gap: 4px;
-    padding: 0 6px;
+    padding: 0 6px env(safe-area-inset-bottom);
+  }
+
+  .reader__topbar,
+  .reader__footer {
+    transition: transform 220ms ease, opacity 180ms ease;
+  }
+
+  .reader--chrome-hidden .reader__topbar {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(calc(-100% - env(safe-area-inset-top)));
+  }
+
+  .reader--chrome-hidden .reader__footer {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(calc(100% + env(safe-area-inset-bottom)));
   }
 
   .reader__percent,
@@ -7249,6 +7268,8 @@ html[data-platform="android"] .update-card {
   .page-button--chapter { padding: 5px 5px; }
 
   .drawer {
+    top: calc(14px + env(safe-area-inset-top));
+    bottom: calc(14px + env(safe-area-inset-bottom));
     width: 100%;
     max-width: 100%;
   }
@@ -7264,9 +7285,13 @@ html[data-platform="android"] .update-card {
     max-height: 86vh;
   }
 
+  .online-store {
+    padding-bottom: calc(58px + env(safe-area-inset-bottom));
+  }
+
   .online-store__head {
     gap: 8px;
-    padding: 10px 14px;
+    padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
   }
 
   .online-store__tabs button {
@@ -7293,7 +7318,7 @@ html[data-platform="android"] .update-card {
   .online-store__grid {
     grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
     gap: 14px 12px;
-    padding: 12px 14px 40px;
+    padding: 12px 14px calc(40px + env(safe-area-inset-bottom));
   }
 
   .store-sheet__panel {
@@ -7310,5 +7335,56 @@ html[data-platform="android"] .update-card {
 
   .store-sheet__intro {
     max-height: 24vh;
+  }
+
+  .category-dialog {
+    width: calc(100vw - 18px);
+    max-width: none;
+    max-height: 88vh;
+  }
+
+  .category-dialog .category-manager-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .library-manager-backdrop { padding: 8px; }
+
+  .library-manager {
+    width: calc(100vw - 16px);
+    max-height: 92vh;
+    border-radius: 16px;
+  }
+
+  .library-manager__header { padding: 16px 14px 0; }
+
+  .library-manager__summary {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 6px 14px 0;
+  }
+
+  .library-manager__toolbar,
+  .library-manager__batch {
+    padding: 10px 14px;
+  }
+
+  .library-manager__list { padding: 4px 8px 12px; }
+
+  .library-manager-row {
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 2px 8px;
+    align-items: start;
+    padding: 10px 4px;
+  }
+
+  .library-manager-row input { grid-row: 1 / span 6; }
+
+  .library-manager-row__title,
+  .library-manager-row__meta,
+  .library-manager-row__categories,
+  .library-duplicate {
+    grid-column: 2;
   }
 }

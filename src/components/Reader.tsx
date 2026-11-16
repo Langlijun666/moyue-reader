@@ -29,6 +29,7 @@ import { Icon } from "./Icons";
 import { SelectionToolbar } from "./SelectionToolbar";
 import { SettingsPanel } from "./SettingsPanel";
 import { TocPanel } from "./TocPanel";
+import { IS_ANDROID } from "../lib/platform";
 import { TtsPlayer, type TtsChapter } from "./TtsPlayer";
 import { ReaderToolsPanel } from "./ReaderToolsPanel";
 
@@ -149,6 +150,7 @@ export function Reader({
   const [searchTotalHits, setSearchTotalHits] = useState(0);
   const searchIndexRef = useRef<SearchIndexSection[] | null>(null);
   const searchRunRef = useRef(0);
+  const [chromeHidden, setChromeHidden] = useState(false);
   const [flip, setFlip] = useState<"prev" | "next" | null>(null);
   const [flipNonce, setFlipNonce] = useState(0);
   const flipTimerRef = useRef<number | null>(null);
@@ -423,6 +425,27 @@ export function Reader({
             },
             { passive: true },
           );
+          if (IS_ANDROID) {
+            document.addEventListener("click", (event: MouseEvent) => {
+              const target = event.target as HTMLElement | null;
+              if (target?.closest("a, button, input, textarea, select")) return;
+              const selection = document.getSelection();
+              if (selection && selection.toString().trim()) return;
+              if (settingsRef.current.readingMode !== "scroll") {
+                const width = document.documentElement?.clientWidth || 1;
+                if (event.clientX < width * 0.22) {
+                  turnPageRef.current("prev");
+                  return;
+                }
+                if (event.clientX > width * 0.78) {
+                  turnPageRef.current("next");
+                  return;
+                }
+              }
+              setChromeHidden((visible) => !visible);
+            });
+          }
+
           // Key events inside the epub.js iframe do not bubble to the parent
           // window, so forward them to the same reader shortcut handler.
           document.addEventListener("keydown", (event: KeyboardEvent) => {
@@ -1464,7 +1487,7 @@ export function Reader({
 
   return (
     <section
-      className={`reader reader--${settings.readingMode} ${backgroundUrl ? "reader--custom-bg" : ""}`}
+      className={`reader reader--${settings.readingMode} ${backgroundUrl ? "reader--custom-bg" : ""} ${chromeHidden ? "reader--chrome-hidden" : ""}`}
       style={backgroundUrl ? { backgroundImage: `url("${backgroundUrl}")` } : undefined}
     >
       <header className="reader__topbar">
@@ -1575,7 +1598,15 @@ export function Reader({
         </div>
       </header>
 
-      <div className={`reader__stage page-effect-${settings.pageEffect} ${flip ? `is-turning is-turning--${flip}` : ""}`}>
+      <div
+        className={`reader__stage page-effect-${settings.pageEffect} ${flip ? `is-turning is-turning--${flip}` : ""}`}
+        onClick={(event) => {
+          if (!IS_ANDROID) return;
+          const target = event.target as HTMLElement;
+          if (target.closest("button, input, a, .page-flip, .reader__loading, .reader__error")) return;
+          setChromeHidden((visible) => !visible);
+        }}
+      >
         <div ref={viewerRef} className="reader__viewport" />
 
         {flip ? (
