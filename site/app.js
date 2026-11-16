@@ -25,6 +25,12 @@ const editions = {
 
 let currentEdition = localStorage.getItem("moyue.site.edition") || "local";
 let downloadUrls = { local: "", online: "" };
+let downloadVersions = { local: "", online: "" };
+
+function editionMeta(edition) {
+  const version = downloadVersions[edition];
+  return version ? `v${version} · ${editions[edition].ctaMeta}` : editions[edition].ctaMeta;
+}
 
 function setEdition(edition, persist = true) {
   currentEdition = editions[edition] ? edition : "local";
@@ -42,9 +48,7 @@ function setEdition(edition, persist = true) {
   if (lead) lead.textContent = config.lead;
   if (eyebrow) eyebrow.innerHTML = `<i></i> ${config.eyebrow}`;
   if (cta) cta.textContent = config.cta;
-  if (meta) meta.textContent = downloadUrls[currentEdition]
-    ? config.ctaMeta
-    : config.ctaMeta;
+  if (meta) meta.textContent = editionMeta(currentEdition);
   const button = document.getElementById("downloadButton");
   if (button && downloadUrls[currentEdition]) {
     button.href = downloadUrls[currentEdition];
@@ -125,6 +129,7 @@ async function fetchJson(url, timeout = 6000) {
 
 function applyDownload(edition, version, url) {
   downloadUrls[edition] = url;
+  downloadVersions[edition] = version;
   if (edition === "local") {
     const local = document.getElementById("downloadLocalBottom");
     if (local) {
@@ -149,7 +154,7 @@ function applyDownload(edition, version, url) {
   if (edition === currentEdition) {
     setEdition(currentEdition, false);
     const meta = document.getElementById("downloadMeta");
-    if (meta) meta.textContent = `v${version} · ${editions[edition].ctaMeta}`;
+    if (meta) meta.textContent = editionMeta(edition);
   }
 }
 
