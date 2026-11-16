@@ -1495,14 +1495,14 @@ export function Reader({
 
   return (
     <section
-      className={`reader reader--${settings.readingMode} ${backgroundUrl ? "reader--custom-bg" : ""} ${chromeHidden ? "reader--chrome-hidden" : ""}`}
+      className={`reader reader--${settings.readingMode} ${backgroundUrl ? "reader--custom-bg" : ""} ${chromeHidden ? "reader--chrome-hidden" : ""} ${tocOpen || settingsOpen || toolsOpen || ttsOpen ? "reader--panel-open" : ""}`}
       style={backgroundUrl ? { backgroundImage: `url("${backgroundUrl}")` } : undefined}
       onClick={(event) => {
         if (!IS_ANDROID) return;
         const target = event.target as HTMLElement;
         if (
           target.closest(
-            "button, input, textarea, a, .drawer, .selection-toolbar, .page-flip, .reader__loading, .reader__error",
+            "button, input, textarea, a, .drawer, .drawer-backdrop, .selection-toolbar, .page-flip, .reader__loading, .reader__error",
           )
         ) {
           return;
@@ -1783,6 +1783,43 @@ export function Reader({
             </button>
           )}
         </div>
+
+        {IS_ANDROID ? (
+          <div className="reader__mobile-actions">
+            <button type="button" onClick={() => openTools("search")}>
+              <Icon name="search" size={20} />
+              <span>搜索</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsOpen(false);
+                setToolsOpen(false);
+                setTtsOpen(false);
+                setTocOpen(true);
+              }}
+            >
+              <Icon name="list" size={20} />
+              <span>目录</span>
+            </button>
+            <button type="button" onClick={() => openTools("highlights")}>
+              <Icon name="pen" size={20} />
+              <span>笔记</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTocOpen(false);
+                setToolsOpen(false);
+                setTtsOpen(false);
+                setSettingsOpen(true);
+              }}
+            >
+              <Icon name="settings" size={20} />
+              <span>设置</span>
+            </button>
+          </div>
+        ) : null}
       </footer>
 
       <TtsPlayer
