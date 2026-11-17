@@ -3,6 +3,8 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -38,6 +40,17 @@ if (!props.includes("android.overridePathCheck")) {
   writeFileSync(gradleProps, props);
 }
 
+function newestMtime(directory) {
+  let newest = 0;
+  if (!existsSync(directory)) return newest;
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const full = join(directory, entry.name);
+    if (entry.isDirectory()) newest = Math.max(newest, newestMtime(full));
+    else newest = Math.max(newest, statSync(full).mtimeMs);
+  }
+  return newest;
+}
+
 const userArgs = process.argv.slice(2);
 const debug = userArgs.includes("--debug");
 let ok = false;
@@ -62,6 +75,21 @@ try {
     if (!existsSync(builtSo)) {
       process.exitCode = result.status ?? 1;
     } else {
+      const newestInput = Math.max(
+        newestMtime(join(root, "src-tauri", "src")),
+        existsSync(join(root, "src-tauri", "build.rs"))
+          ? statSync(join(root, "src-tauri", "build.rs")).mtimeMs
+          : 0,
+        existsSync(join(root, "dist", "index.html"))
+          ? statSync(join(root, "dist", "index.html")).mtimeMs
+          : 0,
+      );
+      if (statSync(builtSo).mtimeMs < newestInput) {
+        console.error(
+          "Rust/前端编译失败：.so 比源码旧，拒绝打包旧产物。请先修复编译错误。",
+        );
+        process.exit(result.status ?? 1);
+      }
       console.warn("\n符号链接创建失败，改用 Gradle 直接打包已编译的 .so…\n");
       const jniDir = join(androidDir, "app", "src", "main", "jniLibs", "arm64-v8a");
       mkdirSync(jniDir, { recursive: true });

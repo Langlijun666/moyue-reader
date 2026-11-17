@@ -20,7 +20,7 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 #[derive(Serialize)]
 struct AppInfo {
     name: &'static str,
-    version: &'static str,
+    version: String,
 }
 
 #[derive(Serialize)]

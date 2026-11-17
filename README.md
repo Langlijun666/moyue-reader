@@ -21,8 +21,8 @@ Android：[手机版官网](https://langlijun666.github.io/moyue-android/) · [G
 Android 版源码和发布已拆到独立仓库：[moyue-android](https://github.com/Langlijun666/moyue-android)，独立官网：[langlijun666.github.io/moyue-android](https://langlijun666.github.io/moyue-android/)。
 
 - GitHub APK：[Releases](https://github.com/Langlijun666/moyue-android/releases/latest)，直接下载 APK
-- OSS 镜像：[APK 压缩包](https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/android/Moyue.Android_0.33.5_arm64.apk.zip)（阿里云默认域名不允许直接分发 APK，下载后解压安装）
-- 当前 v0.33.5 · arm64 · Android 7.0+，debug 签名测试包；安装时需要允许「安装未知应用」
+- OSS 镜像：[APK 压缩包](https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/android/Moyue.Android_0.33.6_arm64.apk.zip)（阿里云默认域名不允许直接分发 APK，下载后解压安装）
+- 当前 v0.33.6 · arm64 · Android 7.0+，debug 签名测试包；安装时需要允许「安装未知应用」
 - 手机端包含书架、书城、EPUB / TXT / PDF / MOBI / AZW3 阅读、目录、书签、划线笔记和统计；暂不含音乐、离线听书和自动更新
 - 阅读页默认沉浸：轻点正文中间切换工具栏，左右滑动或点屏幕两侧翻页；非沉浸模式下轻点任意位置只收起工具栏
 - 底部抽屉可以从顶部把手向下拖动关闭；设置里提供赞助入口和手动检查更新
