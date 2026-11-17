@@ -8,7 +8,7 @@
 
 Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyue-reader/releases)
 
-Android：[moyue-android Releases](https://github.com/Langlijun666/moyue-android/releases)
+Android：[手机版官网](https://langlijun666.github.io/moyue-android/) · [GitHub Releases](https://github.com/Langlijun666/moyue-android/releases)
 
 安装包当前未做代码签名，Windows SmartScreen 可能提示「未知发布者」；选择「更多信息」→「仍要运行」即可。
 
