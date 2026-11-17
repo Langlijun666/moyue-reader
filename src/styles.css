@@ -5959,11 +5959,11 @@ input:focus-visible,
 .online-store__empty { max-width: 1200px; margin: 0 auto; padding: 24px 80px; color: var(--faint); font-size: 10px; }
 .online-store__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 22px;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 18px clamp(22px, 6vw, 80px) 50px;
+  padding: 18px clamp(22px, 6vw, 80px);
 }
 .online-book-card { min-width: 0; }
 .online-book-card__cover {
@@ -8118,5 +8118,47 @@ html[data-platform="android"] .android-only {
 
   .shelf-layout-toggle span {
     display: inline;
+  }
+}
+
+
+.store-pager--bottom {
+  display: flex;
+  max-width: 1200px;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 0 auto;
+  padding: 8px clamp(22px, 6vw, 80px) 52px;
+}
+
+.store-pager--bottom .button {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 10px;
+}
+
+.store-pager__label {
+  min-width: 82px;
+  color: var(--faint);
+  font-size: 9px;
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .online-store__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .store-pager--bottom {
+    gap: 8px;
+    padding-bottom: 36px;
+  }
+
+  .store-pager--bottom .button {
+    height: 36px;
+    padding: 0 12px;
   }
 }

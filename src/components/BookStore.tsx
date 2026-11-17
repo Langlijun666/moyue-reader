@@ -20,7 +20,7 @@ function errorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-const SKELETON_COUNT = 12;
+const SKELETON_COUNT = 10;
 
 export function BookStore({ onImport }: BookStoreProps) {
   const [category, setCategory] = useState<string>(STORE_CATEGORIES[0].id);
@@ -38,6 +38,7 @@ export function BookStore({ onImport }: BookStoreProps) {
   const [downloading, setDownloading] = useState<{ id: string; label: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const requestRef = useRef(0);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const loadShelf = useCallback(async (categoryId: string, targetPage: number) => {
     const request = requestRef.current + 1;
@@ -148,6 +149,12 @@ export function BookStore({ onImport }: BookStoreProps) {
     }
   };
 
+  const changePage = (targetPage: number) => {
+    if (loading || targetPage < 1 || targetPage > totalPages || targetPage === page) return;
+    void loadShelf(category, targetPage);
+    gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const categoryName =
     STORE_CATEGORIES.find((item) => item.id === category)?.name ?? "全部";
   const title = mode === "search" ? `“${appliedTerm}”的搜索结果` : `${categoryName} · 最新`;
@@ -221,7 +228,7 @@ export function BookStore({ onImport }: BookStoreProps) {
               className="icon-button"
               aria-label="上一页"
               disabled={loading || page <= 1}
-              onClick={() => void loadShelf(category, page - 1)}
+              onClick={() => changePage(page - 1)}
             >
               <Icon name="left" size={16} />
             </button>
@@ -230,7 +237,7 @@ export function BookStore({ onImport }: BookStoreProps) {
               className="icon-button"
               aria-label="下一页"
               disabled={loading || page >= totalPages}
-              onClick={() => void loadShelf(category, page + 1)}
+              onClick={() => changePage(page + 1)}
             >
               <Icon name="right" size={16} />
             </button>
@@ -265,7 +272,7 @@ export function BookStore({ onImport }: BookStoreProps) {
         </div>
       ) : null}
 
-      <div className="online-store__grid">
+      <div className="online-store__grid" ref={gridRef}>
         {loading && books.length === 0
           ? Array.from({ length: SKELETON_COUNT }, (_, index) => (
               <div
@@ -330,6 +337,32 @@ export function BookStore({ onImport }: BookStoreProps) {
         <p className="online-store__empty">
           {mode === "search" ? "没有找到这本书，站点只支持完整书名搜索。" : "这个分类暂时没有书。"}
         </p>
+      ) : null}
+
+      {mode === "shelf" && !loading && !error && books.length > 0 ? (
+        <div className="store-pager store-pager--bottom">
+          <button
+            type="button"
+            className="button button--ghost"
+            disabled={page <= 1}
+            onClick={() => changePage(page - 1)}
+          >
+            <Icon name="left" size={14} />
+            上一页
+          </button>
+          <span className="store-pager__label">
+            第 {page} / {totalPages} 页
+          </span>
+          <button
+            type="button"
+            className="button button--ghost"
+            disabled={page >= totalPages}
+            onClick={() => changePage(page + 1)}
+          >
+            下一页
+            <Icon name="right" size={14} />
+          </button>
+        </div>
       ) : null}
 
       {detail ? (
