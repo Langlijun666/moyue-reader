@@ -881,20 +881,75 @@ struct RemoteImage {
 /// Fetch a cover image from the store so an imported TXT keeps its artwork.
 #[tauri::command]
 async fn check_latest_version() -> Result<String, String> {
-    let response = store_client(20)?
-        .get("https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/android/latest.json")
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or_default();
+    let mut failures = Vec::new();
+
+    let github_url = format!(
+        "https://api.github.com/repos/Langlijun666/moyue-android/releases/latest?t={stamp}"
+    );
+    match fetch_github_latest(&github_url).await {
+        Ok(version) => return Ok(version),
+        Err(error) => failures.push(format!("GitHub {error}")),
+    }
+
+    let oss_url = format!(
+        "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/android/latest.json?t={stamp}"
+    );
+    match fetch_oss_latest(&oss_url).await {
+        Ok(version) => return Ok(version),
+        Err(error) => failures.push(format!("镜像 {error}")),
+    }
+
+    Err(format!("检查更新失败：{}", failures.join("；")))
+}
+
+async fn fetch_github_latest(url: &str) -> Result<String, String> {
+    let response = store_client(12)?
+        .get(url)
+        .header("Accept", "application/vnd.github+json")
+        .header("Cache-Control", "no-cache")
         .send()
         .await
-        .map_err(|error| format!("检查更新失败：{error}"))?;
+        .map_err(|error| format!("连接失败：{error}"))?;
     if !response.status().is_success() {
-        return Err(format!("检查更新失败：HTTP {}", response.status()));
+        return Err(format!("HTTP {}", response.status()));
     }
     let text = response
         .text()
         .await
-        .map_err(|error| format!("读取更新信息失败：{error}"))?;
+        .map_err(|error| format!("读取失败：{error}"))?;
     let data: serde_json::Value =
-        serde_json::from_str(&text).map_err(|error| format!("更新信息解析失败：{error}"))?;
+        serde_json::from_str(&text).map_err(|error| format!("解析失败：{error}"))?;
+    let tag = data
+        .get("tag_name")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| "缺少 tag_name".to_string())?;
+    let version = tag.strip_prefix("android-v").unwrap_or(tag);
+    if version.is_empty() {
+        return Err("版本号为空".to_string());
+    }
+    Ok(version.to_string())
+}
+
+async fn fetch_oss_latest(url: &str) -> Result<String, String> {
+    let response = store_client(12)?
+        .get(url)
+        .header("Cache-Control", "no-cache")
+        .send()
+        .await
+        .map_err(|error| format!("连接失败：{error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("HTTP {}", response.status()));
+    }
+    let text = response
+        .text()
+        .await
+        .map_err(|error| format!("读取失败：{error}"))?;
+    let data: serde_json::Value =
+        serde_json::from_str(&text).map_err(|error| format!("解析失败：{error}"))?;
     data.get("version")
         .and_then(|value| value.as_str())
         .map(|value| value.to_string())

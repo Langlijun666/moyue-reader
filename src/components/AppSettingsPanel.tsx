@@ -163,7 +163,7 @@ export function AppSettingsPanel({
       const latest = await Promise.race([
         invoke<string>("check_latest_version"),
         new Promise<string>((_, reject) =>
-          window.setTimeout(() => reject(new Error("检查超时，请检查网络后重试。")), 15000),
+          window.setTimeout(() => reject(new Error("检查超时，请检查网络后重试。")), 45000),
         ),
       ]);
       if (isNewerVersion(latest, version)) {
