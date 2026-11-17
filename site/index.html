@@ -13,7 +13,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:image" content="assets/reader.png" />
     <link rel="icon" href="assets/icon.png" />
-    <link rel="stylesheet" href="styles.css?v=0.33.3-1" />
+    <link rel="stylesheet" href="styles.css?v=0.33.3-2" />
   </head>
   <body>
     <header class="nav">
@@ -27,6 +27,7 @@
 
       <nav class="nav__links" aria-label="主导航">
         <a href="#features">功能</a>
+        <a href="#android">手机版</a>
         <a href="#gallery">截图</a>
         <a href="#install">安装</a>
         <a href="#faq">常见问题</a>
@@ -72,6 +73,7 @@
             <span><b>100%</b> 本地保存</span>
             <span><b>0</b> 账号 / 广告</span>
             <span><b>EPUB / TXT / PDF</b> 多格式</span>
+            <span><b>Android</b> 手机版已上线</span>
           </div>
         </div>
 
@@ -124,6 +126,44 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" /></svg>
           <span><strong>下载 Online</strong><small>线上书城 + 公版书 · Windows</small></span>
         </a>
+      </section>
+
+      <section class="mobile-banner" id="android">
+        <div class="mobile-banner__copy">
+          <span class="eyebrow"><i></i> ANDROID EDITION</span>
+          <h2>手机上，<br /><em>也能安静读书。</em></h2>
+          <p>
+            书架、书城、目录、书签和划线笔记都带到了手机。左右滑动或点屏幕两侧翻页，轻点正文中间收起工具栏，
+            底部目录、设置、笔记都是可以下拉关闭的抽屉。Android 版暂不含音乐、离线听书和自动更新。
+          </p>
+          <div class="mobile-banner__actions">
+            <a class="download-button" id="androidGithubButton" href="https://github.com/Langlijun666/moyue-android/releases/download/android-v0.33.3/Moyue.Android_0.33.3_arm64.apk" target="_blank" rel="noreferrer">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" /></svg>
+              <span>
+                <strong>下载 Android APK</strong>
+                <small id="androidGithubMeta">GitHub · v0.33.3 · arm64</small>
+              </span>
+            </a>
+            <a class="text-button mobile-banner__mirror" id="androidOssButton" href="https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/android/Moyue.Android_0.33.3_arm64.apk.zip" target="_blank" rel="noreferrer">
+              OSS 镜像（ZIP）<span>↓</span>
+            </a>
+          </div>
+          <p class="mobile-banner__note" id="androidNote">
+            Android 7.0+ · arm64 · 约 46 MB · debug 签名测试包，安装时请允许「未知来源」。
+            GitHub 可直接下载 APK；OSS 镜像因阿里云限制为压缩包，解压后安装。
+          </p>
+          <p class="mobile-banner__repo">
+            <a href="https://github.com/Langlijun666/moyue-android" target="_blank" rel="noreferrer">moyue-android 仓库 →</a>
+          </p>
+        </div>
+        <div class="mobile-banner__shots" aria-hidden="true">
+          <div class="phone phone--back">
+            <img src="assets/android-shelf.png" alt="墨阅 Android 书架" />
+          </div>
+          <div class="phone phone--front">
+            <img src="assets/android-reader.png" alt="墨阅 Android 阅读界面" />
+          </div>
+        </div>
       </section>
 
       <section class="section" id="features">
@@ -318,6 +358,14 @@
             <p>Local 只读本地书；Online 多一个「书城」，里面有分类热榜和 Project Gutenberg 公版书。两个版本独立安装、独立更新，可以同时使用。</p>
           </details>
           <details>
+            <summary>有 Android 手机版吗？</summary>
+            <p>有。Android 版包含书架、书城、阅读、目录、书签、划线笔记和统计，支持左右滑动或点两侧翻页。安装包在 <a href="#android">手机版下载区</a>，也可以在 <a href="https://github.com/Langlijun666/moyue-android/releases" target="_blank" rel="noreferrer">moyue-android</a> 下载。</p>
+          </details>
+          <details>
+            <summary>Android 版为什么没有听书和音乐？</summary>
+            <p>手机版第一版先聚焦阅读和书城，暂不包含本地音乐、离线听书和自动更新。设置里可以手动检查更新，下载新 APK 覆盖安装。</p>
+          </details>
+          <details>
             <summary>Online 的书城需要联网吗？</summary>
             <p>需要。书城页面和整本 TXT 都要联网获取，下载完成后就是本地书籍，可以离线阅读；导入时会自动保存封面。内容来自第三方站点，仅供个人阅读。</p>
           </details>
@@ -344,11 +392,12 @@
       <div class="footer__links">
         <a href="https://github.com/Langlijun666/moyue-reader" target="_blank" rel="noreferrer">GitHub</a>
         <a href="https://github.com/Langlijun666/moyue-reader/releases" target="_blank" rel="noreferrer">更新日志</a>
+        <a href="https://github.com/Langlijun666/moyue-android/releases" target="_blank" rel="noreferrer">Android 版</a>
         <a id="emailLink" href="mailto:xuxinyang121@gmail.com">xuxinyang121@gmail.com</a>
       </div>
       <p class="footer__meta">MIT License · 本地优先 · 离线可读</p>
     </footer>
 
-    <script src="app.js?v=0.33.3-1"></script>
+    <script src="app.js?v=0.33.3-2"></script>
   </body>
 </html>

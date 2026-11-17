@@ -8,6 +8,8 @@
 
 Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyue-reader/releases)
 
+Android：[moyue-android Releases](https://github.com/Langlijun666/moyue-android/releases)
+
 安装包当前未做代码签名，Windows SmartScreen 可能提示「未知发布者」；选择「更多信息」→「仍要运行」即可。
 
 ![安装程序](docs/installer.png)
@@ -16,15 +18,16 @@ Windows 10/11 安装包：[GitHub Releases](https://github.com/Langlijun666/moyu
 
 ## Android
 
-Android 版已完成第一轮移植：书架、EPUB / TXT / PDF / MOBI / AZW3 阅读、目录、划线笔记和书城复用桌面端代码；手机端不包含本地音乐、离线听书和自动更新。
+Android 版源码和发布已拆到独立仓库：[moyue-android](https://github.com/Langlijun666/moyue-android)。
 
-目前只提供 **arm64 调试包**（debug 签名），适合真机试用，不适合直接上架：
+- GitHub APK：[Releases](https://github.com/Langlijun666/moyue-android/releases/latest)，直接下载 APK
+- OSS 镜像：[APK 压缩包](https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/android/Moyue.Android_0.33.3_arm64.apk.zip)（阿里云默认域名不允许直接分发 APK，下载后解压安装）
+- 当前 v0.33.3 · arm64 · Android 7.0+，debug 签名测试包；安装时需要允许「安装未知应用」
+- 手机端包含书架、书城、EPUB / TXT / PDF / MOBI / AZW3 阅读、目录、书签、划线笔记和统计；暂不含音乐、离线听书和自动更新
+- 阅读页默认沉浸：轻点正文中间切换工具栏，左右滑动或点屏幕两侧翻页；非沉浸模式下轻点任意位置只收起工具栏
+- 底部抽屉可以从顶部把手向下拖动关闭；设置里提供赞助入口和手动检查更新
 
-- 安装包在构建后输出到 `release/android/moyue-android-<版本>-arm64-debug.apk`（构建产物，不入库）
-- 手机需要允许「安装未知应用」
-- 未上架应用商店，也还没有正式签名流程
-
-阅读页默认沉浸显示，轻点正文弹出 / 收起上下工具栏；沉浸模式下轻点正文中间切换上下工具栏，左右两侧翻页；非沉浸模式下轻点任意位置只收起工具栏。\r\n\r\n从源码构建：
+从源码构建：
 
 1. 安装 JDK 17、Android SDK（platform 37 / build-tools 37）和 NDK 27，并执行
    `rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android`
@@ -32,7 +35,7 @@ Android 版已完成第一轮移植：书架、EPUB / TXT / PDF / MOBI / AZW3 �
 3. 设置 `JAVA_HOME`、`ANDROID_HOME`、`NDK_HOME`、`GRADLE_USER_HOME`（建议都放到非系统盘）
 4. `node scripts/build-android.mjs --apk --debug -t aarch64`
 
-Windows 非管理员无法创建符号链接，脚本会在失败后改用 Gradle 直接打包已编译的 `.so`；工程路径含中文时，脚本会自动补上 `android.overridePathCheck=true`。\n\n底部抽屉可以从顶部把手向下拖动关闭；设置里提供赞助入口和手动检查更新。
+Windows 非管理员无法创建符号链接，脚本会在失败后改用 Gradle 直接打包已编译的 `.so`；工程路径含中文时，脚本会自动补上 `android.overridePathCheck=true`。
 
 ## 功能
 
