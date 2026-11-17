@@ -24,16 +24,6 @@ export function OnlineLibrary({ open, onClose, onImport }: OnlineLibraryProps) {
   return (
     <section className="online-store" role="dialog" aria-label="书城">
       <header className="online-store__head">
-        <div className="online-store__tabs">
-          <button type="button" onClick={onClose}>
-            <Icon name="book" size={15} />
-            书架
-          </button>
-          <button type="button" className="is-active">
-            <Icon name="folder" size={15} />
-            书城
-          </button>
-        </div>
         <div className="store-source" role="tablist" aria-label="书城来源">
           {SOURCES.map((item) => (
             <button
