@@ -9,7 +9,13 @@ if (edition !== "local" && edition !== "online") {
 
 const root = process.cwd();
 const versionFile = path.join(root, "versions", `${edition}.json`);
-const { version } = JSON.parse(fs.readFileSync(versionFile, "utf8"));
+const published = JSON.parse(fs.readFileSync(versionFile, "utf8")).version;
+const requested = process.env.VERSION?.trim();
+const version = requested || published;
+if (!/^\d+\.\d+\.\d+$/.test(version)) {
+  console.error(`invalid version: ${version}`);
+  process.exit(1);
+}
 
 function writeJson(relativePath, update) {
   const file = path.join(root, relativePath);
