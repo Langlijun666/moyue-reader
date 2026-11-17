@@ -882,7 +882,7 @@ struct RemoteImage {
 #[tauri::command]
 async fn check_latest_version() -> Result<String, String> {
     let response = store_client(20)?
-        .get("https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/online/latest.json")
+        .get("https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/android/latest.json")
         .send()
         .await
         .map_err(|error| format!("检查更新失败：{error}"))?;
