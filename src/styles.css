@@ -8162,3 +8162,92 @@ html[data-platform="android"] .android-only {
     padding: 0 12px;
   }
 }
+
+/* ---------- Mobile reading HUD ---------- */
+
+.reader {
+  position: relative;
+}
+
+.reader-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) 20px
+    calc(env(safe-area-inset-bottom, 0px) + 14px);
+  color: color-mix(in srgb, var(--ink) 46%, transparent);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+  text-shadow: 0 1px 2px color-mix(in srgb, var(--reader-bg) 55%, transparent);
+}
+
+.reader-hud__top {
+  max-width: 72%;
+  overflow: hidden;
+  font-family: var(--serif-font);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-hud__bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
+
+.reader-hud__status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.reader-hud__battery {
+  position: relative;
+  display: inline-flex;
+  width: 21px;
+  height: 10px;
+  padding: 1px;
+  border: 1px solid currentColor;
+  border-radius: 2.5px;
+}
+
+.reader-hud__battery::after {
+  position: absolute;
+  top: 2px;
+  right: -3px;
+  width: 2px;
+  height: 4px;
+  background: currentColor;
+  border-radius: 0 1px 1px 0;
+  content: "";
+}
+
+.reader-hud__battery > span {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  border-radius: 1px;
+}
+
+.reader-hud__battery.is-charging {
+  color: var(--accent);
+}
+
+.reader--mobile .reader__stage {
+  padding-top: 30px;
+  padding-bottom: 28px;
+}
+
+.reader--mobile .reader-hud {
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
+}
+
+.reader--mobile .reader-hud__top {
+  font-size: 11px;
+}

@@ -122,6 +122,10 @@ export function Reader({
   const [toc, setToc] = useState<TocEntry[]>([]);
   const [currentHref, setCurrentHref] = useState("");
   const [currentLabel, setCurrentLabel] = useState(initialProgress?.chapter || "正文");
+  const [chapterNumber, setChapterNumber] = useState<number | null>(null);
+  const [locationsTotal, setLocationsTotal] = useState(0);
+  const [clock, setClock] = useState(() => new Date());
+  const [battery, setBattery] = useState<{ level: number; charging: boolean } | null>(null);
   const [hasNextChapter, setHasNextChapter] = useState(false);
   const [hasPrevChapter, setHasPrevChapter] = useState(false);
   const [percent, setPercent] = useState(initialProgress?.percent ?? 0);
@@ -168,6 +172,48 @@ export function Reader({
   useEffect(() => {
     chromeHiddenRef.current = chromeHidden;
   }, [chromeHidden]);
+
+  useEffect(() => {
+    if (!IS_ANDROID) return;
+    const tick = () => setClock(new Date());
+    tick();
+    const timer = window.setInterval(tick, 30_000);
+    let manager:
+      | {
+          level: number;
+          charging: boolean;
+          addEventListener: (type: string, listener: () => void) => void;
+          removeEventListener: (type: string, listener: () => void) => void;
+        }
+      | null = null;
+    let disposed = false;
+    const sync = () => {
+      if (!disposed && manager) {
+        setBattery({ level: manager.level, charging: manager.charging });
+      }
+    };
+    const nav = navigator as Navigator & {
+      getBattery?: () => Promise<NonNullable<typeof manager>>;
+    };
+    nav.getBattery
+      ?.()
+      .then((value) => {
+        if (disposed) return;
+        manager = value;
+        sync();
+        value.addEventListener("levelchange", sync);
+        value.addEventListener("chargingchange", sync);
+      })
+      .catch(() => undefined);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      if (manager) {
+        manager.removeEventListener("levelchange", sync);
+        manager.removeEventListener("chargingchange", sync);
+      }
+    };
+  }, []);
 
   const collapseChrome = useCallback(() => {
     if (IS_ANDROID && !chromeHiddenRef.current) setChromeHidden(true);
@@ -493,6 +539,8 @@ export function Reader({
     setError(null);
     setLocationsReady(false);
     locationsReadyRef.current = false;
+    setLocationsTotal(0);
+    setChapterNumber(null);
     setToc([]);
     tocRef.current = [];
     if (flipTimerRef.current !== null) {
@@ -803,6 +851,7 @@ export function Reader({
             (entry) => (entry.href ?? "").split("#")[0] === href.split("#")[0],
           );
           if (index >= 0) {
+            setChapterNumber(index + 1);
             setHasPrevChapter(index > 0);
             setHasNextChapter(index < chapters.length - 1);
             return;
@@ -811,6 +860,7 @@ export function Reader({
           const spineIndex = items.findIndex(
             (item: any) => (item.href ?? "").split("#")[0] === href.split("#")[0],
           );
+          setChapterNumber(spineIndex >= 0 ? spineIndex + 1 : null);
           setHasPrevChapter(spineIndex > 0);
           setHasNextChapter(spineIndex >= 0 && spineIndex < items.length - 1);
         };
@@ -976,6 +1026,7 @@ export function Reader({
             if (disposed) return;
             locationsReadyRef.current = true;
             setLocationsReady(true);
+            setLocationsTotal(book.locations.length());
             if (isScrollMode) {
               updateScrollLocation();
             } else {
@@ -1818,9 +1869,34 @@ export function Reader({
     if (id) void deleteBackground(id).catch(() => undefined);
   };
 
+  const chapterLooksNumbered =
+    /^第\s*[0-9一二三四五六七八九十百千零两]+\s*[章节回卷]/.test(currentLabel.trim());
+  const hudChapter = chapterNumber
+    ? chapterLooksNumbered
+      ? currentLabel
+      : currentLabel && currentLabel !== "正文"
+        ? `第${chapterNumber}章 ${currentLabel}`
+        : `第${chapterNumber}章`
+    : currentLabel || "正文";
+  const hudPage =
+    locationsTotal > 0
+      ? `${Math.min(
+          locationsTotal,
+          Math.max(1, Math.round(percent * (locationsTotal - 1)) + 1),
+        )}/${locationsTotal}`
+      : "";
+  const timeLabel = clock.toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const batteryWidth = battery
+    ? `${Math.round(Math.max(0, Math.min(1, battery.level)) * 100)}%`
+    : "0%";
+
   return (
     <section
-      className={`reader reader--${settings.readingMode} ${backgroundUrl ? "reader--custom-bg" : ""} ${chromeHidden ? "reader--chrome-hidden" : ""} ${tocOpen || settingsOpen || toolsOpen || ttsOpen ? "reader--panel-open" : ""}`}
+      className={`reader reader--${settings.readingMode} ${IS_ANDROID ? "reader--mobile" : ""} ${backgroundUrl ? "reader--custom-bg" : ""} ${chromeHidden ? "reader--chrome-hidden" : ""} ${tocOpen || settingsOpen || toolsOpen || ttsOpen ? "reader--panel-open" : ""}`}
       style={backgroundUrl ? { backgroundImage: `url("${backgroundUrl}")` } : undefined}
       onClick={(event) => {
         if (!IS_ANDROID) return;
@@ -1960,6 +2036,32 @@ export function Reader({
           </button>
         </div>
       </header>
+
+      {IS_ANDROID &&
+      chromeHidden &&
+      !tocOpen &&
+      !settingsOpen &&
+      !toolsOpen &&
+      !ttsOpen &&
+      !selection &&
+      ready ? (
+        <div className="reader-hud" aria-hidden="true">
+          <div className="reader-hud__top">{hudChapter}</div>
+          <div className="reader-hud__bottom">
+            <span className="reader-hud__page">{hudPage}</span>
+            <span className="reader-hud__status">
+              <span>{timeLabel}</span>
+              {battery ? (
+                <span
+                  className={`reader-hud__battery${battery.charging ? " is-charging" : ""}`}
+                >
+                  <span style={{ width: batteryWidth }} />
+                </span>
+              ) : null}
+            </span>
+          </div>
+        </div>
+      ) : null}
 
       <div
         className={`reader__stage page-effect-${settings.pageEffect} ${flip ? `is-turning is-turning--${flip}` : ""}`}
