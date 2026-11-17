@@ -155,6 +155,7 @@ export function Reader({
   const searchRunRef = useRef(0);
   const [chromeHidden, setChromeHidden] = useState(IS_ANDROID);
   const [showTapHint, setShowTapHint] = useState(IS_ANDROID);
+  const chromeHiddenRef = useRef(chromeHidden);
   const [flip, setFlip] = useState<"prev" | "next" | null>(null);
   const [flipNonce, setFlipNonce] = useState(0);
   const flipTimerRef = useRef<number | null>(null);
@@ -164,6 +165,14 @@ export function Reader({
   const panelOpenRef = useRef(false);
   const wheelLockRef = useRef(0);
   const suppressClickUntilRef = useRef(0);
+  useEffect(() => {
+    chromeHiddenRef.current = chromeHidden;
+  }, [chromeHidden]);
+
+  const collapseChrome = useCallback(() => {
+    if (IS_ANDROID && !chromeHiddenRef.current) setChromeHidden(true);
+  }, []);
+
   const isScrollMode = settings.readingMode === "scroll";
   const effectiveColumns = IS_ANDROID ? 1 : settings.columns;
   const themeLabel =
@@ -231,6 +240,7 @@ export function Reader({
 
   const jumpToCfi = useCallback(
     async (cfi: string) => {
+      collapseChrome();
       const rendition = renditionRef.current;
       const book = bookRef.current;
       if (!rendition || !book) return;
@@ -267,7 +277,7 @@ export function Reader({
       window.setTimeout(() => void apply(), 1400);
       window.setTimeout(() => void apply(), 2200);
     },
-    [frameForHref, isScrollMode],
+    [collapseChrome, frameForHref, isScrollMode],
   );
 
   useEffect(() => {
@@ -400,7 +410,7 @@ export function Reader({
       window.removeEventListener("beforeunload", flush);
       flush();
     };
-  }, [meta.id, meta.title]);
+  }, [collapseChrome, meta.id, meta.title]);
 
   useEffect(() => {
     onProgressRef.current = onProgress;
@@ -418,6 +428,38 @@ export function Reader({
       setFlip(null);
     }
   }, [tocOpen, settingsOpen, ttsOpen, toolsOpen]);
+
+  useEffect(() => {
+    if (!IS_ANDROID) return;
+    const handler = (event: Event) => {
+      if (selection) {
+        setSelection(null);
+        event.preventDefault();
+        return;
+      }
+      if (toolsOpen) {
+        setToolsOpen(false);
+        event.preventDefault();
+        return;
+      }
+      if (settingsOpen) {
+        setSettingsOpen(false);
+        event.preventDefault();
+        return;
+      }
+      if (tocOpen) {
+        setTocOpen(false);
+        event.preventDefault();
+        return;
+      }
+      if (ttsOpen) {
+        setTtsOpen(false);
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("moyue:android-back", handler);
+    return () => window.removeEventListener("moyue:android-back", handler);
+  }, [selection, toolsOpen, settingsOpen, tocOpen, ttsOpen]);
 
   useEffect(() => {
     currentLabelRef.current = currentLabel;
@@ -549,6 +591,13 @@ export function Reader({
               if (isInteractive(target)) return false;
               const selection = document.getSelection();
               if (selection && selection.toString().trim()) return false;
+              // The toolbar is a menu, not a reading layout. Any tap while it
+              // is open simply dismisses it, without turning a page.
+              if (!chromeHiddenRef.current) {
+                setChromeHidden(true);
+                setShowTapHint(false);
+                return true;
+              }
               if (settingsRef.current.readingMode !== "scroll") {
                 const frame = document.defaultView?.frameElement as HTMLElement | null;
                 const frameRect = frame?.getBoundingClientRect();
@@ -996,6 +1045,7 @@ export function Reader({
   const turnPage = useCallback(async (direction: "prev" | "next") => {
     const rendition = renditionRef.current;
     if (!rendition || turningRef.current) return;
+    collapseChrome();
 
     setSelection(null);
     turningRef.current = true;
@@ -1035,7 +1085,7 @@ export function Reader({
     }
 
     if (direction === "next") recordReading(meta.id, meta.title, 0, 1);
-  }, [meta.id, meta.title]);
+  }, [collapseChrome, meta.id, meta.title]);
 
   useEffect(() => {
     turnPageRef.current = turnPage;
@@ -1284,10 +1334,11 @@ export function Reader({
         window.setTimeout(apply, delay);
       }
     },
-    [frameForHref, isScrollMode],
+    [collapseChrome, frameForHref, isScrollMode],
   );
 
   const jumpTo = (href: string) => {
+    collapseChrome();
     setTocOpen(false);
     const display = renditionRef.current?.display(href);
     if (display) {
@@ -1298,6 +1349,7 @@ export function Reader({
   const goToNextChapter = useCallback(async () => {
     const rendition = renditionRef.current;
     if (!rendition) return;
+    collapseChrome();
     setSelection(null);
     const href = (currentHrefRef.current || rendition.currentLocation?.()?.start?.href || "").split("#")[0];
     const chapters = flatTocRef.current;
@@ -1326,11 +1378,12 @@ export function Reader({
         // Try the following section.
       }
     }
-  }, [alignScrollToHref]);
+  }, [alignScrollToHref, collapseChrome]);
 
   const goToPrevChapter = useCallback(async () => {
     const rendition = renditionRef.current;
     if (!rendition) return;
+    collapseChrome();
     setSelection(null);
     const href = (currentHrefRef.current || rendition.currentLocation?.()?.start?.href || "").split("#")[0];
     const chapters = flatTocRef.current;
@@ -1359,7 +1412,7 @@ export function Reader({
         // Try the previous section.
       }
     }
-  }, [alignScrollToHref]);
+  }, [alignScrollToHref, collapseChrome]);
 
   useEffect(() => {
     goToNextChapterRef.current = goToNextChapter;
@@ -1584,6 +1637,7 @@ export function Reader({
   };
 
   const jumpToBookmark = async (bookmark: Bookmark) => {
+    collapseChrome();
     const rendition = renditionRef.current;
     if (!rendition) return;
     setToolsOpen(false);
@@ -1776,6 +1830,11 @@ export function Reader({
             "button, input, textarea, a, .drawer, .drawer-backdrop, .selection-toolbar, .page-flip, .reader__loading, .reader__error",
           )
         ) {
+          return;
+        }
+        if (!chromeHidden) {
+          setChromeHidden(true);
+          setShowTapHint(false);
           return;
         }
         if (settings.readingMode !== "scroll") {

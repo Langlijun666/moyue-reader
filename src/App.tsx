@@ -21,6 +21,7 @@ import { inspectTxt } from "./lib/txt";
 import { imageFileToCover } from "./lib/cover";
 import { formatFromFileName } from "./lib/format";
 import { invoke } from "@tauri-apps/api/core";
+import { onBackButtonPress } from "@tauri-apps/api/app";
 import {
   BOOK_ACCEPT,
   BOOK_MAX_BYTES,
@@ -115,6 +116,44 @@ export default function App() {
   const [watchStatus, setWatchStatus] = useState("");
   const [uninstallOpen, setUninstallOpen] = useState(false);
   const [sponsorOpen, setSponsorOpen] = useState(false);
+  const hasOverlay =
+    Boolean(active) ||
+    onlineLibraryOpen ||
+    libraryManagerOpen ||
+    categoryManagerOpen ||
+    Boolean(assignBook) ||
+    appSettingsOpen ||
+    statsOpen ||
+    changelogOpen ||
+    uninstallOpen ||
+    sponsorOpen ||
+    musicOpen;
+  const backStateRef = useRef({
+    active: false,
+    onlineLibraryOpen: false,
+    libraryManagerOpen: false,
+    categoryManagerOpen: false,
+    assignBook: false,
+    appSettingsOpen: false,
+    statsOpen: false,
+    changelogOpen: false,
+    uninstallOpen: false,
+    sponsorOpen: false,
+    musicOpen: false,
+  });
+  backStateRef.current = {
+    active: Boolean(active),
+    onlineLibraryOpen,
+    libraryManagerOpen,
+    categoryManagerOpen,
+    assignBook: Boolean(assignBook),
+    appSettingsOpen,
+    statsOpen,
+    changelogOpen,
+    uninstallOpen,
+    sponsorOpen,
+    musicOpen,
+  };
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [backupDir, setBackupDir] = useState("");
@@ -218,6 +257,72 @@ export default function App() {
     }, UPDATE_CHECK_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [updater.autoCheck, updater.isTauri]);
+
+  useEffect(() => {
+    if (!IS_ANDROID || !hasOverlay) return;
+    if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) return;
+    let unlisten: (() => void) | undefined;
+    let disposed = false;
+    const handleBack = () => {
+      const event = new CustomEvent("moyue:android-back", { cancelable: true });
+      window.dispatchEvent(event);
+      if (event.defaultPrevented) return;
+      const state = backStateRef.current;
+      if (state.active) {
+        setActive(null);
+        return;
+      }
+      if (state.onlineLibraryOpen) {
+        setOnlineLibraryOpen(false);
+        return;
+      }
+      if (state.libraryManagerOpen) {
+        setLibraryManagerOpen(false);
+        return;
+      }
+      if (state.categoryManagerOpen) {
+        setCategoryManagerOpen(false);
+        return;
+      }
+      if (state.assignBook) {
+        setAssignBook(null);
+        return;
+      }
+      if (state.appSettingsOpen) {
+        setAppSettingsOpen(false);
+        return;
+      }
+      if (state.statsOpen) {
+        setStatsOpen(false);
+        return;
+      }
+      if (state.changelogOpen) {
+        setChangelogOpen(false);
+        return;
+      }
+      if (state.uninstallOpen) {
+        setUninstallOpen(false);
+        return;
+      }
+      if (state.sponsorOpen) {
+        setSponsorOpen(false);
+        return;
+      }
+      if (state.musicOpen) {
+        setMusicOpen(false);
+      }
+    };
+    void onBackButtonPress(handleBack)
+      .then((listener) => {
+        if (disposed) void listener.unregister();
+        else unlisten = () => void listener.unregister();
+      })
+      .catch(() => undefined);
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [hasOverlay]);
 
   useEffect(() => {
     try {
