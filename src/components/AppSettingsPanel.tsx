@@ -20,7 +20,7 @@ interface AppSettingsPanelProps {
   theme: ThemeName;
   onThemeChange: (theme: ThemeName) => void;
   settings: ReaderSettings;
-  onSettingsChange: (patch: Partial<ReaderSettings>) => void;
+  onSettingsChange: (patch: Partial<ReaderSettings>) => void;
   onBackupNow: () => void;
   onRestoreBackup: () => void;
   onOpenBackupFolder: () => void;
@@ -61,7 +61,7 @@ export function AppSettingsPanel({
   theme,
   onThemeChange,
   settings,
-  onSettingsChange,
+  onSettingsChange,
   onBackupNow,
   onRestoreBackup,
   onOpenBackupFolder,
@@ -160,7 +160,12 @@ export function AppSettingsPanel({
     setAndroidUpdateState("checking");
     setAndroidUpdateMessage("");
     try {
-      const latest = await invoke<string>("check_latest_version");
+      const latest = await Promise.race([
+        invoke<string>("check_latest_version"),
+        new Promise<string>((_, reject) =>
+          window.setTimeout(() => reject(new Error("检查超时，请检查网络后重试。")), 15000),
+        ),
+      ]);
       if (isNewerVersion(latest, version)) {
         setAndroidUpdateState("available");
         setAndroidUpdateMessage(`发现新版本 v${latest}，请下载覆盖安装。`);
@@ -179,7 +184,7 @@ export function AppSettingsPanel({
   const copyReleasePage = async () => {
     try {
       await navigator.clipboard.writeText(
-        "https://github.com/Langlijun666/moyue-reader/releases",
+        "https://github.com/Langlijun666/moyue-android/releases",
       );
       setAndroidUpdateMessage("下载地址已复制，请在浏览器中打开。");
     } catch {
@@ -512,6 +517,12 @@ export function AppSettingsPanel({
             <p className="settings-note settings-note--compact">
               Android 版暂未接入自动更新，检查到新版本后请到 GitHub Releases 下载覆盖安装。
             </p>
+            <p className="settings-field-hint" aria-live="polite">
+              {androidUpdateMessage ||
+                (androidUpdateState === "idle"
+                  ? `当前版本 v${version}，点击下方按钮检查。`
+                  : "")}
+            </p>
             <div className="backup-actions">
               <button
                 className="button button--ghost"
@@ -526,9 +537,6 @@ export function AppSettingsPanel({
                 </button>
               ) : null}
             </div>
-            {androidUpdateMessage ? (
-              <p className="settings-field-hint">{androidUpdateMessage}</p>
-            ) : null}
           </section>
 
           <section className="settings-section">

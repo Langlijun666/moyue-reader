@@ -33,10 +33,10 @@ struct MusicTrack {
 }
 
 #[tauri::command]
-fn app_info() -> AppInfo {
+fn app_info(app: tauri::AppHandle) -> AppInfo {
     AppInfo {
         name: "墨阅",
-        version: env!("CARGO_PKG_VERSION"),
+        version: app.package_info().version.to_string(),
     }
 }
 
