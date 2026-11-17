@@ -18,7 +18,7 @@ Android：[moyue-android Releases](https://github.com/Langlijun666/moyue-android
 
 ## Android
 
-Android 版源码和发布已拆到独立仓库：[moyue-android](https://github.com/Langlijun666/moyue-android)。
+Android 版源码和发布已拆到独立仓库：[moyue-android](https://github.com/Langlijun666/moyue-android)，独立官网：[langlijun666.github.io/moyue-android](https://langlijun666.github.io/moyue-android/)。
 
 - GitHub APK：[Releases](https://github.com/Langlijun666/moyue-android/releases/latest)，直接下载 APK
 - OSS 镜像：[APK 压缩包](https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/android/Moyue.Android_0.33.3_arm64.apk.zip)（阿里云默认域名不允许直接分发 APK，下载后解压安装）
