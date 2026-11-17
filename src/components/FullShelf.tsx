@@ -1,8 +1,10 @@
+import { useState } from "react";
 import type { BookMeta, Progress } from "../types";
 import type { Category } from "../lib/categories";
 import { formatBytes, percentLabel } from "../lib/format";
 import { BookCover } from "./BookCover";
 import { Icon } from "./Icons";
+import { IS_ANDROID } from "../lib/platform";
 
 interface FullShelfProps {
   books: (BookMeta & { progress?: Progress })[];
@@ -64,6 +66,26 @@ export function FullShelf({
           book.author.toLowerCase().includes(normalized),
       )
     : baseBooks;
+  const [layout, setLayout] = useState<"grid" | "list">(() => {
+    try {
+      const saved = localStorage.getItem("moyue.shelfLayout.v1");
+      if (saved === "grid" || saved === "list") return saved;
+    } catch {
+      // The layout preference is optional.
+    }
+    return IS_ANDROID ? "list" : "grid";
+  });
+  const toggleLayout = () => {
+    setLayout((current) => {
+      const next = current === "grid" ? "list" : "grid";
+      try {
+        localStorage.setItem("moyue.shelfLayout.v1", next);
+      } catch {
+        // The layout preference is optional.
+      }
+      return next;
+    });
+  };
 
   return (
     <section className="full-shelf">
@@ -82,6 +104,16 @@ export function FullShelf({
             <Icon name="music" size={18} />
           </button>
         </div>
+        <button
+          className="shelf-layout-toggle"
+          type="button"
+          onClick={toggleLayout}
+          title={layout === "grid" ? "切换为列表模式" : "切换为网格模式"}
+          aria-label={layout === "grid" ? "切换为列表模式" : "切换为网格模式"}
+        >
+          <Icon name={layout === "grid" ? "list" : "grid"} size={18} />
+          <span>{layout === "grid" ? "列表" : "网格"}</span>
+        </button>
       </header>
 
       <div className="full-shelf__toolbar">
@@ -181,7 +213,7 @@ export function FullShelf({
             </div>
           ) : null}
         </div>
-      ) : (
+      ) : layout === "grid" ? (
         <div className="full-shelf__grid">
           {filtered.map((book) => {
             const percent = book.progress?.percent ?? 0;
@@ -255,6 +287,88 @@ export function FullShelf({
                   <div className="shelf-tile__track" aria-hidden="true">
                     <span style={{ width: `${Math.round(percent * 100)}%` }} />
                   </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="shelf-list">
+          {filtered.map((book) => {
+            const percent = book.progress?.percent ?? 0;
+            const formatLabel =
+              book.format === "txt" ? "TXT" : book.format === "pdf" ? "PDF" : "EPUB";
+            return (
+              <article
+                key={book.id}
+                className="shelf-row"
+                role="button"
+                tabIndex={0}
+                onClick={() => onOpen(book)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onOpen(book);
+                  }
+                }}
+              >
+                <div className="shelf-row__cover">
+                  <BookCover title={book.title} author={book.author} cover={book.cover} size="small" />
+                </div>
+                <div className="shelf-row__info">
+                  <h3>{book.title}</h3>
+                  <p>
+                    {book.author}
+                    {book.progress ? ` · 已读 ${percentLabel(percent)}` : " · 未读"}
+                  </p>
+                  <p className="shelf-row__chapter">
+                    {book.progress?.chapter || "还没有开始读"}
+                  </p>
+                  <div className="shelf-row__meta">
+                    <span>{formatLabel} · {book.progress ? "已读" : "未读"}</span>
+                    <span>{formatBytes(book.size)}</span>
+                  </div>
+                </div>
+                <div className="shelf-row__actions">
+                  <button
+                    type="button"
+                    className="shelf-row__action"
+                    title="加入分类"
+                    aria-label={`把《${book.title}》加入分类`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onAssignCategories(book);
+                    }}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
+                    <Icon name="tag" size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className="shelf-row__action"
+                    title="更换封面"
+                    aria-label={`为《${book.title}》更换封面`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onChangeCover(book);
+                    }}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
+                    <Icon name="image" size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className="shelf-row__action shelf-row__action--danger"
+                    title="从书架移除"
+                    aria-label={`移除《${book.title}》`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDelete(book);
+                    }}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
+                    <Icon name="trash" size={15} />
+                  </button>
                 </div>
               </article>
             );
