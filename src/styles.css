@@ -8240,8 +8240,8 @@ html[data-platform="android"] .android-only {
 }
 
 .reader--mobile .reader__stage {
-  padding-top: 56px;
-  padding-bottom: 42px;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 64px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 44px);
 }
 
 .reader--mobile .reader-hud {
