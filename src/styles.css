@@ -7718,9 +7718,3 @@ html[data-platform="android"] .update-card {
   from { opacity: 0; transform: translateY(28px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@media (max-width: 820px) {
-  .reader:not(.reader--chrome-hidden) .reader__stage {
-    padding-top: calc(52px + max(env(safe-area-inset-top, 0px), 24px) + 2px);
-    padding-bottom: calc(104px + max(env(safe-area-inset-bottom, 0px), 12px));
-  }
-}

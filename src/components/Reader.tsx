@@ -468,7 +468,6 @@ export function Reader({
     let removeScrollListener: (() => void) | null = null;
     let resizeTimer = 0;
     let resizeHandler: (() => void) | null = null;
-    let resizeObserver: ResizeObserver | null = null;
     let scrollTimer = 0;
     let lastProgressAt = 0;
 
@@ -546,10 +545,28 @@ export function Reader({
             const isInteractive = (target: EventTarget | null) =>
               target instanceof Element &&
               Boolean(target.closest("a, button, input, textarea, select"));
-            const toggleChrome = (target: EventTarget | null): boolean => {
+            const handleTap = (clientX: number, target: EventTarget | null): boolean => {
               if (isInteractive(target)) return false;
               const selection = document.getSelection();
               if (selection && selection.toString().trim()) return false;
+              if (settingsRef.current.readingMode !== "scroll") {
+                const frame = document.defaultView?.frameElement as HTMLElement | null;
+                const frameRect = frame?.getBoundingClientRect();
+                const viewport = frame?.closest(".reader__viewport")?.getBoundingClientRect();
+                if (frameRect && viewport && viewport.width > 0) {
+                  const x = frameRect.left + clientX - viewport.left;
+                  if (Number.isFinite(x) && x >= 0 && x <= viewport.width) {
+                    if (x < viewport.width * 0.3) {
+                      turnPageRef.current("prev");
+                      return true;
+                    }
+                    if (x > viewport.width * 0.7) {
+                      turnPageRef.current("next");
+                      return true;
+                    }
+                  }
+                }
+              }
               setChromeHidden((visible) => !visible);
               setShowTapHint(false);
               return true;
@@ -589,7 +606,7 @@ export function Reader({
                 // synthesized click is unreliable. Suppress the click that
                 // follows so the chrome does not immediately toggle back.
                 if (Math.abs(dx) <= 12 && Math.abs(dy) <= 12) {
-                  if (toggleChrome(event.target)) {
+                  if (handleTap(touch.clientX, event.target)) {
                     suppressClickUntilRef.current = Date.now() + 500;
                   }
                 }
@@ -598,7 +615,7 @@ export function Reader({
             );
             document.addEventListener("click", (event: MouseEvent) => {
               if (Date.now() < suppressClickUntilRef.current) return;
-              toggleChrome(event.target);
+              handleTap(event.clientX, event.target);
             });
           }
 
@@ -683,10 +700,6 @@ export function Reader({
         };
         resizeHandler = onResize;
         window.addEventListener("resize", onResize);
-        if (typeof ResizeObserver !== "undefined") {
-          resizeObserver = new ResizeObserver(() => onResize());
-          resizeObserver.observe(viewer);
-        }
 
         const navigation = await book.loaded.navigation;
         if (!disposed) {
@@ -942,7 +955,6 @@ export function Reader({
       applyHighlightsRef.current = () => {};
       openHighlightRef.current = () => {};
       if (resizeHandler) window.removeEventListener("resize", resizeHandler);
-      resizeObserver?.disconnect();
       if (resizeTimer) window.clearTimeout(resizeTimer);
       removeViewerWheel?.();
       removeScrollListener?.();
@@ -1765,6 +1777,18 @@ export function Reader({
           )
         ) {
           return;
+        }
+        if (settings.readingMode !== "scroll") {
+          const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+          const x = event.clientX - rect.left;
+          if (x < rect.width * 0.3) {
+            turnPageRef.current("prev");
+            return;
+          }
+          if (x > rect.width * 0.7) {
+            turnPageRef.current("next");
+            return;
+          }
         }
         setChromeHidden((visible) => !visible);
         setShowTapHint(false);
