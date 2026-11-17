@@ -543,6 +543,18 @@ export function Reader({
             { passive: true },
           );
           if (IS_ANDROID) {
+            const isInteractive = (target: EventTarget | null) =>
+              target instanceof Element &&
+              Boolean(target.closest("a, button, input, textarea, select"));
+            const toggleChrome = (target: EventTarget | null): boolean => {
+              if (isInteractive(target)) return false;
+              const selection = document.getSelection();
+              if (selection && selection.toString().trim()) return false;
+              setChromeHidden((visible) => !visible);
+              setShowTapHint(false);
+              return true;
+            };
+
             let touchStartX = 0;
             let touchStartY = 0;
             let touching = false;
@@ -566,44 +578,27 @@ export function Reader({
                 if (!touch) return;
                 const dx = touch.clientX - touchStartX;
                 const dy = touch.clientY - touchStartY;
-                if (settingsRef.current.readingMode === "scroll") return;
-                // Horizontal swipe turns the page; a tap keeps toggling the
-                // reading chrome. This avoids tapping the right page edge by
-                // accident while reading.
-                if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) {
-                  suppressClickUntilRef.current = Date.now() + 450;
-                  turnPageRef.current(dx < 0 ? "next" : "prev");
+                if (settingsRef.current.readingMode !== "scroll") {
+                  if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+                    suppressClickUntilRef.current = Date.now() + 500;
+                    turnPageRef.current(dx < 0 ? "next" : "prev");
+                    return;
+                  }
+                }
+                // A real tap toggles the toolbar even on WebViews where the
+                // synthesized click is unreliable. Suppress the click that
+                // follows so the chrome does not immediately toggle back.
+                if (Math.abs(dx) <= 12 && Math.abs(dy) <= 12) {
+                  if (toggleChrome(event.target)) {
+                    suppressClickUntilRef.current = Date.now() + 500;
+                  }
                 }
               },
               { passive: true },
             );
             document.addEventListener("click", (event: MouseEvent) => {
               if (Date.now() < suppressClickUntilRef.current) return;
-              const target = event.target as HTMLElement | null;
-              if (target?.closest("a, button, input, textarea, select")) return;
-              const selection = document.getSelection();
-              if (selection && selection.toString().trim()) return;
-              if (settingsRef.current.readingMode !== "scroll") {
-                const frame = document.defaultView?.frameElement as HTMLElement | null;
-                const frameRect = frame?.getBoundingClientRect();
-                const viewport = frame?.closest(".reader__viewport")?.getBoundingClientRect();
-                if (frameRect && viewport) {
-                  // The paginated iframe can be wider than the visible column
-                  // (epub.js scrolls it horizontally), so map the tap through
-                  // the iframe position instead of using its own width.
-                  const x = frameRect.left + event.clientX - viewport.left;
-                  if (x < viewport.width * 0.06) {
-                    turnPageRef.current("prev");
-                    return;
-                  }
-                  if (x > viewport.width * 0.94) {
-                    turnPageRef.current("next");
-                    return;
-                  }
-                }
-              }
-              setChromeHidden((visible) => !visible);
-              setShowTapHint(false);
+              toggleChrome(event.target);
             });
           }
 
@@ -1770,18 +1765,6 @@ export function Reader({
           )
         ) {
           return;
-        }
-        if (settings.readingMode !== "scroll") {
-          const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-          const x = event.clientX - rect.left;
-          if (x < rect.width * 0.06) {
-            turnPageRef.current("prev");
-            return;
-          }
-          if (x > rect.width * 0.94) {
-            turnPageRef.current("next");
-            return;
-          }
         }
         setChromeHidden((visible) => !visible);
         setShowTapHint(false);

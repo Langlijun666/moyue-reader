@@ -3,5 +3,10 @@
   "identifier": "com.moyue.reader",
   "build": {
     "beforeBuildCommand": "npm run build:online"
+  },
+  "bundle": {
+    "android": {
+      "versionCode": 33004
+    }
   }
 }
