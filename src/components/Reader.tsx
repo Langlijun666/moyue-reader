@@ -163,6 +163,7 @@ export function Reader({
   const keyHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {});
   const panelOpenRef = useRef(false);
   const wheelLockRef = useRef(0);
+  const suppressClickUntilRef = useRef(0);
   const isScrollMode = settings.readingMode === "scroll";
   const effectiveColumns = IS_ANDROID ? 1 : settings.columns;
   const themeLabel =
@@ -542,7 +543,42 @@ export function Reader({
             { passive: true },
           );
           if (IS_ANDROID) {
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let touching = false;
+            document.addEventListener(
+              "touchstart",
+              (event: TouchEvent) => {
+                const touch = event.touches[0];
+                if (!touch) return;
+                touching = true;
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+              },
+              { passive: true },
+            );
+            document.addEventListener(
+              "touchend",
+              (event: TouchEvent) => {
+                if (!touching) return;
+                touching = false;
+                const touch = event.changedTouches[0];
+                if (!touch) return;
+                const dx = touch.clientX - touchStartX;
+                const dy = touch.clientY - touchStartY;
+                if (settingsRef.current.readingMode === "scroll") return;
+                // Horizontal swipe turns the page; a tap keeps toggling the
+                // reading chrome. This avoids tapping the right page edge by
+                // accident while reading.
+                if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+                  suppressClickUntilRef.current = Date.now() + 450;
+                  turnPageRef.current(dx < 0 ? "next" : "prev");
+                }
+              },
+              { passive: true },
+            );
             document.addEventListener("click", (event: MouseEvent) => {
+              if (Date.now() < suppressClickUntilRef.current) return;
               const target = event.target as HTMLElement | null;
               if (target?.closest("a, button, input, textarea, select")) return;
               const selection = document.getSelection();
@@ -556,11 +592,11 @@ export function Reader({
                   // (epub.js scrolls it horizontally), so map the tap through
                   // the iframe position instead of using its own width.
                   const x = frameRect.left + event.clientX - viewport.left;
-                  if (x < viewport.width * 0.22) {
+                  if (x < viewport.width * 0.06) {
                     turnPageRef.current("prev");
                     return;
                   }
-                  if (x > viewport.width * 0.78) {
+                  if (x > viewport.width * 0.94) {
                     turnPageRef.current("next");
                     return;
                   }
@@ -1738,11 +1774,11 @@ export function Reader({
         if (settings.readingMode !== "scroll") {
           const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
           const x = event.clientX - rect.left;
-          if (x < rect.width * 0.22) {
+          if (x < rect.width * 0.06) {
             turnPageRef.current("prev");
             return;
           }
-          if (x > rect.width * 0.78) {
+          if (x > rect.width * 0.94) {
             turnPageRef.current("next");
             return;
           }
