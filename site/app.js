@@ -1,7 +1,7 @@
 const OSS_BASE = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com";
 const GITHUB_REPO = "Langlijun666/moyue-reader";
 // Used only when the OSS manifest cannot be read (for example without CORS).
-const FALLBACK_VERSIONS = { local: "0.33.3", online: "0.33.3" };
+const FALLBACK_VERSIONS = { local: "0.33.3", online: "0.33.4" };
 
 const editions = {
   local: {
