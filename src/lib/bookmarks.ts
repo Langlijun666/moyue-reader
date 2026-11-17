@@ -4,6 +4,8 @@ export interface Bookmark {
   percent: number;
   chapter: string;
   createdAt: number;
+  href?: string;
+  offset?: number;
 }
 
 const KEY = "moyue.bookmarks.v1";

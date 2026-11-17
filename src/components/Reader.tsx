@@ -116,6 +116,9 @@ export function Reader({
   const onProgressRef = useRef(onProgress);
   const initialCfiRef = useRef(initialProgress?.cfi);
   const currentCfiRef = useRef(initialProgress?.cfi);
+  const currentHrefRef = useRef("");
+  const goToNextChapterRef = useRef<() => Promise<void>>(async () => {});
+  const goToPrevChapterRef = useRef<() => Promise<void>>(async () => {});
   const [toc, setToc] = useState<TocEntry[]>([]);
   const [currentHref, setCurrentHref] = useState("");
   const [currentLabel, setCurrentLabel] = useState(initialProgress?.chapter || "正文");
@@ -161,6 +164,7 @@ export function Reader({
   const panelOpenRef = useRef(false);
   const wheelLockRef = useRef(0);
   const isScrollMode = settings.readingMode === "scroll";
+  const effectiveColumns = IS_ANDROID ? 1 : settings.columns;
   const themeLabel =
     settings.theme === "custom" ? "自定义" : themePreset(settings.theme).label;
   const themeIcon =
@@ -170,9 +174,113 @@ export function Reader({
         ? "moon"
         : "sun";
 
+  // The scroll manager only knows the section, not the paragraph the reader is
+  // looking at. Turn the visible text position into a CFI for bookmarks and for
+  // restoring the exact spot after switching reading modes.
+  const currentScrollCfi = useCallback((): string => {
+    const rendition = renditionRef.current;
+    const viewer = viewerRef.current;
+    if (!rendition || !viewer) return "";
+    const scroller = viewer.querySelector<HTMLElement>(".epub-container");
+    const scrollerRect = scroller?.getBoundingClientRect();
+    if (!scroller || !scrollerRect) return "";
+    const probe = scrollerRect.top + scrollerRect.height * 0.32;
+    const rawContents = rendition.getContents?.() ?? [];
+    for (const content of Array.isArray(rawContents) ? rawContents : [rawContents]) {
+      const doc = content?.document as Document | undefined;
+      const frame = doc?.defaultView?.frameElement as HTMLIFrameElement | null;
+      const frameRect = frame?.getBoundingClientRect();
+      if (!frameRect || frameRect.bottom <= scrollerRect.top || frameRect.top >= scrollerRect.bottom) {
+        continue;
+      }
+      if (frameRect.top > probe || frameRect.bottom < probe) continue;
+      const { text, nodes } = collectTextNodes(doc);
+      if (!text.trim()) continue;
+      const offset = getVisibleTextOffset(doc, nodes);
+      if (offset === null) continue;
+      const position = locateOffset(nodes, offset);
+      if (!position) continue;
+      try {
+        const range = doc!.createRange();
+        range.setStart(position.node, position.offset);
+        range.setEnd(position.node, position.offset);
+        const cfi =
+          content?.cfiFromRange?.(range) ?? content?.section?.cfiFromRange?.(range);
+        if (cfi) return cfi;
+      } catch {
+        // Try the next visible section.
+      }
+    }
+    return "";
+  }, []);
+
+  const frameForHref = useCallback((href: string): HTMLIFrameElement | null => {
+    const clean = href.split("#")[0];
+    if (!clean) return null;
+    const frames = Array.from(
+      viewerRef.current?.querySelectorAll<HTMLIFrameElement>(".reader__viewport iframe") ?? [],
+    );
+    return (
+      frames.find((frame) => {
+        const base = frame.contentDocument?.baseURI ?? "";
+        return base.split("#")[0].endsWith(clean) || base.includes(clean);
+      }) ?? null
+    );
+  }, []);
+
+  const jumpToCfi = useCallback(
+    async (cfi: string) => {
+      const rendition = renditionRef.current;
+      const book = bookRef.current;
+      if (!rendition || !book) return;
+      await rendition.display(cfi).catch(() => undefined);
+      if (!isScrollMode) return;
+      const spineItem = book.spine.get(cfi) as { href?: string } | null;
+      const targetHref = spineItem?.href ?? "";
+      const apply = async () => {
+        try {
+          const range = await book.getRange(cfi).catch(() => null);
+          const fallbackFrame = range?.startContainer?.ownerDocument?.defaultView
+            ?.frameElement as HTMLIFrameElement | null;
+          const frame = frameForHref(targetHref) ?? fallbackFrame;
+          const view = frame?.closest<HTMLElement>(".epub-view");
+          const scroller = viewerRef.current?.querySelector<HTMLElement>(".epub-container");
+          if (!view || !scroller) return;
+          let target = view.offsetTop;
+          const doc = frame?.contentDocument;
+          if (range && doc && range.startContainer.ownerDocument === doc) {
+            const rect = range.getBoundingClientRect();
+            target = Math.max(0, view.offsetTop + rect.top);
+          }
+          const delta = scroller.scrollTop - target;
+          // This is an explicit jump, so correct a large delta too.
+          if (Math.abs(delta) > 4 && Math.abs(delta) < 5000) {
+            scroller.scrollTop = target;
+          }
+        } catch {
+          // A stale CFI should not break navigation.
+        }
+      };
+      window.setTimeout(() => void apply(), 220);
+      window.setTimeout(() => void apply(), 700);
+      window.setTimeout(() => void apply(), 1400);
+      window.setTimeout(() => void apply(), 2200);
+    },
+    [frameForHref, isScrollMode],
+  );
+
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  // Columns and vertical layout are desktop-only features; never let a saved
+  // desktop value leak into the phone reader.
+  useEffect(() => {
+    if (!IS_ANDROID) return;
+    if (settings.columns !== 1 || settings.vertical) {
+      onSettingsChange({ columns: 1, vertical: false });
+    }
+  }, [settings.columns, settings.vertical, onSettingsChange]);
 
   useEffect(() => {
     if (!IS_ANDROID) return;
@@ -359,6 +467,7 @@ export function Reader({
     let removeScrollListener: (() => void) | null = null;
     let resizeTimer = 0;
     let resizeHandler: (() => void) | null = null;
+    let resizeObserver: ResizeObserver | null = null;
     let scrollTimer = 0;
     let lastProgressAt = 0;
 
@@ -380,7 +489,7 @@ export function Reader({
           height: viewer.clientHeight || 640,
           flow: isScrollMode ? "scrolled-continuous" : "paginated",
           ...(isScrollMode ? { manager: "continuous" } : {}),
-          spread: settings.columns === 2 && !isScrollMode ? "always" : "none",
+          spread: effectiveColumns === 2 && !isScrollMode ? "always" : "none",
           allowScriptedContent: false,
         });
         renditionRef.current = rendition;
@@ -439,14 +548,22 @@ export function Reader({
               const selection = document.getSelection();
               if (selection && selection.toString().trim()) return;
               if (settingsRef.current.readingMode !== "scroll") {
-                const width = document.documentElement?.clientWidth || 1;
-                if (event.clientX < width * 0.22) {
-                  turnPageRef.current("prev");
-                  return;
-                }
-                if (event.clientX > width * 0.78) {
-                  turnPageRef.current("next");
-                  return;
+                const frame = document.defaultView?.frameElement as HTMLElement | null;
+                const frameRect = frame?.getBoundingClientRect();
+                const viewport = frame?.closest(".reader__viewport")?.getBoundingClientRect();
+                if (frameRect && viewport) {
+                  // The paginated iframe can be wider than the visible column
+                  // (epub.js scrolls it horizontally), so map the tap through
+                  // the iframe position instead of using its own width.
+                  const x = frameRect.left + event.clientX - viewport.left;
+                  if (x < viewport.width * 0.22) {
+                    turnPageRef.current("prev");
+                    return;
+                  }
+                  if (x > viewport.width * 0.78) {
+                    turnPageRef.current("next");
+                    return;
+                  }
                 }
               }
               setChromeHidden((visible) => !visible);
@@ -535,6 +652,10 @@ export function Reader({
         };
         resizeHandler = onResize;
         window.addEventListener("resize", onResize);
+        if (typeof ResizeObserver !== "undefined") {
+          resizeObserver = new ResizeObserver(() => onResize());
+          resizeObserver.observe(viewer);
+        }
 
         const navigation = await book.loaded.navigation;
         if (!disposed) {
@@ -603,6 +724,7 @@ export function Reader({
 
         const updateFromLocation = (location: any, allowZero = false) => {
           const href = location?.start?.href ?? "";
+          if (href) currentHrefRef.current = href;
           const label = findLabel(tocRef.current, href) || "正文";
           let nextPercent = percentRef.current;
           try {
@@ -696,6 +818,7 @@ export function Reader({
           setCurrentLabel(label);
           const href = findHrefByLabel(tocRef.current, label);
           if (href) {
+            currentHrefRef.current = href;
             setCurrentHref(href);
             markChapterPosition(href);
           }
@@ -788,6 +911,7 @@ export function Reader({
       applyHighlightsRef.current = () => {};
       openHighlightRef.current = () => {};
       if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+      resizeObserver?.disconnect();
       if (resizeTimer) window.clearTimeout(resizeTimer);
       removeViewerWheel?.();
       removeScrollListener?.();
@@ -798,6 +922,9 @@ export function Reader({
       const liveLocation = isScrollMode ? null : renditionRef.current?.currentLocation?.();
       if (liveLocation?.start?.cfi) {
         currentCfiRef.current = liveLocation.start.cfi;
+      } else if (isScrollMode) {
+        const precise = currentScrollCfi();
+        if (precise) currentCfiRef.current = precise;
       }
       try {
         renditionRef.current?.destroy();
@@ -815,7 +942,7 @@ export function Reader({
     // The reader is intentionally tied to a book identity and reading mode,
     // not every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meta.id, isScrollMode, settings.columns]);
+  }, [meta.id, isScrollMode, effectiveColumns]);
 
   useEffect(() => {
     const rendition = renditionRef.current;
@@ -842,20 +969,29 @@ export function Reader({
       turningRef.current = false;
     }, flipDuration);
 
+    const before = rendition.currentLocation?.();
+    let moved = false;
     try {
       if (direction === "prev") await rendition.prev();
-      else {
-        await rendition.next();
-        recordReading(meta.id, meta.title, 0, 1);
-      }
+      else await rendition.next();
+      const after = rendition.currentLocation?.();
+      moved = Boolean(after?.start?.cfi && after.start.cfi !== before?.start?.cfi);
     } catch {
-      // At the first or last page there is simply nowhere to go.
-      if (flipTimerRef.current !== null) {
-        window.clearTimeout(flipTimerRef.current);
-      }
-      setFlip(null);
-      turningRef.current = false;
+      moved = false;
     }
+
+    if (!moved) {
+      // epub.js does not always leave the current spine section when a page
+      // turn reaches the end; continue into the adjacent chapter instead.
+      try {
+        if (direction === "next") await goToNextChapterRef.current();
+        else await goToPrevChapterRef.current();
+      } catch {
+        // At the first or last page of the book there is nowhere to go.
+      }
+    }
+
+    if (direction === "next") recordReading(meta.id, meta.title, 0, 1);
   }, [meta.id, meta.title]);
 
   useEffect(() => {
@@ -1083,22 +1219,52 @@ export function Reader({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  // In the continuous scroll manager display(href) can stop just short of the
+  // section boundary, leaving the previous chapter's last line on screen.
+  const alignScrollToHref = useCallback(
+    (href: string) => {
+      if (!isScrollMode) return;
+      const clean = href.split("#")[0];
+      const apply = () => {
+        const scroller = viewerRef.current?.querySelector<HTMLElement>(".epub-container");
+        const frame = frameForHref(clean);
+        const view = frame?.closest<HTMLElement>(".epub-view");
+        if (!scroller || !view) return;
+        const delta = scroller.scrollTop - view.offsetTop;
+        // Correct epub.js landing slightly off the boundary, but do not yank
+        // the reader back if they have already scrolled somewhere else.
+        if (Math.abs(delta) > 4 && Math.abs(delta) < 400) {
+          scroller.scrollTop = view.offsetTop;
+        }
+      };
+      for (const delay of [140, 420, 900, 1500, 2400, 3200]) {
+        window.setTimeout(apply, delay);
+      }
+    },
+    [frameForHref, isScrollMode],
+  );
+
   const jumpTo = (href: string) => {
     setTocOpen(false);
-    void renditionRef.current?.display(href).catch(() => undefined);
+    const display = renditionRef.current?.display(href);
+    if (display) {
+      void display.then(() => alignScrollToHref(href)).catch(() => undefined);
+    }
   };
 
   const goToNextChapter = useCallback(async () => {
     const rendition = renditionRef.current;
     if (!rendition) return;
     setSelection(null);
-    const href = (rendition.currentLocation?.()?.start?.href ?? "").split("#")[0];
+    const href = (currentHrefRef.current || rendition.currentLocation?.()?.start?.href || "").split("#")[0];
     const chapters = flatTocRef.current;
     const index = chapters.findIndex(
       (entry) => (entry.href ?? "").split("#")[0] === href,
     );
     if (index >= 0 && index < chapters.length - 1) {
-      await rendition.display(chapters[index + 1].href).catch(() => undefined);
+      const target = chapters[index + 1].href;
+      await rendition.display(target).catch(() => undefined);
+      alignScrollToHref(target);
       return;
     }
 
@@ -1111,24 +1277,27 @@ export function Reader({
       if (items[next].linear === false) continue;
       try {
         await rendition.display(items[next].href);
+        alignScrollToHref(items[next].href);
         return;
       } catch {
         // Try the following section.
       }
     }
-  }, []);
+  }, [alignScrollToHref]);
 
   const goToPrevChapter = useCallback(async () => {
     const rendition = renditionRef.current;
     if (!rendition) return;
     setSelection(null);
-    const href = (rendition.currentLocation?.()?.start?.href ?? "").split("#")[0];
+    const href = (currentHrefRef.current || rendition.currentLocation?.()?.start?.href || "").split("#")[0];
     const chapters = flatTocRef.current;
     const index = chapters.findIndex(
       (entry) => (entry.href ?? "").split("#")[0] === href,
     );
     if (index > 0) {
-      await rendition.display(chapters[index - 1].href).catch(() => undefined);
+      const target = chapters[index - 1].href;
+      await rendition.display(target).catch(() => undefined);
+      alignScrollToHref(target);
       return;
     }
 
@@ -1141,12 +1310,18 @@ export function Reader({
       if (items[prev].linear === false) continue;
       try {
         await rendition.display(items[prev].href);
+        alignScrollToHref(items[prev].href);
         return;
       } catch {
         // Try the previous section.
       }
     }
-  }, []);
+  }, [alignScrollToHref]);
+
+  useEffect(() => {
+    goToNextChapterRef.current = goToNextChapter;
+    goToPrevChapterRef.current = goToPrevChapter;
+  }, [goToNextChapter, goToPrevChapter]);
 
   const seek = (value: number) => {
     const book = bookRef.current;
@@ -1299,7 +1474,7 @@ export function Reader({
             range.setStart(start.node, start.offset);
             range.setEnd(end.node, end.offset);
             const cfi = item.cfiFromRange(range);
-            await rendition.display(cfi);
+            await jumpToCfi(cfi);
             setToolsOpen(false);
             return;
           }
@@ -1316,20 +1491,48 @@ export function Reader({
   const addBookmark = () => {
     const rendition = renditionRef.current;
     const location = rendition?.currentLocation?.();
-    const cfi = location?.start?.cfi;
+    const cfi = (isScrollMode ? currentScrollCfi() : "") || location?.start?.cfi;
     if (!cfi) return;
     if (bookmarks.some((bookmark) => bookmark.cfi === cfi)) {
       setToolsTab("bookmarks");
       return;
+    }
+    let percent = percentRef.current;
+    let anchorHref = "";
+    let anchorOffset: number | undefined;
+    if (isScrollMode) {
+      const scroller = viewerRef.current?.querySelector<HTMLElement>(".epub-container");
+      if (scroller) {
+        const max = Math.max(1, scroller.scrollHeight - scroller.clientHeight);
+        percent = Math.min(1, Math.max(0, scroller.scrollTop / max));
+        const probe = scroller.getBoundingClientRect().top + scroller.clientHeight * 0.32;
+        const frames = Array.from(
+          viewerRef.current?.querySelectorAll<HTMLIFrameElement>(".reader__viewport iframe") ?? [],
+        );
+        const frame = frames.find((item) => {
+          const rect = item.getBoundingClientRect();
+          return rect.top <= probe && rect.bottom >= probe;
+        });
+        const view = frame?.closest<HTMLElement>(".epub-view");
+        if (frame && view) {
+          anchorHref =
+            currentHrefRef.current ||
+            (frame.contentDocument?.baseURI ?? "").split("/").pop() ||
+            "";
+          anchorOffset = Math.max(0, scroller.scrollTop - view.offsetTop);
+        }
+      }
     }
     const next = [
       ...bookmarks,
       {
         id: newBookmarkId(),
         cfi,
-        percent: percentRef.current,
+        percent,
         chapter: currentLabel,
         createdAt: Date.now(),
+        href: anchorHref || undefined,
+        offset: anchorOffset,
       },
     ];
     setBookmarks(next);
@@ -1341,7 +1544,32 @@ export function Reader({
     const rendition = renditionRef.current;
     if (!rendition) return;
     setToolsOpen(false);
-    await rendition.display(bookmark.cfi).catch(() => undefined);
+    if (isScrollMode) {
+      const applyAnchor = () => {
+        if (!bookmark.href || typeof bookmark.offset !== "number") return false;
+        const frame = frameForHref(bookmark.href);
+        const view = frame?.closest<HTMLElement>(".epub-view");
+        const scroller = viewerRef.current?.querySelector<HTMLElement>(".epub-container");
+        if (!view || !scroller) return false;
+        scroller.scrollTop = Math.max(0, view.offsetTop + bookmark.offset);
+        return true;
+      };
+      if (applyAnchor()) return;
+      if (bookmark.href && typeof bookmark.offset === "number") {
+        await rendition.display(bookmark.cfi).catch(() => undefined);
+        window.setTimeout(applyAnchor, 250);
+        window.setTimeout(applyAnchor, 800);
+        return;
+      }
+      // Older bookmarks only have a percent; use it as a best effort.
+      const scroller = viewerRef.current?.querySelector<HTMLElement>(".epub-container");
+      if (scroller) {
+        const max = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+        scroller.scrollTop = Math.min(max, Math.max(0, bookmark.percent * max));
+        return;
+      }
+    }
+    await jumpToCfi(bookmark.cfi);
   };
 
   const deleteBookmark = (id: string) => {
@@ -1431,7 +1659,7 @@ export function Reader({
     if (!rendition) return;
     setToolsOpen(false);
     setSelection(null);
-    await rendition.display(highlight.cfi).catch(() => undefined);
+    await jumpToCfi(highlight.cfi);
   };
 
   const importCustomFont = async (file: File) => {
@@ -1506,6 +1734,18 @@ export function Reader({
           )
         ) {
           return;
+        }
+        if (settings.readingMode !== "scroll") {
+          const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+          const x = event.clientX - rect.left;
+          if (x < rect.width * 0.22) {
+            turnPageRef.current("prev");
+            return;
+          }
+          if (x > rect.width * 0.78) {
+            turnPageRef.current("next");
+            return;
+          }
         }
         setChromeHidden((visible) => !visible);
         setShowTapHint(false);

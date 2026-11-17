@@ -425,7 +425,7 @@ export function SettingsPanel({
           {fontError ? <p className="settings-error">{fontError}</p> : null}
         </section>
 
-        <section className="settings-section">
+        <section className="settings-section desktop-only">
           <div className="settings-section__title">
             <span>页边距</span>
             <small>{settings.margin} px</small>
@@ -457,7 +457,7 @@ export function SettingsPanel({
           />
         </section>
 
-        <section className="settings-section">
+        <section className="settings-section desktop-only">
           <div className="settings-section__title">
             <span>版式</span>
             <small>栏数与方向</small>
