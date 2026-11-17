@@ -32,7 +32,7 @@ Android 版已完成第一轮移植：书架、EPUB / TXT / PDF / MOBI / AZW3 �
 3. 设置 `JAVA_HOME`、`ANDROID_HOME`、`NDK_HOME`、`GRADLE_USER_HOME`（建议都放到非系统盘）
 4. `node scripts/build-android.mjs --apk --debug -t aarch64`
 
-Windows 非管理员无法创建符号链接，脚本会在失败后改用 Gradle 直接打包已编译的 `.so`；工程路径含中文时，脚本会自动补上 `android.overridePathCheck=true`。
+Windows 非管理员无法创建符号链接，脚本会在失败后改用 Gradle 直接打包已编译的 `.so`；工程路径含中文时，脚本会自动补上 `android.overridePathCheck=true`。\n\n底部抽屉可以从顶部把手向下拖动关闭；设置里提供赞助入口和手动检查更新。
 
 ## 功能
 

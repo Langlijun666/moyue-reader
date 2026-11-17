@@ -7873,3 +7873,50 @@ html[data-platform="android"] .update-card {
     z-index: 120;
   }
 }
+/* ---------- Bottom sheet drag handle ---------- */
+
+.modal-grip {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  .stats-dialog::before,
+  .app-settings::before,
+  .library-manager::before,
+  .category-dialog::before,
+  .changelog-dialog::before,
+  .uninstall-dialog::before,
+  .sponsor-dialog::before {
+    display: none;
+  }
+
+  .modal-grip {
+    position: relative;
+    display: block;
+    width: 76px;
+    height: 26px;
+    flex: 0 0 auto;
+    margin: 2px auto 0;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .modal-grip::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 38px;
+    height: 4px;
+    background: var(--line);
+    border-radius: 99px;
+    content: "";
+    transform: translate(-50%, -50%);
+  }
+}
+.android-only {
+  display: none;
+}
+
+html[data-platform="android"] .android-only {
+  display: block;
+}

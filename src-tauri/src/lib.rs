@@ -880,6 +880,28 @@ struct RemoteImage {
 
 /// Fetch a cover image from the store so an imported TXT keeps its artwork.
 #[tauri::command]
+async fn check_latest_version() -> Result<String, String> {
+    let response = store_client(20)?
+        .get("https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com/updates/online/latest.json")
+        .send()
+        .await
+        .map_err(|error| format!("检查更新失败：{error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("检查更新失败：HTTP {}", response.status()));
+    }
+    let text = response
+        .text()
+        .await
+        .map_err(|error| format!("读取更新信息失败：{error}"))?;
+    let data: serde_json::Value =
+        serde_json::from_str(&text).map_err(|error| format!("更新信息解析失败：{error}"))?;
+    data.get("version")
+        .and_then(|value| value.as_str())
+        .map(|value| value.to_string())
+        .ok_or_else(|| "更新信息缺少版本号".to_string())
+}
+
+#[tauri::command]
 async fn fetch_store_cover(url: String) -> Result<RemoteImage, String> {
     if !is_sudugu_url(&url) || !url.contains("/files/") {
         return Err("不支持的封面地址".to_string());
@@ -1323,6 +1345,7 @@ pub fn run() {
             fetch_store_page,
             fetch_store_segment,
             fetch_store_cover,
+            check_latest_version,
             open_store_page,
             scan_book_folder,
             check_app_update,

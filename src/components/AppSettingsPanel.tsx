@@ -20,7 +20,7 @@ interface AppSettingsPanelProps {
   theme: ThemeName;
   onThemeChange: (theme: ThemeName) => void;
   settings: ReaderSettings;
-  onSettingsChange: (patch: Partial<ReaderSettings>) => void;
+  onSettingsChange: (patch: Partial<ReaderSettings>) => void;
   onBackupNow: () => void;
   onRestoreBackup: () => void;
   onOpenBackupFolder: () => void;
@@ -61,7 +61,7 @@ export function AppSettingsPanel({
   theme,
   onThemeChange,
   settings,
-  onSettingsChange,
+  onSettingsChange,
   onBackupNow,
   onRestoreBackup,
   onOpenBackupFolder,
@@ -90,6 +90,10 @@ export function AppSettingsPanel({
   const [copied, setCopied] = useState(false);
   const [feedbackStatus, setFeedbackStatus] = useState("");
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [androidUpdateState, setAndroidUpdateState] = useState<
+    "idle" | "checking" | "latest" | "available" | "error"
+  >("idle");
+  const [androidUpdateMessage, setAndroidUpdateMessage] = useState("");
   const diagnostics = getRecentDiagnostics();
   const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -149,6 +153,37 @@ export function AppSettingsPanel({
       await invoke("open_data_folder");
     } catch (openError) {
       setError(openError instanceof Error ? openError.message : "无法打开数据文件夹");
+    }
+  };
+
+  const checkAndroidUpdate = async () => {
+    setAndroidUpdateState("checking");
+    setAndroidUpdateMessage("");
+    try {
+      const latest = await invoke<string>("check_latest_version");
+      if (isNewerVersion(latest, version)) {
+        setAndroidUpdateState("available");
+        setAndroidUpdateMessage(`发现新版本 v${latest}，请下载覆盖安装。`);
+      } else {
+        setAndroidUpdateState("latest");
+        setAndroidUpdateMessage(`已是最新版本 v${version}。`);
+      }
+    } catch (updateError) {
+      setAndroidUpdateState("error");
+      setAndroidUpdateMessage(
+        updateError instanceof Error ? updateError.message : "检查更新失败，请稍后再试。",
+      );
+    }
+  };
+
+  const copyReleasePage = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        "https://github.com/Langlijun666/moyue-reader/releases",
+      );
+      setAndroidUpdateMessage("下载地址已复制，请在浏览器中打开。");
+    } catch {
+      setAndroidUpdateMessage("复制失败，请手动打开 GitHub Releases。");
     }
   };
 
@@ -469,6 +504,33 @@ export function AppSettingsPanel({
             </p>
           </section>
 
+          <section className="settings-section android-only">
+            <div className="settings-section__title">
+              <span>检查更新</span>
+              <small>当前 v{version}</small>
+            </div>
+            <p className="settings-note settings-note--compact">
+              Android 版暂未接入自动更新，检查到新版本后请到 GitHub Releases 下载覆盖安装。
+            </p>
+            <div className="backup-actions">
+              <button
+                className="button button--ghost"
+                onClick={() => void checkAndroidUpdate()}
+                disabled={androidUpdateState === "checking"}
+              >
+                {androidUpdateState === "checking" ? "正在检查…" : "检查更新"}
+              </button>
+              {androidUpdateState === "available" ? (
+                <button className="button button--primary" onClick={() => void copyReleasePage()}>
+                  复制下载地址
+                </button>
+              ) : null}
+            </div>
+            {androidUpdateMessage ? (
+              <p className="settings-field-hint">{androidUpdateMessage}</p>
+            ) : null}
+          </section>
+
           <section className="settings-section">
             <div className="settings-section__title">
               <span>关于</span>
@@ -490,7 +552,7 @@ export function AppSettingsPanel({
             <p className="app-license">MIT License · 2026 Moyue contributors</p>
           </section>
 
-          <section className="sponsor-support desktop-only">
+          <section className="sponsor-support">
             <div className="sponsor-support__copy">
               <span>
                 <Icon name="spark" size={15} />
@@ -523,4 +585,15 @@ export function AppSettingsPanel({
         </div>
     </Modal>
   );
+}
+
+function isNewerVersion(latest: string, current: string): boolean {
+  const next = latest.split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const now = current.split(".").map((part) => Number.parseInt(part, 10) || 0);
+  for (let index = 0; index < Math.max(next.length, now.length); index += 1) {
+    const a = next[index] ?? 0;
+    const b = now[index] ?? 0;
+    if (a !== b) return a > b;
+  }
+  return false;
 }
