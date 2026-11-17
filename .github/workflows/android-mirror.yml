@@ -1,0 +1,79 @@
+name: Mirror Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Android version, for example 0.33.3
+        required: true
+      apk_url:
+        description: Public GitHub release APK URL
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download APK
+        env:
+          VERSION: ${{ inputs.version }}
+          APK_URL: ${{ inputs.apk_url }}
+        run: |
+          mkdir -p release-assets
+          asset="Moyue.Android_${VERSION}_arm64.apk"
+          curl -L --fail --retry 3 -o "release-assets/${asset}" "$APK_URL"
+          echo "ASSET=${asset}" >> "$GITHUB_ENV"
+
+      - name: Upload to OSS
+        shell: pwsh
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.ALIYUN_OSS_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_OSS_ACCESS_KEY_SECRET }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          python -m pip install --quiet oss2
+          @'
+          import datetime
+          import hashlib
+          import json
+          import os
+          import oss2
+
+          version = os.environ["VERSION"]
+          asset = os.environ["ASSET"]
+          path = f"release-assets/{asset}"
+          with open(path, "rb") as handle:
+              data = handle.read()
+          sha256 = hashlib.sha256(data).hexdigest()
+          auth = oss2.Auth(
+              os.environ["OSS_ACCESS_KEY_ID"],
+              os.environ["OSS_ACCESS_KEY_SECRET"],
+          )
+          bucket = oss2.Bucket(auth, "https://oss-cn-hangzhou.aliyuncs.com", "moyue-release-files")
+          bucket.put_object_from_file(f"updates/android/{asset}", path)
+
+          base = "https://moyue-release-files.oss-cn-hangzhou.aliyuncs.com"
+          manifest = {
+              "version": version,
+              "notes": f"墨阅 Android {version}",
+              "pub_date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "arm64": {
+                  "url": f"{base}/updates/android/{asset}",
+                  "sha256": sha256,
+                  "size": len(data),
+                  "min_sdk": 24,
+              },
+              "github_url": (
+                  "https://github.com/Langlijun666/moyue-android/releases/download/"
+                  f"android-v{version}/{asset}"
+              ),
+          }
+          bucket.put_object(
+              "updates/android/latest.json",
+              json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"),
+          )
+          print("uploaded", asset, sha256, len(data))
+          '@ | python -
