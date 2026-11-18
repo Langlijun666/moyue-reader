@@ -30,7 +30,8 @@
         "enable": true,
         "scope": [
           "$APPDATA/music/**",
-          "$APPLOCALDATA/neural/**"
+          "$APPLOCALDATA/neural/**",
+          "$APPLOCALDATA/wenku8-cache/**"
         ]
       }
     }

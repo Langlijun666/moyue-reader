@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icon } from "./Icons";
 import { GutenbergStore } from "./GutenbergStore";
 import { BookStore } from "./BookStore";
+import { Wenku8Store } from "./Wenku8Store";
 
 interface OnlineLibraryProps {
   open: boolean;
@@ -9,11 +10,12 @@ interface OnlineLibraryProps {
   onImport: (file: File, open?: boolean, coverUrl?: string) => Promise<void>;
 }
 
-type StoreSource = "online" | "gutenberg";
+type StoreSource = "online" | "gutenberg" | "wenku8";
 
 const SOURCES: { id: StoreSource; label: string }[] = [
   { id: "online", label: "线上书城" },
   { id: "gutenberg", label: "公版书" },
+  { id: "wenku8", label: "轻小说文库" },
 ];
 
 export function OnlineLibrary({ open, onClose, onImport }: OnlineLibraryProps) {
@@ -45,8 +47,10 @@ export function OnlineLibrary({ open, onClose, onImport }: OnlineLibraryProps) {
 
       {source === "online" ? (
         <BookStore onImport={onImport} />
-      ) : (
+      ) : source === "gutenberg" ? (
         <GutenbergStore onImport={onImport} />
+      ) : (
+        <Wenku8Store onImport={onImport} />
       )}
     </section>
   );
