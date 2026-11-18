@@ -40,6 +40,9 @@ export function BookStore({ onImport }: BookStoreProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const requestRef = useRef(0);
   const gridRef = useRef<HTMLDivElement>(null);
+  // Escape restores the input and blurs it; the blur must not commit the value
+  // that was typed before the restore.
+  const skipPageCommitRef = useRef(false);
 
   useEffect(() => {
     setPageInput(String(page));
@@ -160,16 +163,30 @@ export function BookStore({ onImport }: BookStoreProps) {
     gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const commitPageInput = () => {
+  const resolvePageInput = (): number | null => {
     const trimmed = pageInput.trim();
+    if (!trimmed) return null;
     const value = Number(trimmed);
-    if (!trimmed || !Number.isFinite(value)) {
+    if (!Number.isFinite(value)) return null;
+    return Math.min(totalPages, Math.max(1, Math.round(value)));
+  };
+
+  const commitPageInput = () => {
+    const target = resolvePageInput();
+    if (target === null) {
       setPageInput(String(page));
       return;
     }
-    const target = Math.min(totalPages, Math.max(1, Math.round(value)));
     setPageInput(String(target));
     changePage(target);
+  };
+
+  // Pager buttons start from whatever is typed in the page box, so "下一页"
+  // while "5" is typed goes to 6 in a single request.
+  const stepPage = (delta: number) => {
+    const base = resolvePageInput() ?? page;
+    setPageInput(String(base));
+    changePage(base + delta);
   };
 
   const categoryName =
@@ -244,8 +261,9 @@ export function BookStore({ onImport }: BookStoreProps) {
               type="button"
               className="icon-button"
               aria-label="上一页"
+              data-pager-step="prev"
               disabled={loading || page <= 1}
-              onClick={() => changePage(page - 1)}
+              onClick={() => stepPage(-1)}
             >
               <Icon name="left" size={16} />
             </button>
@@ -253,8 +271,9 @@ export function BookStore({ onImport }: BookStoreProps) {
               type="button"
               className="icon-button"
               aria-label="下一页"
+              data-pager-step="next"
               disabled={loading || page >= totalPages}
-              onClick={() => changePage(page + 1)}
+              onClick={() => stepPage(1)}
             >
               <Icon name="right" size={16} />
             </button>
@@ -361,8 +380,9 @@ export function BookStore({ onImport }: BookStoreProps) {
           <button
             type="button"
             className="button button--ghost"
+            data-pager-step="prev"
             disabled={page <= 1}
-            onClick={() => changePage(page - 1)}
+            onClick={() => stepPage(-1)}
           >
             <Icon name="left" size={14} />
             上一页
@@ -377,24 +397,43 @@ export function BookStore({ onImport }: BookStoreProps) {
               aria-label="输入页码跳转"
               value={pageInput}
               onChange={(event) => setPageInput(event.target.value.replace(/\D/g, ""))}
+              onFocus={() => {
+                skipPageCommitRef.current = false;
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
                   commitPageInput();
                 } else if (event.key === "Escape") {
+                  event.preventDefault();
+                  skipPageCommitRef.current = true;
                   setPageInput(String(page));
                   event.currentTarget.blur();
                 }
               }}
-              onBlur={commitPageInput}
+              onBlur={(event) => {
+                if (skipPageCommitRef.current) {
+                  skipPageCommitRef.current = false;
+                  return;
+                }
+                const next = event.relatedTarget;
+                if (next instanceof Element && next.closest("[data-pager-step]")) {
+                  // The pager button below fires the only request, starting
+                  // from the typed page; committing here as well would make
+                  // two loadShelf calls race for the same click.
+                  return;
+                }
+                commitPageInput();
+              }}
             />
             / {totalPages} 页
           </span>
           <button
             type="button"
             className="button button--ghost"
+            data-pager-step="next"
             disabled={page >= totalPages}
-            onClick={() => changePage(page + 1)}
+            onClick={() => stepPage(1)}
           >
             下一页
             <Icon name="right" size={14} />
@@ -403,6 +442,7 @@ export function BookStore({ onImport }: BookStoreProps) {
             <button
               type="button"
               className="button button--ghost"
+              data-pager-step="first"
               onClick={() => changePage(1)}
             >
               <Icon name="left" size={14} />
