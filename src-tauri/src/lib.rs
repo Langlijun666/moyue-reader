@@ -754,8 +754,8 @@ fn fetch_remote_book(url: String) -> Result<DroppedFile, String> {
         .unwrap_or("public-domain.epub")
         .to_string();
     let bytes = response.bytes().map_err(|error| format!("下载失败：{error}"))?;
-    if bytes.len() > 250 * 1024 * 1024 {
-        return Err("这本书超过 250 MB".to_string());
+    if bytes.len() > 512 * 1024 * 1024 {
+        return Err("这本书超过 512 MB".to_string());
     }
     Ok(DroppedFile {
         name,
@@ -893,8 +893,8 @@ async fn download_wenku8_epub(app: tauri::AppHandle, url: String) -> Result<Stri
             return Err("EPUB 还在生成，请稍后再试。".to_string());
         }
         let total = response.content_length().unwrap_or(0);
-        if total > 300 * 1024 * 1024 {
-            return Err("这本 EPUB 超过 300 MB，已取消下载".to_string());
+        if total > 512 * 1024 * 1024 {
+            return Err("这本 EPUB 超过 512 MB，已取消下载".to_string());
         }
         let mut file = fs::File::create(&target_for_thread)
             .map_err(|error| format!("无法创建 EPUB 文件：{error}"))?;
@@ -911,8 +911,8 @@ async fn download_wenku8_epub(app: tauri::AppHandle, url: String) -> Result<Stri
             file.write_all(&buffer[..read])
                 .map_err(|error| format!("EPUB 写入失败：{error}"))?;
             downloaded += read as u64;
-            if downloaded > 300 * 1024 * 1024 {
-                return Err("这本 EPUB 超过 300 MB，已取消下载".to_string());
+            if downloaded > 512 * 1024 * 1024 {
+                return Err("这本 EPUB 超过 512 MB，已取消下载".to_string());
             }
             if downloaded - last_emit >= 1024 * 1024 || (total > 0 && downloaded >= total) {
                 last_emit = downloaded;
@@ -1173,8 +1173,8 @@ fn read_dropped_file(path: String) -> Result<DroppedFile, String> {
         return Err("只支持 EPUB、TXT、PDF、MOBI 和 AZW3".to_string());
     }
     let metadata = fs::metadata(&file_path).map_err(|error| format!("无法读取文件：{error}"))?;
-    if metadata.len() > 250 * 1024 * 1024 {
-        return Err("这本书超过 250 MB，暂时无法导入".to_string());
+    if metadata.len() > 512 * 1024 * 1024 {
+        return Err("这本书超过 512 MB，暂时无法导入".to_string());
     }
     let bytes = fs::read(&file_path).map_err(|error| format!("无法读取文件：{error}"))?;
     Ok(DroppedFile {

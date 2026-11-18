@@ -417,3 +417,63 @@ html[data-theme="dark"] .theme-toggle .moon { display: block; }
     padding: 18px;
   }
 }
+
+/* ---------- Changelog ---------- */
+
+.changelog-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 36px;
+}
+
+.changelog-card {
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.changelog-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--accent);
+  font-family: var(--serif);
+}
+
+.changelog-card__head strong {
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.changelog-card__head span {
+  color: var(--faint);
+  font-family: var(--sans);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.changelog-card h3 {
+  margin: 14px 0 10px;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.changelog-card ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 16px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.75;
+}
+
+@media (max-width: 900px) {
+  .changelog-grid {
+    grid-template-columns: 1fr;
+  }
+}

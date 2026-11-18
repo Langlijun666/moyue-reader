@@ -431,7 +431,7 @@ export default function App() {
         return "failed";
       }
       if (file.size > BOOK_MAX_BYTES) {
-        if (!silent) setToast("这本书超过 250 MB，暂时无法导入");
+        if (!silent) setToast(`这本书超过 ${Math.round(BOOK_MAX_BYTES / 1024 / 1024)} MB，暂时无法导入`);
         return "failed";
       }
 

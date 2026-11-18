@@ -1,7 +1,7 @@
 export const BOOK_FORMATS = ["epub", "txt", "pdf", "mobi", "azw3"] as const;
 export const BOOK_EXTENSION_PATTERN = /\.(epub|txt|pdf|mobi|azw3)$/i;
 export const BOOK_ACCEPT = ".epub,.txt,.pdf,.mobi,.azw3,application/epub+zip,text/plain,application/pdf";
-export const BOOK_MAX_BYTES = 250 * 1024 * 1024;
+export const BOOK_MAX_BYTES = 512 * 1024 * 1024;
 export const WATCH_INTERVAL_MS = 60_000;
 export const UPDATE_CHECK_DELAY_MS = 6_000;
 export const PDF_DEFAULT_SCALE = 1.2;
