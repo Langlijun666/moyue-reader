@@ -14,10 +14,10 @@ const editions = {
   },
   online: {
     title: "把书架，<br /><em>连到更大的<br />世界。</em>",
-    lead: "墨阅 Online 内置线上书城：分类热榜，加上 Project Gutenberg 公版书。搜书名、看简介，整本下载成 TXT 放进书架，还会自动补上封面，仍然不需要账号。",
+    lead: "墨阅 Online 内置线上书城：分类热榜、Project Gutenberg 公版书，以及轻小说文库。搜书名、看简介，整本下载放进书架，还会自动补上封面，仍然不需要账号。",
     eyebrow: "本地阅读 · 在线书城",
     cta: "下载 Online",
-    ctaMeta: "线上书城 + 公版书 · Windows 10 / 11",
+    ctaMeta: "线上书城 + 公版书 + 轻小说 · Windows 10 / 11",
     installer: (version) => `${OSS_BASE}/updates/online/Moyue.Online_${version}_x64-setup.exe`,
   },
 };
