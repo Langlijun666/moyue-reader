@@ -25,6 +25,7 @@ const SKELETON_COUNT = 10;
 export function BookStore({ onImport }: BookStoreProps) {
   const [category, setCategory] = useState<string>(STORE_CATEGORIES[0].id);
   const [page, setPage] = useState(1);
+  const [pageInput, setPageInput] = useState("1");
   const [totalPages, setTotalPages] = useState(1);
   const [books, setBooks] = useState<StoreBook[]>([]);
   const [mode, setMode] = useState<"shelf" | "search">("shelf");
@@ -39,6 +40,10 @@ export function BookStore({ onImport }: BookStoreProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const requestRef = useRef(0);
   const gridRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setPageInput(String(page));
+  }, [page]);
 
   const loadShelf = useCallback(async (categoryId: string, targetPage: number) => {
     const request = requestRef.current + 1;
@@ -153,6 +158,18 @@ export function BookStore({ onImport }: BookStoreProps) {
     if (loading || targetPage < 1 || targetPage > totalPages || targetPage === page) return;
     void loadShelf(category, targetPage);
     gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const commitPageInput = () => {
+    const trimmed = pageInput.trim();
+    const value = Number(trimmed);
+    if (!trimmed || !Number.isFinite(value)) {
+      setPageInput(String(page));
+      return;
+    }
+    const target = Math.min(totalPages, Math.max(1, Math.round(value)));
+    setPageInput(String(target));
+    changePage(target);
   };
 
   const categoryName =
@@ -351,7 +368,27 @@ export function BookStore({ onImport }: BookStoreProps) {
             上一页
           </button>
           <span className="store-pager__label">
-            第 {page} / {totalPages} 页
+            第
+            <input
+              type="text"
+              inputMode="numeric"
+              enterKeyHint="go"
+              className="store-pager__input"
+              aria-label="输入页码跳转"
+              value={pageInput}
+              onChange={(event) => setPageInput(event.target.value.replace(/\D/g, ""))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitPageInput();
+                } else if (event.key === "Escape") {
+                  setPageInput(String(page));
+                  event.currentTarget.blur();
+                }
+              }}
+              onBlur={commitPageInput}
+            />
+            / {totalPages} 页
           </span>
           <button
             type="button"
@@ -362,6 +399,16 @@ export function BookStore({ onImport }: BookStoreProps) {
             下一页
             <Icon name="right" size={14} />
           </button>
+          {page > 1 ? (
+            <button
+              type="button"
+              className="button button--ghost"
+              onClick={() => changePage(1)}
+            >
+              <Icon name="left" size={14} />
+              返回第一页
+            </button>
+          ) : null}
         </div>
       ) : null}
 
