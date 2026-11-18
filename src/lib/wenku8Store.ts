@@ -25,7 +25,6 @@ export const WENKU8_FEEDS = [
   { id: "allVisit", label: "总榜", path: "allVisit.xml" },
   { id: "monthVisit", label: "月榜", path: "monthVisit.xml" },
   { id: "weekVisit", label: "周榜", path: "weekVisit.xml" },
-  { id: "postDate", label: "最新入库", path: "postDate.xml" },
   { id: "fullFlag", label: "完本", path: "fullFlag.xml" },
   { id: "goodNum", label: "收藏", path: "goodNum.xml" },
 ] as const;
