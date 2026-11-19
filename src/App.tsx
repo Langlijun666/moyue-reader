@@ -562,8 +562,13 @@ export default function App() {
   );
 
   const onPickFile = (files: FileList | null) => {
-    const file = files?.[0];
-    if (file) void importFile(file);
+    const list = [...(files ?? [])];
+    if (!list.length) return;
+    void (async () => {
+      for (let index = 0; index < list.length; index += 1) {
+        await importFile(list[index], { open: index === 0 });
+      }
+    })();
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -1310,6 +1315,7 @@ export default function App() {
         ref={fileInputRef}
         className="visually-hidden"
         type="file"
+        multiple
         accept={BOOK_ACCEPT}
         onChange={(event) => onPickFile(event.target.files)}
       />
