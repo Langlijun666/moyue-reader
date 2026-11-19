@@ -328,6 +328,9 @@ export function FullShelf({
                     {book.progress?.chapter || "还没有开始读"}
                   </p>
                   <div className="shelf-row__meta">
+                    {(book.volumeCount ?? 0) > 1 ? (
+                      <span className="shelf-row__volume-count">共 {book.volumeCount} 卷</span>
+                    ) : null}
                     <span>{formatLabel} · {book.progress ? "已读" : "未读"}</span>
                     <span>{formatBytes(book.size)}</span>
                   </div>

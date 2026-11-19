@@ -179,6 +179,9 @@ export async function splitOversizedEpub(
   const opfText = await zip.file(opfPath)!.async("text");
   const opf = parseXml(opfText);
   const title = textOf(opf.querySelector("title")) || "未命名书籍";
+  const creator =
+    textOf(opf.getElementsByTagName("creator")[0]) ||
+    textOf(opf.getElementsByTagName("dc:creator")[0]);
   const spine = [...opf.querySelectorAll("itemref")]
     .map((item) => {
       const id = item.getAttribute("idref");
@@ -232,7 +235,7 @@ export async function splitOversizedEpub(
       const extension = href.split(".").pop()?.toLowerCase() ?? "";
       manifest.push(`<item id="a${assetIndex}" href="${escapeXml(href)}" media-type="${MEDIA_TYPES[extension] ?? "application/octet-stream"}"/>`);
     });
-    const opfOutput = `<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">moyue-auto-${index}</dc:identifier><dc:title>${escapeXml(volumeTitle)}</dc:title><dc:language>zh-CN</dc:language></metadata><manifest>${manifest.join("")}</manifest><spine>${spineRefs.join("")}</spine></package>`;
+    const opfOutput = `<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">moyue-auto-${index}</dc:identifier><dc:title>${escapeXml(volumeTitle)}</dc:title>${creator ? `<dc:creator>${escapeXml(creator)}</dc:creator>` : ""}<dc:language>zh-CN</dc:language></metadata><manifest>${manifest.join("")}</manifest><spine>${spineRefs.join("")}</spine></package>`;
     output.file("EPUB/content.opf", opfOutput);
     const navItems = hrefs
       .map((entry) => {
@@ -253,7 +256,7 @@ export async function splitOversizedEpub(
       if (data) output.file(asset, data);
     }
     const data = await output.generateAsync({ type: "arraybuffer", compression: "DEFLATE" });
-    volumes.push({ name: `${baseName}-卷${String(index + 1).padStart(2, "0")}.epub`, data });
+    volumes.push({ name: `${baseName} 卷${String(index + 1).padStart(2, "0")}.epub`, data });
   }
   return volumes;
 }

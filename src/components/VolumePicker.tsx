@@ -1,6 +1,13 @@
 import type { BookMeta } from "../types";
 import { Modal } from "./Modal";
 
+function volumeLabel(title: string, bookTitle: string): string {
+  const prefix = `${title} 卷`;
+  if (!bookTitle.startsWith(prefix)) return bookTitle;
+  const separator = bookTitle.indexOf("·");
+  return separator >= 0 ? bookTitle.slice(separator + 1).trim() : bookTitle;
+}
+
 interface VolumePickerProps {
   open: boolean;
   title: string;
@@ -31,7 +38,7 @@ export function VolumePicker({ open, title, books, onOpen, onClose }: VolumePick
         {books.map((book, index) => (
           <button key={book.id} className="volume-picker__item" onClick={() => onOpen(book)}>
             <span className="volume-picker__number">{String(index + 1).padStart(2, "0")}</span>
-            <span className="volume-picker__title">{book.title}</span>
+            <span className="volume-picker__title">{volumeLabel(title, book.title)}</span>
           </button>
         ))}
       </div>

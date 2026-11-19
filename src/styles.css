@@ -8319,3 +8319,38 @@ html[data-platform="android"] .android-only {
 .volume-picker__item:hover { background: var(--surface-2); }
 .volume-picker__number { color: var(--accent); font-family: var(--serif-font); font-size: 18px; }
 .volume-picker__title { color: var(--ink); font-size: 10px; line-height: 1.5; }
+
+
+@media (max-width: 820px) {
+  .volume-picker {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 130;
+    width: 100%;
+    max-height: 78vh;
+    border-radius: 18px 18px 0 0;
+    border-bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+.shelf-row__volume-count { color: var(--accent); font-weight: 600; }
+
+@media (max-width: 820px) {
+  .volume-picker__head h3 {
+    font-size: 20px;
+  }
+
+  .volume-picker__item {
+    padding: 14px;
+  }
+
+  .volume-picker__number {
+    font-size: 20px;
+  }
+
+  .volume-picker__title {
+    font-size: 12px;
+  }
+}
