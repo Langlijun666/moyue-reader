@@ -104,23 +104,53 @@ function safeFileName(title: string): string {
   return `${(cleaned || "wenku8-book").slice(0, 80)}.epub`;
 }
 
+export interface Wenku8DownloadSource {
+  name: string;
+  path: string;
+}
+
+export interface Wenku8DownloadHandle {
+  sources: Wenku8DownloadSource[];
+  finish: () => Promise<void>;
+}
+
 export async function downloadWenku8Epub(
   book: Wenku8Book,
   onProgress: (done: number, total: number) => void,
-): Promise<File> {
+): Promise<Wenku8DownloadHandle> {
   const unlisten = await listen<{ downloaded: number; total: number }>(
     "wenku8-download-progress",
     (event) => onProgress(event.payload.downloaded, event.payload.total),
   );
+  let finished = false;
+  const finish = async () => {
+    if (finished) return;
+    finished = true;
+    unlisten();
+    await invoke("clear_wenku8_cache").catch(() => undefined);
+  };
   try {
     const path = await invoke<string>("download_wenku8_epub", { url: book.epubUrl });
-    const response = await fetch(convertFileSrc(path));
-    if (!response.ok) throw new Error("EPUB 读取失败");
-    const blob = await response.blob();
-    if (blob.size === 0) throw new Error("下载到的 EPUB 为空");
-    return new File([blob], safeFileName(book.title), { type: "application/epub+zip" });
-  } finally {
-    unlisten();
-    void invoke("clear_wenku8_cache").catch(() => undefined);
+    const split = await invoke<Wenku8DownloadSource[]>("split_downloaded_epub", {
+      path,
+    });
+    const sources = split.length
+      ? split
+      : [{ name: safeFileName(book.title), path }];
+    if (!sources.length) throw new Error("没有可导入的 EPUB");
+    return { sources, finish };
+  } catch (error) {
+    await finish();
+    throw error;
   }
+}
+
+export async function readWenku8Source(source: Wenku8DownloadSource): Promise<File> {
+  const response = await fetch(convertFileSrc(source.path));
+  if (!response.ok) throw new Error("EPUB 读取失败");
+  const blob = await response.blob();
+  if (blob.size === 0) throw new Error("下载到的 EPUB 为空");
+  return new File([blob], source.name || "wenku8-book.epub", {
+    type: "application/epub+zip",
+  });
 }

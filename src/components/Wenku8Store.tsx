@@ -4,6 +4,7 @@ import {
   WENKU8_FEEDS,
   downloadWenku8Epub,
   loadWenku8Feed,
+  readWenku8Source,
   searchWenku8,
   type Wenku8Book,
   type Wenku8FeedResult,
@@ -129,14 +130,25 @@ export function Wenku8Store({ onImport }: Wenku8StoreProps) {
     setDetailError(null);
     setNotice(null);
     try {
-      const file = await downloadWenku8Epub(book, (done, total) => {
+      const download = await downloadWenku8Epub(book, (done, total) => {
         setProgress(total > 0 ? done / total : null);
       });
-      await onImport(file, openAfter);
-      if (openAfter) {
-        setDetail(null);
-      } else {
-        setNotice(`《${book.title}》已经放进书架`);
+      try {
+        for (let index = 0; index < download.sources.length; index += 1) {
+          const file = await readWenku8Source(download.sources[index]);
+          await onImport(file, openAfter && index === 0);
+        }
+        if (openAfter) {
+          setDetail(null);
+        } else {
+          setNotice(
+            download.sources.length > 1
+              ? `《${book.title}》已分成 ${download.sources.length} 卷并放进书架`
+              : `《${book.title}》已经放进书架`,
+          );
+        }
+      } finally {
+        await download.finish();
       }
     } catch (downloadError) {
       setDetailError(

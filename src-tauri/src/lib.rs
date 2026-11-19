@@ -11,6 +11,8 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_updater::{Update, UpdaterExt};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 
+mod epub_split;
+
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
@@ -932,6 +934,32 @@ async fn download_wenku8_epub(app: tauri::AppHandle, url: String) -> Result<Stri
 }
 
 #[tauri::command]
+async fn split_downloaded_epub(
+    app: tauri::AppHandle,
+    path: String,
+) -> Result<Vec<epub_split::SplitVolumeInfo>, String> {
+    let cache = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("无法定位下载目录：{error}"))?
+        .join("wenku8-cache");
+    let absolute = fs::canonicalize(&path).map_err(|error| format!("找不到 EPUB：{error}"))?;
+    let cache = fs::canonicalize(&cache).unwrap_or(cache);
+    if !absolute.starts_with(&cache) {
+        return Err("不支持的分卷路径".to_string());
+    }
+    let split_dir = cache.join("split");
+    if split_dir.exists() {
+        fs::remove_dir_all(&split_dir).map_err(|error| format!("无法清理旧分卷：{error}"))?;
+    }
+    let split_dir_for_thread = split_dir.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        epub_split::split_epub(&absolute, &split_dir_for_thread, 120 * 1024 * 1024)
+    })
+    .await
+    .map_err(|error| format!("分卷任务失败：{error}"))?
+}
+#[tauri::command]
 fn clear_wenku8_cache(app: tauri::AppHandle) -> Result<(), String> {
     let dir = app
         .path()
@@ -1518,6 +1546,7 @@ pub fn run() {
             fetch_store_page,
             fetch_store_segment,
             download_wenku8_epub,
+            split_downloaded_epub,
             clear_wenku8_cache,
             fetch_store_cover,
             check_latest_version,
