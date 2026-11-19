@@ -8301,7 +8301,15 @@ html[data-platform="android"] .android-only {
   backdrop-filter: blur(6px);
 }
 
-.volume-picker { width: min(520px, calc(100vw - 48px)); max-height: 72vh; overflow: auto; }
+.volume-picker {
+  width: min(520px, calc(100vw - 48px));
+  max-height: 72vh;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 30px 80px -40px var(--shadow);
+}
 .volume-picker__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 22px 24px 14px; border-bottom: 1px solid var(--line); }
 .volume-picker__head h3 { margin: 6px 0 0; font-family: var(--serif-font); font-size: 22px; font-weight: 500; }
 .volume-picker__list { display: flex; flex-direction: column; padding: 8px; }
