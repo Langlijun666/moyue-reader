@@ -14,6 +14,7 @@ import {
   trashBook,
 } from "./lib/db";
 import { inspectEpub } from "./lib/epub";
+import { splitOversizedEpub } from "./lib/epubSplit";
 import { inspectPdf } from "./lib/pdf";
 import { mobiToEpubFile } from "./lib/mobi";
 import { createBackupBase64, readBackupFile } from "./lib/backup";
@@ -433,6 +434,34 @@ export default function App() {
       if (file.size > BOOK_MAX_BYTES) {
         if (!silent) setToast(`这本书超过 ${Math.round(BOOK_MAX_BYTES / 1024 / 1024)} MB，暂时无法导入`);
         return "failed";
+      }
+
+      if (/\.epub$/i.test(file.name) && file.size > 120 * 1024 * 1024) {
+        setBusy(true);
+        try {
+          setToast("文件较大，正在自动拆分并导入…");
+          const volumes = await splitOversizedEpub(file);
+          if (!volumes.length) throw new Error("no volumes");
+          let added = 0;
+          for (let index = 0; index < volumes.length; index += 1) {
+            const volumeFile = new File([volumes[index].data], volumes[index].name, {
+              type: "application/epub+zip",
+            });
+            const result = await importFileRef.current?.(volumeFile, {
+              open: index === 0,
+              silent: true,
+              skipExisting: true,
+            });
+            if (result === "added" || result === "updated") added += 1;
+          }
+          if (!silent) setToast(`已自动拆分为 ${added} 卷并加入书架`);
+          return added > 0 ? "added" : "failed";
+        } catch {
+          if (!silent) setToast("文件过大，自动拆分失败，请尝试按卷拆分的 EPUB");
+          return "failed";
+        } finally {
+          setBusy(false);
+        }
       }
 
       setBusy(true);
