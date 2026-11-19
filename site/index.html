@@ -13,7 +13,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:image" content="assets/reader.png" />
     <link rel="icon" href="assets/icon.png" />
-    <link rel="stylesheet" href="styles.css?v=0.33.3-8" />
+    <link rel="stylesheet" href="styles.css?v=0.34.5-1" />
   </head>
   <body>
     <header class="nav">
@@ -315,46 +315,45 @@
         <div class="changelog-grid">
           <article class="changelog-card">
             <div class="changelog-card__head">
-              <strong>v0.33.7</strong>
+              <strong>v0.34.5</strong>
               <span>2026.11</span>
             </div>
-            <h3>大书导入与更新日志</h3>
+            <h3>目录与分卷</h3>
             <ul>
-              <li>单本导入上限从 250 MB 提升到 512 MB</li>
-              <li>轻小说文库 EPUB 下载上限提升到 512 MB</li>
-              <li>恢复更新日志维护，补齐 0.33.4–0.33.6</li>
-              <li>Local / Online 同步更新</li>
+              <li>EPUB 目录只有一个条目时，自动扫描正文标题补全</li>
+              <li>轻小说目录按章、卷、幕显示</li>
+              <li>修复分卷弹窗列表、透明和按钮重叠</li>
+              <li>分卷书显示「共 N 卷」，点击打开卷目录</li>
             </ul>
           </article>
           <article class="changelog-card">
             <div class="changelog-card__head">
-              <strong>v0.33.6</strong>
+              <strong>v0.34.1</strong>
               <span>2026.11</span>
             </div>
-            <h3>轻小说文库</h3>
+            <h3>批量导入</h3>
             <ul>
-              <li>书城新增「轻小说文库」来源</li>
-              <li>榜单、搜索、封面和分页</li>
-              <li>EPUB 下载后直接阅读或放进书架</li>
-              <li>数据来自第三方 Wenku8 OPDS 服务</li>
+              <li>一次选择多个书籍文件导入</li>
+              <li>自动拆分的分卷 EPUB 合并成一本书</li>
+              <li>分卷按标题合并，不再因文件名误拆</li>
+              <li>保留各卷封面、插图和目录</li>
             </ul>
           </article>
           <article class="changelog-card">
             <div class="changelog-card__head">
-              <strong>v0.33.5</strong>
+              <strong>v0.33.9</strong>
               <span>2026.11</span>
             </div>
-            <h3>书城翻页</h3>
+            <h3>超大 EPUB 自动分卷</h3>
             <ul>
-              <li>底部页码支持输入跳转</li>
-              <li>修复 Esc 误跳页</li>
-              <li>修复翻页按钮重复请求</li>
-              <li>新增「返回第一页」</li>
+              <li>超过 120 MB 的 EPUB 导入时自动按卷拆分</li>
+              <li>自动保留插图、CSS 和目录</li>
+              <li>拆分后自动打开第一卷</li>
+              <li>轻小说 TXT 支持幕、外传、插图等章节格式</li>
             </ul>
           </article>
         </div>
       </section>
-
       <section class="section faq" id="faq">
         <div class="section__head">
           <span class="eyebrow"><i></i> QUESTIONS</span>
@@ -418,6 +417,6 @@
       <p class="footer__meta">MIT License · 本地优先 · 离线可读</p>
     </footer>
 
-    <script src="app.js?v=0.33.3-8"></script>
+    <script src="app.js?v=0.34.5-1"></script>
   </body>
 </html>
