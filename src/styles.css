@@ -8285,3 +8285,27 @@ html[data-platform="android"] .android-only {
     padding-bottom: 2px;
   }
 }
+
+
+.shelf-tile__volumes {
+  position: absolute;
+  right: 9px;
+  top: 9px;
+  z-index: 2;
+  padding: 4px 7px;
+  color: var(--paper);
+  background: color-mix(in srgb, var(--ink) 82%, transparent);
+  border-radius: 99px;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(6px);
+}
+
+.volume-picker { width: min(520px, calc(100vw - 48px)); max-height: 72vh; overflow: auto; }
+.volume-picker__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 22px 24px 14px; border-bottom: 1px solid var(--line); }
+.volume-picker__head h3 { margin: 6px 0 0; font-family: var(--serif-font); font-size: 22px; font-weight: 500; }
+.volume-picker__list { display: flex; flex-direction: column; padding: 8px; }
+.volume-picker__item { display: flex; align-items: center; gap: 12px; padding: 12px; text-align: left; border-radius: 7px; }
+.volume-picker__item:hover { background: var(--surface-2); }
+.volume-picker__number { color: var(--accent); font-family: var(--serif-font); font-size: 18px; }
+.volume-picker__title { color: var(--ink); font-size: 10px; line-height: 1.5; }

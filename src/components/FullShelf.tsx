@@ -233,6 +233,9 @@ export function FullShelf({
               >
                 <div className="shelf-tile__cover">
                   <BookCover title={book.title} author={book.author} cover={book.cover} size="large" />
+                  {(book.volumeCount ?? 0) > 1 ? (
+                    <span className="shelf-tile__volumes">共 {book.volumeCount} 卷</span>
+                  ) : null}
                   <div className="shelf-tile__actions">
                     <button
                       type="button"

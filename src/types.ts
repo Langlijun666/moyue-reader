@@ -60,6 +60,10 @@ export interface BookMeta {
   description?: string;
   addedAt: number;
   lastOpenedAt: number;
+  groupId?: string;
+  groupTitle?: string;
+  volumeIndex?: number;
+  volumeCount?: number;
 }
 
 export interface Progress {

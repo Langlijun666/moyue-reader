@@ -51,6 +51,7 @@ import { OnlineLibrary } from "./components/OnlineLibrary";
 import { IS_ONLINE_EDITION } from "./edition";
 import { IS_ANDROID } from "./lib/platform";
 import { FullShelf } from "./components/FullShelf";
+import { VolumePicker } from "./components/VolumePicker";
 import { MusicPlayer } from "./components/MusicPlayer";
 import { CategoryManager } from "./components/CategoryManager";
 import { AssignCategories } from "./components/AssignCategories";
@@ -67,6 +68,17 @@ import { ChangelogDialog } from "./components/ChangelogDialog";
 const AUTO_BACKUP_KEY = "moyue.backup.auto.v1";
 const AUTO_BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
 const APP_VERSION = "0.33.3";
+
+function volumeGroupKey(book: BookMeta): string {
+  if (book.groupId) return book.groupId;
+  const match = book.title.match(/^(.*?)\s*卷\s*\d+/);
+  return match ? `legacy:${match[1].trim()}|${book.author}` : `book:${book.id}`;
+}
+
+function volumeBaseTitle(book: BookMeta): string {
+  const match = book.title.match(/^(.*?)\s*卷\s*\d+/);
+  return book.groupTitle || match?.[1]?.trim() || book.title;
+}
 
 export default function App() {
   const [library, setLibrary] = useState<BookMeta[]>([]);
@@ -98,6 +110,7 @@ export default function App() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [libraryManagerOpen, setLibraryManagerOpen] = useState(false);
   const [onlineLibraryOpen, setOnlineLibraryOpen] = useState(false);
+  const [volumePicker, setVolumePicker] = useState<{ title: string; books: BookMeta[] } | null>(null);
   const [deletedBooks, setDeletedBooks] = useState<BookMeta[]>([]);
   const [sortBy, setSortBy] = useState<LibrarySort>(() => {
     try {
@@ -399,7 +412,27 @@ export default function App() {
     } else {
       sorted.sort((a, b) => b.lastOpenedAt - a.lastOpenedAt);
     }
-    return sorted.map((book) => ({ ...book, progress: progressMap[book.id] }));
+
+    const grouped = new Map<string, (BookMeta & { progress?: Progress })[]>();
+    for (const book of sorted) {
+      const key = volumeGroupKey(book);
+      const list = grouped.get(key);
+      if (list) list.push({ ...book, progress: progressMap[book.id] });
+      else grouped.set(key, [{ ...book, progress: progressMap[book.id] }]);
+    }
+
+    return [...grouped.values()]
+      .map((books) => {
+        const representative = [...books].sort((a, b) => b.lastOpenedAt - a.lastOpenedAt)[0];
+        if (books.length < 2) return representative;
+        return {
+          ...representative,
+          title: volumeBaseTitle(representative),
+          groupTitle: volumeBaseTitle(representative),
+          volumeCount: books.length,
+        };
+      })
+      .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt);
   }, [library, progressMap, sortBy]);
 
   const categoryCounts = useMemo(() => {
@@ -828,7 +861,7 @@ export default function App() {
     }
   };
 
-  const openBook = async (book: BookMeta) => {
+  const openBookDirect = async (book: BookMeta) => {
     if (busy) return;
     setBusy(true);
     try {
@@ -852,6 +885,18 @@ export default function App() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const openBook = async (book: BookMeta) => {
+    const key = volumeGroupKey(book);
+    if (key && (book.volumeCount ?? 0) > 1) {
+      const volumes = library
+        .filter((item) => volumeGroupKey(item) === key)
+        .sort((a, b) => a.title.localeCompare(b.title, "zh-CN"));
+      setVolumePicker({ title: volumeBaseTitle(book), books: volumes });
+      return;
+    }
+    await openBookDirect(book);
   };
 
   const loadSample = async () => {
@@ -1404,6 +1449,17 @@ export default function App() {
         onEmptyTrash={() => void emptyTrash()}
       />
 
+
+      <VolumePicker
+        open={Boolean(volumePicker)}
+        title={volumePicker?.title ?? ""}
+        books={volumePicker?.books ?? []}
+        onOpen={(book) => {
+          setVolumePicker(null);
+          void openBookDirect(book);
+        }}
+        onClose={() => setVolumePicker(null)}
+      />
 
       <SponsorDialog
         open={sponsorOpen}
