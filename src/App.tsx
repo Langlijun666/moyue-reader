@@ -425,10 +425,12 @@ export default function App() {
       .map((books) => {
         const representative = [...books].sort((a, b) => b.lastOpenedAt - a.lastOpenedAt)[0];
         if (books.length < 2) return representative;
+        const groupKey = volumeGroupKey(representative);
         return {
           ...representative,
           title: volumeBaseTitle(representative),
           groupTitle: volumeBaseTitle(representative),
+          groupId: groupKey,
           volumeCount: books.length,
         };
       })

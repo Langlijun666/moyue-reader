@@ -8287,6 +8287,8 @@ html[data-platform="android"] .android-only {
 }
 
 
+.shelf-tile__volume-count { color: var(--accent); font-weight: 600; }
+
 .shelf-tile__volumes {
   position: absolute;
   right: 9px;

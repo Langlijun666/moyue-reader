@@ -233,9 +233,6 @@ export function FullShelf({
               >
                 <div className="shelf-tile__cover">
                   <BookCover title={book.title} author={book.author} cover={book.cover} size="large" />
-                  {(book.volumeCount ?? 0) > 1 ? (
-                    <span className="shelf-tile__volumes">共 {book.volumeCount} 卷</span>
-                  ) : null}
                   <div className="shelf-tile__actions">
                     <button
                       type="button"
@@ -282,6 +279,9 @@ export function FullShelf({
                   <h3>{book.title}</h3>
                   <p>{book.author}</p>
                   <div className="shelf-tile__meta">
+                    {(book.volumeCount ?? 0) > 1 ? (
+                      <span className="shelf-tile__volume-count">共 {book.volumeCount} 卷</span>
+                    ) : null}
                     <span>{book.progress ? percentLabel(percent) : formatBytes(book.size)}</span>
                     <span>
                       {book.format === "txt" ? "TXT" : book.format === "pdf" ? "PDF" : "EPUB"} · {book.progress ? "已读" : "未读"}
