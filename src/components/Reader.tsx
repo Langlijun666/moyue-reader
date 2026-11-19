@@ -800,7 +800,11 @@ export function Reader({
 
         const navigation = await book.loaded.navigation;
         if (!disposed) {
-          const entries = mapToc(navigation?.toc ?? []);
+          let entries = mapToc(navigation?.toc ?? []);
+          if (entries.length <= 1) {
+            const scanned = await buildSpineToc(book);
+            if (scanned.length > entries.length) entries = scanned;
+          }
           setToc(entries);
           tocRef.current = entries;
           flatTocRef.current = flattenToc(entries);
@@ -2407,8 +2411,44 @@ function getVisibleTextOffset(
   return null;
 }
 
-function mapToc(items: RawNavItem[]): TocEntry[] {
-  return items
+async function buildSpineToc(book: any): Promise<TocEntry[]> {
+  const items = book?.spine?.spineItems ?? [];
+  const entries: TocEntry[] = [];
+  const limit = Math.min(items.length, 300);
+  for (let index = 0; index < limit; index += 1) {
+    const item = items[index];
+    if (item.linear === false) continue;
+    try {
+      if (!item.document) await item.load(book.load.bind(book));
+      const document = item.document as Document | undefined;
+      if (!document) continue;
+      const headings = [...document.querySelectorAll("h1, h2, h3")]
+        .map((heading) => ({
+          element: heading as HTMLElement,
+          label: (heading.textContent ?? "").replace(/\s+/g, " ").trim(),
+        }))
+        .filter(({ label }) => label.length > 0 && label.length <= 80 && !/^(目录|contents)$/i.test(label));
+      const href = String(item.href ?? "").split("#")[0];
+      if (!href) continue;
+      if (headings.length) {
+        for (const [headingIndex, heading] of headings.entries()) {
+          if (!heading.element.id) {
+            heading.element.id = `moyue-heading-${index}-${headingIndex}`;
+          }
+          entries.push({ href: `${href}#${heading.element.id}`, label: heading.label });
+        }
+      } else {
+        const text = (document.body?.textContent ?? "").replace(/\s+/g, " ").trim();
+        if (text.length > 0) entries.push({ href, label: `第 ${entries.length + 1} 节` });
+      }
+    } catch {
+      // A damaged section should not stop the rest of the TOC.
+    }
+  }
+  return entries;
+}
+
+function mapToc(items: RawNavItem[]): TocEntry[] {  return items
     .filter((item) => Boolean(item.href))
     .map((item) => ({
       href: item.href ?? "",
