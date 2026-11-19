@@ -72,7 +72,7 @@ const APP_VERSION = "0.33.3";
 function volumeGroupKey(book: BookMeta): string {
   if (book.groupId) return book.groupId;
   const match = book.title.match(/^(.*?)\s*卷\s*\d+/);
-  return match ? `legacy:${match[1].trim()}|${book.author}` : `book:${book.id}`;
+  return match ? `legacy:${match[1].trim()}` : `book:${book.id}`;
 }
 
 function volumeBaseTitle(book: BookMeta): string {
